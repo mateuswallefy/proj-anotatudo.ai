@@ -66,22 +66,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/auth/login', async (req, res) => {
     try {
+      console.log('[LOGIN] Attempt received:', { email: req.body.email, hasPassword: !!req.body.password });
       const { email, password } = loginSchema.parse(req.body);
 
       // Find user by email
       const user = await storage.getUserByEmail(email);
+      console.log('[LOGIN] User found:', !!user, user ? { email: user.email, hasHash: !!user.passwordHash } : 'no user');
+      
       if (!user || !user.passwordHash) {
+        console.log('[LOGIN] ❌ User not found or no password hash');
         return res.status(401).json({ message: "Email ou senha incorretos" });
       }
 
       // Verify password
       const isValid = await comparePassword(password, user.passwordHash);
+      console.log('[LOGIN] Password valid:', isValid);
+      
       if (!isValid) {
+        console.log('[LOGIN] ❌ Invalid password');
         return res.status(401).json({ message: "Email ou senha incorretos" });
       }
 
       // Create session
       req.session.userId = user.id;
+      console.log('[LOGIN] ✅ Login successful, session created for user:', user.id);
 
       res.json({
         id: user.id,
