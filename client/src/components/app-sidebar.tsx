@@ -1,5 +1,6 @@
 import { Home, Receipt, CreditCard, Plus, Settings, LogOut } from "lucide-react";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -14,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
   {
@@ -44,8 +47,27 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/auth/logout", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.clear();
+      setLocation("/");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao fazer logout",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    },
+  });
 
   const getUserInitials = () => {
     if (!user) return "U";
@@ -100,16 +122,16 @@ export function AppSidebar() {
             </p>
           </div>
         </div>
-        <a href="/api/logout" className="w-full">
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            data-testid="button-logout"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
-        </a>
+        <Button
+          variant="outline"
+          className="w-full justify-start"
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          data-testid="button-logout"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          {logoutMutation.isPending ? "Saindo..." : "Sair"}
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

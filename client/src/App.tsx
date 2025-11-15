@@ -8,7 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
+import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import Transacoes from "@/pages/transacoes";
 import Cartoes from "@/pages/cartoes";
@@ -32,7 +32,7 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <Route path="/" component={Auth} />
       ) : (
         <>
           <Route path="/" component={Dashboard} />

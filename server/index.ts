@@ -1,8 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { getSession } from "./session";
 
 const app = express();
+
+// Session middleware for local auth
+app.set("trust proxy", 1);
+app.use(getSession());
 
 declare module 'http' {
   interface IncomingMessage {

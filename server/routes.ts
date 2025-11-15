@@ -1,20 +1,111 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertTransacaoSchema, insertCartaoSchema } from "@shared/schema";
+import { isAuthenticated, hashPassword, comparePassword } from "./auth";
+import { insertTransacaoSchema, insertCartaoSchema, insertUserSchema, loginSchema } from "@shared/schema";
 import { processWhatsAppMessage } from "./ai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
 
-  // Auth routes
+  // Local Auth routes
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const data = insertUserSchema.parse(req.body);
+      
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(409).json({ message: "Email já está em uso" });
+      }
+
+      // Hash password and create user
+      const passwordHash = await hashPassword(data.password);
+      const user = await storage.createUser({
+        email: data.email,
+        passwordHash,
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
+        telefone: data.telefone || null,
+        plano: 'free',
+      });
+
+      // Create session
+      req.session.userId = user.id;
+
+      res.status(201).json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telefone: user.telefone,
+        plano: user.plano,
+      });
+    } catch (error: any) {
+      console.error("Error registering user:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Erro ao criar conta" });
+      }
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ message: "Email ou senha incorretos" });
+      }
+
+      // Verify password
+      const isValid = await comparePassword(password, user.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ message: "Email ou senha incorretos" });
+      }
+
+      // Create session
+      req.session.userId = user.id;
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telefone: user.telefone,
+        plano: user.plano,
+      });
+    } catch (error: any) {
+      console.error("Error logging in:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Erro ao fazer login" });
+      }
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Erro ao fazer logout" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: "Logout realizado com sucesso" });
+    });
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const user = await storage.getUser(userId);
-      res.json(user);
+      
+      // Remove sensitive data before sending to client
+      const { passwordHash, ...sanitizedUser } = user;
+      
+      res.json(sanitizedUser);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -24,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Transaction routes
   app.get("/api/transacoes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const transacoes = await storage.getTransacoes(userId);
       res.json(transacoes);
     } catch (error) {
@@ -35,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/transacoes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const data = insertTransacaoSchema.parse({
         ...req.body,
         userId,
@@ -56,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Card routes
   app.get("/api/cartoes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const cartoes = await storage.getCartoes(userId);
       res.json(cartoes);
     } catch (error) {
@@ -67,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/cartoes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const data = insertCartaoSchema.parse({
         ...req.body,
         userId,
