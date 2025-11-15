@@ -2,21 +2,34 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTransacaoSchema, type InsertTransacao, categorias } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
+
+interface CategoriaCustomizada {
+  id: string;
+  userId: string;
+  nome: string;
+  emoji: string;
+  createdAt: string;
+}
 
 export default function Adicionar() {
   const { toast } = useToast();
+
+  // Fetch custom categories
+  const { data: categoriasCustomizadas = [] } = useQuery<CategoriaCustomizada[]>({
+    queryKey: ["/api/categorias-customizadas"],
+  });
 
   const form = useForm<InsertTransacao>({
     resolver: zodResolver(insertTransacaoSchema.extend({
@@ -141,6 +154,23 @@ export default function Adicionar() {
                           {categorias.map(cat => (
                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                           ))}
+                          {categoriasCustomizadas && categoriasCustomizadas.length > 0 && (
+                            <>
+                              <SelectSeparator />
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" />
+                                Minhas Categorias
+                              </div>
+                              {categoriasCustomizadas.map(cat => (
+                                <SelectItem key={cat.id} value={cat.nome}>
+                                  <span className="flex items-center gap-2">
+                                    <span>{cat.emoji}</span>
+                                    <span>{cat.nome}</span>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import fs from "fs";
+import { storage } from "./storage";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -15,8 +16,16 @@ export interface TransacaoExtractedData {
 /**
  * Classifica mensagem de texto e extrai dados financeiros
  */
-export async function classifyTextMessage(text: string): Promise<TransacaoExtractedData> {
+export async function classifyTextMessage(text: string, userId: string): Promise<TransacaoExtractedData> {
   const today = new Date().toISOString().split('T')[0];
+  
+  // Buscar categorias customizadas do usuário
+  const categoriasCustomizadas = await storage.getCategoriasCustomizadas(userId);
+  const customCategoryNames = categoriasCustomizadas.map(c => `${c.emoji} ${c.nome}`).join(', ');
+  
+  const categoriasDisponiveis = customCategoryNames 
+    ? `Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Compras, Contas, Salário, Investimentos, Outros, ${customCategoryNames}`
+    : 'Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Compras, Contas, Salário, Investimentos, Outros';
   
   const prompt = `Você é um assistente financeiro especializado em interpretar mensagens sobre transações financeiras.
 
@@ -28,11 +37,13 @@ Data de hoje: ${today}
 
 Extraia e retorne um JSON com:
 - tipo: "entrada" (receita/ganho) ou "saida" (despesa/gasto)
-- categoria: uma das opções: Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Compras, Contas, Salário, Investimentos, Outros
+- categoria: uma das opções: ${categoriasDisponiveis}
 - valor: número com 2 casas decimais (ou null se não identificado)
 - dataReal: data no formato YYYY-MM-DD (use hoje se não especificada)
 - descricao: descrição clara e objetiva da transação
 - confianca: número de 0 a 1 indicando sua confiança na interpretação
+
+IMPORTANTE: Para a categoria, retorne APENAS o nome da categoria (sem o emoji). Se a transação se encaixar em uma das categorias personalizadas do usuário, use o nome exato da categoria personalizada.
 
 Responda APENAS com JSON válido neste formato:
 {
@@ -72,7 +83,7 @@ Responda APENAS com JSON válido neste formato:
 /**
  * Transcreve áudio e extrai dados financeiros
  */
-export async function transcribeAndClassifyAudio(audioFilePath: string): Promise<TransacaoExtractedData> {
+export async function transcribeAndClassifyAudio(audioFilePath: string, userId: string): Promise<TransacaoExtractedData> {
   try {
     // Transcrever áudio usando Whisper
     const audioReadStream = fs.createReadStream(audioFilePath);
@@ -86,7 +97,7 @@ export async function transcribeAndClassifyAudio(audioFilePath: string): Promise
     console.log("Áudio transcrito:", text);
 
     // Classificar o texto transcrito
-    return await classifyTextMessage(text);
+    return await classifyTextMessage(text, userId);
   } catch (error) {
     console.error("Erro ao transcrever áudio:", error);
     throw new Error("Falha ao processar áudio");
@@ -161,14 +172,15 @@ export async function analyzeVideoForFinancialData(videoFrameBase64: string): Pr
  */
 export async function processWhatsAppMessage(
   messageType: 'text' | 'audio' | 'image' | 'video',
-  content: string // pode ser texto, base64, ou caminho de arquivo
+  content: string, // pode ser texto, base64, ou caminho de arquivo
+  userId: string
 ): Promise<TransacaoExtractedData> {
   switch (messageType) {
     case 'text':
-      return await classifyTextMessage(content);
+      return await classifyTextMessage(content, userId);
     
     case 'audio':
-      return await transcribeAndClassifyAudio(content);
+      return await transcribeAndClassifyAudio(content, userId);
     
     case 'image':
       return await analyzeImageForFinancialData(content);

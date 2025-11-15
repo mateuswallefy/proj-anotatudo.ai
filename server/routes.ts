@@ -9,7 +9,8 @@ import {
   loginSchema,
   insertGoalSchema,
   insertSpendingLimitSchema,
-  insertAccountMemberSchema
+  insertAccountMemberSchema,
+  insertCategoriaCustomizadaSchema
 } from "@shared/schema";
 import { processWhatsAppMessage } from "./ai";
 import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
@@ -24,9 +25,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = insertUserSchema.parse(req.body);
       
       // Check if email already exists
-      const existingUser = await storage.getUserByEmail(data.email);
-      if (existingUser) {
-        return res.status(409).json({ message: "Email já está em uso" });
+      if (data.email) {
+        const existingUser = await storage.getUserByEmail(data.email);
+        if (existingUser) {
+          return res.status(409).json({ message: "Email já está em uso" });
+        }
       }
 
       // Hash password and create user
@@ -188,6 +191,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Custom categories routes
+  app.get("/api/categorias-customizadas", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const categorias = await storage.getCategoriasCustomizadas(userId);
+      res.json(categorias);
+    } catch (error) {
+      console.error("Error fetching custom categories:", error);
+      res.status(500).json({ message: "Failed to fetch custom categories" });
+    }
+  });
+
+  app.post("/api/categorias-customizadas", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const data = insertCategoriaCustomizadaSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const categoria = await storage.createCategoriaCustomizada(data);
+      res.status(201).json(categoria);
+    } catch (error: any) {
+      console.error("Error creating custom category:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create custom category" });
+      }
+    }
+  });
+
+  app.delete("/api/categorias-customizadas/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      await storage.deleteCategoriaCustomizada(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom category:", error);
+      res.status(500).json({ message: "Failed to delete custom category" });
+    }
+  });
+
   // Card routes
   app.get("/api/cartoes", isAuthenticated, async (req: any, res) => {
     try {
@@ -279,27 +326,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Processar com IA apenas se tiver conteúdo
-      if (content && messageType === 'text') {
-        const extractedData = await processWhatsAppMessage(messageType, content);
-        
-        // Encontrar usuário pelo telefone (em produção, você teria uma tabela de mapeamento)
-        // Por enquanto, vamos apenas logar os dados extraídos
-        console.log("Dados extraídos da mensagem do WhatsApp:", {
-          phoneNumber,
-          extractedData,
-        });
-
-        // Aqui você criaria a transação automaticamente
-        // const transacao = await storage.createTransacao({
-        //   userId: userIdFromPhone,
-        //   tipo: extractedData.tipo,
-        //   categoria: extractedData.categoria,
-        //   valor: extractedData.valor?.toString() || "0",
-        //   dataReal: extractedData.dataReal,
-        //   origem: messageType,
-        //   descricao: extractedData.descricao,
-        // });
-      }
+      // NOTA: Este código antigo não está sendo utilizado - o novo fluxo está implementado abaixo
+      // if (content && messageType === 'text') {
+      //   const extractedData = await processWhatsAppMessage(messageType, content, userId);
+      //   
+      //   console.log("Dados extraídos da mensagem do WhatsApp:", {
+      //     phoneNumber,
+      //     extractedData,
+      //   });
+      // }
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -707,7 +742,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Call AI to process the message
                 const result = await processWhatsAppMessage(
                   messageType as 'text' | 'audio' | 'image' | 'video',
-                  messageContent
+                  messageContent,
+                  user.id
                 );
                 
                 console.log(`[WhatsApp] AI Result:`, result);

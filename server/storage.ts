@@ -8,6 +8,7 @@ import {
   spendingLimits,
   accountMembers,
   purchases,
+  categoriasCustomizadas,
   type User,
   type UpsertUser,
   type Transacao,
@@ -26,6 +27,8 @@ import {
   type InsertAccountMember,
   type Purchase,
   type InsertPurchase,
+  type CategoriaCustomizada,
+  type InsertCategoriaCustomizada,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, or, sql as sqlOp } from "drizzle-orm";
@@ -85,6 +88,11 @@ export interface IStorage {
   createUserFromPhone(telefone: string): Promise<User>;
   updateUserEmail(id: string, email: string): Promise<void>;
   updateUserStatus(id: string, status: 'awaiting_email' | 'authenticated'): Promise<void>;
+
+  // Custom categories operations
+  getCategoriasCustomizadas(userId: string): Promise<CategoriaCustomizada[]>;
+  createCategoriaCustomizada(categoria: InsertCategoriaCustomizada): Promise<CategoriaCustomizada>;
+  deleteCategoriaCustomizada(id: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -395,6 +403,34 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ status })
       .where(eq(users.id, id));
+  }
+
+  // Custom categories operations
+  async getCategoriasCustomizadas(userId: string): Promise<CategoriaCustomizada[]> {
+    return await db
+      .select()
+      .from(categoriasCustomizadas)
+      .where(eq(categoriasCustomizadas.userId, userId))
+      .orderBy(categoriasCustomizadas.createdAt);
+  }
+
+  async createCategoriaCustomizada(categoria: InsertCategoriaCustomizada): Promise<CategoriaCustomizada> {
+    const [novaCategoria] = await db
+      .insert(categoriasCustomizadas)
+      .values(categoria)
+      .returning();
+    return novaCategoria;
+  }
+
+  async deleteCategoriaCustomizada(id: string, userId: string): Promise<void> {
+    await db
+      .delete(categoriasCustomizadas)
+      .where(
+        and(
+          eq(categoriasCustomizadas.id, id),
+          eq(categoriasCustomizadas.userId, userId)
+        )
+      );
   }
 }
 

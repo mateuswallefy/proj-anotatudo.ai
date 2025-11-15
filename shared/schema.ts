@@ -305,3 +305,27 @@ export const insertPurchaseSchema = createInsertSchema(purchases).omit({
 
 export type InsertPurchase = z.infer<typeof insertPurchaseSchema>;
 export type Purchase = typeof purchases.$inferSelect;
+
+// Custom categories table (categorias customizadas do usuário)
+export const categoriasCustomizadas = pgTable("categorias_customizadas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  nome: varchar("nome", { length: 50 }).notNull(),
+  emoji: varchar("emoji", { length: 10 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const categoriasCustomizadasRelations = relations(categoriasCustomizadas, ({ one }) => ({
+  user: one(users, {
+    fields: [categoriasCustomizadas.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertCategoriaCustomizadaSchema = createInsertSchema(categoriasCustomizadas).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCategoriaCustomizada = z.infer<typeof insertCategoriaCustomizadaSchema>;
+export type CategoriaCustomizada = typeof categoriasCustomizadas.$inferSelect;
