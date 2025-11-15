@@ -20,6 +20,33 @@ AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp me
 - AI: OpenAI API (GPT-5)
 - Authentication: Replit Auth (OpenID Connect)
 
+## Recent Changes (November 15, 2025)
+
+### Instant Tab Navigation System
+- **TabShell Component:** All pages (Dashboard, Transações, Cartões, Adicionar, Configurações) remain mounted simultaneously
+- **Display Toggle:** Navigation switches between pages using `display: none/block` instead of mount/unmount
+- **Zero Loading States:** Eliminates loading spinners when switching tabs
+- **Smart Prefetch:** All critical data queries prefetch on initial app mount using React Query
+- **Smooth Transitions:** Uses React's `startTransition` for 60fps tab switches
+- **URL Sync:** Browser history and URL update without page remount
+
+### Material Design 3 Dashboard Redesign
+- **Modern Color Palette:**
+  - Primary: Emerald (#10B981) - income, positive values
+  - Secondary: Teal (#0AA298) - expenses, neutral actions  
+  - Accent: Orange (#F2994A) - warnings, highlights
+  - Neutrals: Blue-gray tones for sophisticated backgrounds
+- **Typography:** Inter for UI text, JetBrains Mono for financial values (tabular-nums)
+- **Redesigned Components:**
+  - **SpendingSpeedometer:** RadialBarChart with radial gradients, centered percentage display (48px font)
+  - **DailyAverageChart:** AreaChart with 0.6→0 opacity gradients, animated dots, glassmorphism tooltips
+  - **WeekdayAnalysis:** Rounded bars (8px radius), vertical gradients, highlighted max values
+  - **CategoryRanking:** Circular tonal icons (40px), badges for transaction counts, mini progress bars
+  - **InsightsCards:** Tonal surfaces (HSL alpha 0.05-0.15), circular icons (48px), uppercase labels
+- **Glassmorphism:** Chart tooltips use backdrop-blur with semi-transparent backgrounds
+- **Animations:** All charts use 400ms smooth transitions following Material Motion guidelines
+- **Dark Mode:** Full HSL-based color system with proper alpha channel support for both themes
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
