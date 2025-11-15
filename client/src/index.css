@@ -2,47 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE - Material 3 Modern Palette */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --border: 0 0% 90%;
-  --card: 0 0% 98%;
-  --card-foreground: 0 0% 9%;
-  --card-border: 0 0% 94%;
-  --sidebar: 0 0% 96%;
-  --sidebar-foreground: 0 0% 9%;
-  --sidebar-border: 0 0% 92%;
+  
+  /* Neutral Azulado Sofisticado */
+  --background: 210 17% 98%;
+  --foreground: 210 24% 7%;
+  --border: 210 16% 91%;
+  --card: 0 0% 100%;
+  --card-foreground: 210 24% 7%;
+  --card-border: 210 14% 95%;
+  
+  /* Sidebar */
+  --sidebar: 210 14% 97%;
+  --sidebar-foreground: 210 24% 7%;
+  --sidebar-border: 210 16% 92%;
   --sidebar-primary: 142 76% 36%;
   --sidebar-primary-foreground: 144 61% 97%;
-  --sidebar-accent: 0 0% 92%;
-  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-accent: 210 16% 93%;
+  --sidebar-accent-foreground: 210 24% 7%;
   --sidebar-ring: 142 76% 36%;
-  --popover: 0 0% 94%;
-  --popover-foreground: 0 0% 9%;
-  --popover-border: 0 0% 90%;
+  
+  /* Popover */
+  --popover: 0 0% 100%;
+  --popover-foreground: 210 24% 7%;
+  --popover-border: 210 16% 91%;
+  
+  /* Primary - Esmeralda */
   --primary: 142 76% 36%;
   --primary-foreground: 144 61% 97%;
-  --secondary: 0 0% 88%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 90%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 142 12% 88%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 84% 40%;
-  --destructive-foreground: 0 0% 98%;
-  --input: 0 0% 78%;
+  
+  /* Secondary - Teal */
+  --secondary: 174 77% 34%;
+  --secondary-foreground: 0 0% 100%;
+  
+  /* Muted - Text secundário */
+  --muted: 210 16% 90%;
+  --muted-foreground: 210 11% 39%;
+  
+  /* Accent - Laranja quente */
+  --accent: 32 95% 60%;
+  --accent-foreground: 0 0% 100%;
+  
+  /* Destructive - Red */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  
+  /* Input & Ring */
+  --input: 210 16% 82%;
   --ring: 142 76% 36%;
-  --chart-1: 142 76% 36%;
-  --chart-2: 197 71% 40%;
-  --chart-3: 271 81% 45%;
-  --chart-4: 32 95% 44%;
-  --chart-5: 340 82% 52%;
+  
+  /* Chart Palette - 6 cores harmônicas */
+  --chart-1: 142 76% 36%;  /* Esmeralda - receitas */
+  --chart-2: 32 95% 60%;   /* Laranja - despesas */
+  --chart-3: 174 77% 34%;  /* Teal - investimentos */
+  --chart-4: 262 83% 58%;  /* Roxo - lazer */
+  --chart-5: 330 81% 60%;  /* Rosa - compras */
+  --chart-6: 217 91% 60%;  /* Azul - saúde */
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, monospace;
@@ -93,40 +114,61 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
-  --background: 0 0% 9%;
-  --foreground: 0 0% 98%;
-  --border: 0 0% 18%;
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 14%;
-  --sidebar: 0 0% 13%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 16%;
+  
+  /* Dark Mode - Neutros azulados profundos */
+  --background: 214 28% 6%;
+  --foreground: 213 31% 95%;
+  --border: 214 20% 17%;
+  --card: 214 24% 10%;
+  --card-foreground: 213 31% 95%;
+  --card-border: 214 22% 13%;
+  
+  /* Sidebar Dark */
+  --sidebar: 214 26% 8%;
+  --sidebar-foreground: 213 31% 95%;
+  --sidebar-border: 214 20% 15%;
   --sidebar-primary: 142 76% 36%;
   --sidebar-primary-foreground: 144 61% 97%;
-  --sidebar-accent: 0 0% 17%;
-  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-accent: 214 20% 16%;
+  --sidebar-accent-foreground: 213 31% 95%;
   --sidebar-ring: 142 76% 36%;
-  --popover: 0 0% 15%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 18%;
+  
+  /* Popover Dark */
+  --popover: 214 24% 12%;
+  --popover-foreground: 213 31% 95%;
+  --popover-border: 214 20% 17%;
+  
+  /* Primary - Esmeralda (mesma no dark) */
   --primary: 142 76% 36%;
   --primary-foreground: 144 61% 97%;
-  --secondary: 0 0% 20%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 18%;
-  --muted-foreground: 0 0% 65%;
-  --accent: 142 12% 19%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 84% 40%;
-  --destructive-foreground: 0 0% 98%;
-  --input: 0 0% 28%;
+  
+  /* Secondary - Teal (levemente mais clara no dark) */
+  --secondary: 174 77% 40%;
+  --secondary-foreground: 0 0% 100%;
+  
+  /* Muted Dark */
+  --muted: 214 20% 17%;
+  --muted-foreground: 214 10% 56%;
+  
+  /* Accent - Laranja (mesma no dark) */
+  --accent: 32 95% 60%;
+  --accent-foreground: 0 0% 100%;
+  
+  /* Destructive - Red */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  
+  /* Input & Ring Dark */
+  --input: 214 20% 25%;
   --ring: 142 76% 36%;
-  --chart-1: 142 70% 65%;
-  --chart-2: 197 65% 68%;
-  --chart-3: 271 75% 72%;
-  --chart-4: 32 90% 70%;
-  --chart-5: 340 78% 68%;
+  
+  /* Chart Palette Dark - Cores mais vibrantes */
+  --chart-1: 142 70% 45%;  /* Esmeralda mais clara */
+  --chart-2: 32 95% 65%;   /* Laranja mais clara */
+  --chart-3: 174 70% 45%;  /* Teal mais clara */
+  --chart-4: 262 80% 65%;  /* Roxo mais claro */
+  --chart-5: 330 75% 65%;  /* Rosa mais claro */
+  --chart-6: 217 85% 65%;  /* Azul mais claro */
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);

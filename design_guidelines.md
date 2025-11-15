@@ -2,31 +2,72 @@
 
 ## Design Approach
 
-**System**: Material Design 3 (Material You)
-**Rationale**: Financial dashboard requiring data-dense layouts, robust component library, and proven patterns for tables, charts, and forms. Material Design provides excellent hierarchy for complex information architecture while maintaining accessibility and modern aesthetics.
+**System**: Material Design 3 (Material You) com estética sênior moderna
+**Rationale**: Dashboard financeiro sofisticado que combina data density com visual refinado. Material 3 fornece base sólida, mas elevamos com gradientes sutis, microinterações suaves e paleta contemporânea.
 
 **Core Principles**:
-- Information clarity over visual flair
-- Consistent, predictable interactions
-- Data-first presentation
-- Professional trustworthiness
+- **Sofisticação Visual**: Gradientes, sombras e elevação cuidadosamente aplicados
+- **Clareza de Dados**: Informação sempre prioritária, mas apresentada belamente
+- **Fluidez**: Animações e transições suaves (300-400ms)
+- **Modernidade**: Paleta atual, tipografia refinada, componentes com personalidade
+
+---
+
+## Color System - Material 3 Modern Palette
+
+**Primary (Esmeralda)**:
+- Base: `#0F9D58` (Green 600)
+- Usado para: CTAs principais, estados positivos, receitas, sucesso
+
+**Secondary (Teal)**:
+- Base: `#0AA298` (Teal 600)
+- Usado para: Destaques secundários, hover states, links
+
+**Accent (Laranja Quente)**:
+- Base: `#F2994A` (Orange 500)
+- Usado para: Alertas, despesas, urgência moderada
+
+**Neutral Palette (Azulado Sofisticado)**:
+- Background: `#FAFBFC` (light) / `#0F1419` (dark)
+- Surface: `#FFFFFF` (light) / `#1A1F26` (dark)
+- Border: `#E1E8ED` (light) / `#2D333B` (dark)
+- Text Primary: `#0F1419` (light) / `#F0F6FC` (dark)
+- Text Secondary: `#57606A` (light) / `#8B949E` (dark)
+- Text Tertiary: `#8B949E` (light) / `#6E7681` (dark)
+
+**Semantic Colors**:
+- Success: `#0F9D58` (Esmeralda)
+- Warning: `#F59E0B` (Amber 500)
+- Danger: `#DC2626` (Red 600)
+- Info: `#0AA298` (Teal)
+
+**Chart Palette** (6 cores harmônicas):
+1. `#0F9D58` - Esmeralda (receitas)
+2. `#F2994A` - Laranja (despesas)
+3. `#0AA298` - Teal (investimentos)
+4. `#8B5CF6` - Roxo (lazer)
+5. `#EC4899` - Rosa (compras)
+6. `#3B82F6` - Azul (saúde)
 
 ---
 
 ## Typography
 
-**Font Family**: Inter (via Google Fonts)
-- Primary: Inter (400, 500, 600, 700)
-- Monospace: JetBrains Mono (for financial values)
+**Font Family**: 
+- **Primary**: Inter (400, 500, 600, 700) - Geométrica moderna
+- **Monospace**: JetBrains Mono (500, 600) - Para valores financeiros
+- **Fallback**: system-ui, -apple-system, sans-serif
 
 **Hierarchy**:
-- Page Titles: text-3xl font-bold (30px)
-- Section Headers: text-xl font-semibold (20px)
-- Card Titles: text-lg font-medium (18px)
-- Body Text: text-base font-normal (16px)
-- Supporting Text: text-sm font-normal (14px)
-- Captions/Labels: text-xs font-medium (12px)
-- Financial Values: Use JetBrains Mono, font-semibold
+- **Page Titles**: text-3xl font-bold tracking-tight (30px)
+- **Section Headers**: text-xl font-semibold (20px)
+- **Card Titles**: text-lg font-medium (18px)
+- **Body Text**: text-base font-normal (16px)
+- **Supporting Text**: text-sm font-normal (14px)
+- **Captions/Labels**: text-xs font-medium tracking-wide uppercase (12px)
+- **Financial Values**: JetBrains Mono text-2xl font-semibold tabular-nums (24px)
+  - Use `tabular-nums` para alinhamento perfeito em tabelas
+  - Use `font-feature-settings: "tnum"` para números tabulares
 
 ---
 
@@ -176,13 +217,122 @@
 
 ---
 
-## Data Visualization
+## Data Visualization - Modern Chart Design
 
-**Charts** (using Chart.js):
-- Pie/Doughnut: Category breakdown with legend
-- Line: Monthly cash flow (dual-axis for income/expenses)
-- Bar: Weekly comparison
-- Colors: Use consistent categorical palette (6-8 colors max)
+**Philosophy**: Gráficos devem ser **belos E informativos**. Cada elemento visual tem propósito.
+
+### General Chart Principles
+
+1. **Gradientes Suaves**: Sempre use gradientes com opacidade 0.6 → 0 (não flat colors)
+2. **Animações Fluidas**: 400ms com easing `easeOutQuad` ou `easeInOut`
+3. **Grid Discreto**: Linhas de grid 1px com opacidade 0.1 (mal perceptíveis)
+4. **Tooltips Custom**: Glassmorphism com `bg-card/80 backdrop-blur-md`
+5. **Espaçamento Generoso**: padding interno de 24-32px em cards de gráficos
+6. **Valores em Destaque**: JetBrains Mono 24px semibold para números principais
+
+### Component-Specific Guidelines
+
+#### SpendingSpeedometer → RadialGauge
+- **Tipo**: RadialBarChart (Recharts)
+- **Estrutura**: 
+  - Gauge circular com marcador central mostrando % usado
+  - Cores dinâmicas: verde (0-50%), amarelo (51-75%), vermelho (76-100%)
+  - Background ring suave (opacity 0.1)
+  - Gradiente radial no gauge
+- **Valores Centrais**: 
+  - % principal: 48px JetBrains Mono bold
+  - Label "do limite": 14px text-secondary
+  - Valor R$: 18px JetBrains Mono medium abaixo
+- **Animação**: 600ms com easing custom para "ponteiro" crescer
+
+#### DailyAverageChart → AreaChart com Gradiente
+- **Tipo**: AreaChart (Recharts)
+- **Estrutura**:
+  - Área com gradiente esmeralda (receitas) e laranja (despesas)
+  - Curva `monotone` para suavidade
+  - Dots animados nos pontos de dados
+  - Linha stroke 2-3px
+- **Gradiente**: `linearGradient` de cor com alpha 0.6 para alpha 0
+- **Grid**: Horizontal apenas, 1px opacity 0.1
+- **Tooltip**: Custom glassmorphism mostrando data + valor
+- **Animação**: 400ms easeOutQuad
+
+#### WeekdayAnalysis → Bar Chart Material
+- **Tipo**: BarChart (Recharts)
+- **Estrutura**:
+  - Barras arredondadas (radius 8px no topo)
+  - Gradiente vertical sutil em cada barra
+  - Espaçamento entre barras: 20%
+  - Eixo X com labels do dia da semana
+- **Cores**: Gradiente de primary para darker primary
+- **Hover**: Barra eleva ligeiramente (transform scale 1.05)
+- **Animação**: 300ms com stagger effect (uma barra por vez)
+
+#### CategoryRanking → Lista com Sparklines
+- **Tipo**: Lista customizada com mini BarChart inline
+- **Estrutura**:
+  - Cada linha: Ícone circular + Nome + Sparkline + Valor + %
+  - Ícone: 40x40px bg tonal (primary/5) com ícone lucide
+  - Sparkline: Mini BarChart 80x24px mostrando evolução
+  - Barra de progresso sutil mostrando % do total
+- **Cores**: Cada categoria tem cor da palette de charts
+- **Interação**: Hover eleva linha inteira
+- **Badges**: Número de transações em badge pill
+
+#### InsightsCards → Superfícies Tonais
+- **Tipo**: Cards customizados
+- **Estrutura**:
+  - Background tonal (bg-primary/5 ou bg-accent/5)
+  - Ícone em container circular 48x48px com shadow-sm
+  - Label em uppercase tracking-wide text-xs
+  - Valor principal 28px JetBrains Mono bold
+  - Badge de variação (+12%) com seta (↑/↓)
+- **Variação Badge**:
+  - Verde se positivo (receitas) ou negativo (despesas)
+  - Vermelho se negativo (receitas) ou positivo (despesas)
+  - Rounded-full px-2 py-1
+- **Borda**: Sutil 1px border-primary/20
+- **Hover**: Eleva com shadow-md transition 200ms
+
+### Recharts Configuration Defaults
+
+```typescript
+// Animações
+animationDuration={400}
+animationEasing="ease-out"
+
+// Margens consistentes
+margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+
+// Grid suave
+stroke="hsl(var(--border))"
+strokeOpacity={0.1}
+strokeDasharray="3 3"
+
+// Tooltip custom
+content={<CustomTooltip />}
+cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
+
+// ResponsiveContainer sempre
+<ResponsiveContainer width="100%" height={350}>
+  ...
+</ResponsiveContainer>
+```
+
+### Gradientes Recharts Template
+
+```typescript
+<defs>
+  <linearGradient id="colorReceitas" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="5%" stopColor="#0F9D58" stopOpacity={0.6}/>
+    <stop offset="95%" stopColor="#0F9D58" stopOpacity={0}/>
+  </linearGradient>
+  <linearGradient id="colorDespesas" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="5%" stopColor="#F2994A" stopOpacity={0.6}/>
+    <stop offset="95%" stopColor="#F2994A" stopOpacity={0}/>
+  </linearGradient>
+</defs>
+```
 
 ---
 
