@@ -24,6 +24,10 @@ AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp me
 
 ### Purchase-Based WhatsApp Authentication System
 - **Caktos Integration:** Webhook (`/api/webhook-caktos`) receives purchase notifications from Caktos payment platform
+  - **UPSERT Logic:** Uses Postgres `onConflictDoUpdate` on `purchases.purchaseId` (UNIQUE constraint)
+  - **Status Updates:** When Caktos sends approved→refunded, existing record is atomically updated
+  - **Deduplication:** One-off migration removed duplicate purchaseId records, keeping most recent
+  - **Thread-Safe:** Concurrent webhook deliveries collapse into single row per purchase
 - **Purchase Verification:** Only users with approved purchases can access the system
 - **WhatsApp Authentication Flow:**
   1. User sends first message to WhatsApp → system creates user with `status='awaiting_email'`
@@ -31,7 +35,10 @@ AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp me
   3. User sends email → system validates against `purchases` table
   4. If purchase exists and is approved → user status updated to `authenticated`
   5. Authenticated users can send transactions via text, audio, photo, or video
+  6. **Refund Handling:** If purchase is refunded, user loses access (no stale approved records)
 - **Rate Limiting:** 10 messages per minute per phone number to prevent abuse
+  - In-memory token bucket implementation
+  - Normalized phone numbers to prevent bypass via different formats
 - **Email Extraction:** Automatic email detection from user messages using regex validation
 - **Status-Based Processing:** Transactions only processed for authenticated users
 
