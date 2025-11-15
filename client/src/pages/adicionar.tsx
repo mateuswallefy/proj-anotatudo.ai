@@ -57,12 +57,9 @@ export default function Adicionar() {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Não autorizado",
-          description: "Você foi desconectado. Redirecionando...",
+          description: "Por favor, faça login novamente.",
           variant: "destructive",
         });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
         return;
       }
       toast({

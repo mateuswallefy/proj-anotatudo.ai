@@ -100,15 +100,16 @@ export function AppSidebar() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          className="w-full justify-start"
-          onClick={() => window.location.href = "/api/logout"}
-          data-testid="button-logout"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Sair
-        </Button>
+        <a href="/api/logout" className="w-full">
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair
+          </Button>
+        </a>
       </SidebarFooter>
     </Sidebar>
   );

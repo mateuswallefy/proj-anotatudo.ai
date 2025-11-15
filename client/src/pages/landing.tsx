@@ -3,10 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MessageSquare, Zap, Shield, TrendingUp } from "lucide-react";
 
 export default function Landing() {
-  const handleLogin = () => {
-    window.location.href = "/api/login";
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -18,12 +14,11 @@ export default function Landing() {
             </div>
             <h1 className="text-2xl font-bold">AnotaTudo.AI</h1>
           </div>
-          <Button
-            onClick={handleLogin}
-            data-testid="button-login"
-          >
-            Entrar
-          </Button>
+          <a href="/api/login">
+            <Button data-testid="button-login">
+              Entrar
+            </Button>
+          </a>
         </header>
 
         {/* Hero Section */}
@@ -36,13 +31,11 @@ export default function Landing() {
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Envie uma mensagem, áudio, foto ou vídeo no WhatsApp e transforme tudo em registros financeiros organizados com Inteligência Artificial.
           </p>
-          <Button
-            size="lg"
-            onClick={handleLogin}
-            data-testid="button-get-started"
-          >
-            Começar Agora
-          </Button>
+          <a href="/api/login">
+            <Button size="lg" data-testid="button-get-started">
+              Começar Agora
+            </Button>
+          </a>
         </div>
 
         {/* Features Grid */}
@@ -132,13 +125,11 @@ export default function Landing() {
 
         {/* CTA */}
         <div className="text-center py-12">
-          <Button
-            size="lg"
-            onClick={handleLogin}
-            data-testid="button-cta-bottom"
-          >
-            Começar a Usar Gratuitamente
-          </Button>
+          <a href="/api/login">
+            <Button size="lg" data-testid="button-cta-bottom">
+              Começar a Usar Gratuitamente
+            </Button>
+          </a>
         </div>
       </div>
     </div>
