@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, Info } from "lucide-react";
@@ -14,16 +14,20 @@ interface SpendingSpeedometerProps {
 export function SpendingSpeedometer({ gastoAtual, limiteTotal, percentualUsado, status }: SpendingSpeedometerProps) {
   const gaugeData = useMemo(() => {
     const used = Math.min(percentualUsado, 100);
-    const remaining = Math.max(0, 100 - used);
     return [
-      { name: 'Usado', value: used },
-      { name: 'Disponível', value: remaining },
+      {
+        name: 'Usado',
+        value: used,
+        fill: status === 'perigo' ? 'hsl(var(--destructive))' : 
+              status === 'alerta' ? 'hsl(var(--chart-2))' : 
+              'hsl(var(--chart-1))'
+      }
     ];
-  }, [percentualUsado]);
+  }, [percentualUsado, status]);
 
   const getGaugeColor = () => {
     if (status === 'perigo') return 'hsl(var(--destructive))';
-    if (status === 'alerta') return 'hsl(var(--chart-3))';
+    if (status === 'alerta') return 'hsl(var(--chart-2))';
     return 'hsl(var(--chart-1))';
   };
 
@@ -53,63 +57,89 @@ export function SpendingSpeedometer({ gastoAtual, limiteTotal, percentualUsado, 
   };
 
   return (
-    <Card className="h-full" data-testid="card-spending-speedometer">
-      <CardHeader>
+    <Card className="h-full hover-elevate transition-shadow duration-200" data-testid="card-spending-speedometer">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Teto de Gastos Mensal</CardTitle>
-          <Badge variant={getStatusVariant()} className="gap-1">
+          <CardTitle className="text-lg font-semibold">Teto de Gastos Mensal</CardTitle>
+          <Badge variant={getStatusVariant()} className="gap-1 no-default-hover-elevate">
             {getStatusIcon()}
             {getStatusText()}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <div className="relative">
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={gaugeData}
-                cx="50%"
-                cy="80%"
-                startAngle={180}
-                endAngle={0}
-                innerRadius={80}
-                outerRadius={100}
+          <ResponsiveContainer width="100%" height={260}>
+            <RadialBarChart
+              cx="50%"
+              cy="50%"
+              innerRadius="70%"
+              outerRadius="100%"
+              data={gaugeData}
+              startAngle={180}
+              endAngle={0}
+            >
+              <defs>
+                <radialGradient id="gaugeGradient" cx="50%" cy="50%">
+                  <stop offset="0%" stopColor={getGaugeColor()} stopOpacity={0.8} />
+                  <stop offset="100%" stopColor={getGaugeColor()} stopOpacity={1} />
+                </radialGradient>
+              </defs>
+              <PolarAngleAxis
+                type="number"
+                domain={[0, 100]}
+                angleAxisId={0}
+                tick={false}
+              />
+              <RadialBar
+                background={{ fill: 'hsl(var(--muted) / 0.15)' }}
                 dataKey="value"
-                stroke="none"
-              >
-                <Cell fill={getGaugeColor()} />
-                <Cell fill="hsl(var(--muted))" />
-              </Pie>
-            </PieChart>
+                cornerRadius={12}
+                fill="url(#gaugeGradient)"
+                animationDuration={600}
+                animationEasing="ease-out"
+              />
+            </RadialBarChart>
           </ResponsiveContainer>
           
-          {/* Center Text */}
-          <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
-            <div className="text-4xl font-bold font-mono" style={{ color: getGaugeColor() }}>
+          {/* Center Values - Material 3 Style */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pb-4">
+            <div 
+              className="text-5xl font-bold font-mono tabular-nums leading-none" 
+              style={{ color: getGaugeColor() }}
+            >
               {percentualUsado.toFixed(0)}%
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
-              {formatCurrency(gastoAtual)} de {formatCurrency(limiteTotal)}
+            <div className="text-xs text-muted-foreground mt-2 uppercase tracking-wide font-medium">
+              do limite
+            </div>
+            <div className="text-lg font-mono font-semibold mt-3 tabular-nums">
+              {formatCurrency(gastoAtual)}
             </div>
           </div>
         </div>
 
-        {/* Details */}
-        <div className="mt-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Gasto no mês:</span>
-            <span className="font-semibold font-mono">{formatCurrency(gastoAtual)}</span>
+        {/* Compact Details - Modern Layout */}
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          <div className="text-center p-3 rounded-lg bg-muted/30">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">
+              Limite Total
+            </div>
+            <div className="text-base font-mono font-semibold tabular-nums">
+              {formatCurrency(limiteTotal)}
+            </div>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Limite total:</span>
-            <span className="font-semibold font-mono">{formatCurrency(limiteTotal)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Disponível:</span>
-            <span className="font-semibold font-mono text-chart-1">
+          <div className="text-center p-3 rounded-lg" style={{ 
+            backgroundColor: 'hsl(var(--chart-1) / 0.1)',
+            borderColor: 'hsl(var(--chart-1) / 0.3)',
+            borderWidth: '1px'
+          }}>
+            <div className="text-xs uppercase tracking-wide font-medium mb-1" style={{ color: 'hsl(var(--chart-1))' }}>
+              Disponível
+            </div>
+            <div className="text-base font-mono font-semibold tabular-nums" style={{ color: 'hsl(var(--chart-1))' }}>
               {formatCurrency(Math.max(0, limiteTotal - gastoAtual))}
-            </span>
+            </div>
           </div>
         </div>
       </CardContent>
