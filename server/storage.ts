@@ -4,6 +4,9 @@ import {
   cartoes,
   faturas,
   cartaoTransacoes,
+  goals,
+  spendingLimits,
+  accountMembers,
   type User,
   type UpsertUser,
   type Transacao,
@@ -14,9 +17,15 @@ import {
   type InsertFatura,
   type CartaoTransacao,
   type InsertCartaoTransacao,
+  type Goal,
+  type InsertGoal,
+  type SpendingLimit,
+  type InsertSpendingLimit,
+  type AccountMember,
+  type InsertAccountMember,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -24,6 +33,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: UpsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserPassword(id: string, passwordHash: string): Promise<void>;
+  updateUserProfileImage(id: string, imageUrl: string): Promise<void>;
 
   // Transaction operations
   getTransacoes(userId: string): Promise<Transacao[]>;
@@ -44,6 +55,22 @@ export interface IStorage {
   // Card transaction operations
   getCartaoTransacoes(faturaId: string): Promise<CartaoTransacao[]>;
   createCartaoTransacao(transacao: InsertCartaoTransacao): Promise<CartaoTransacao>;
+
+  // Goals operations
+  getGoals(userId: string): Promise<Goal[]>;
+  createGoal(goal: InsertGoal): Promise<Goal>;
+  updateGoalValorAtual(id: string, valorAtual: string): Promise<void>;
+  updateGoalStatus(id: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void>;
+
+  // Spending limits operations
+  getSpendingLimits(userId: string): Promise<SpendingLimit[]>;
+  createSpendingLimit(limit: InsertSpendingLimit): Promise<SpendingLimit>;
+  updateSpendingLimit(id: string, valorLimite: string): Promise<void>;
+
+  // Account members operations
+  getAccountMembers(userId: string): Promise<AccountMember[]>;
+  createAccountMember(member: InsertAccountMember): Promise<AccountMember>;
+  removeAccountMember(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -175,6 +202,105 @@ export class DatabaseStorage implements IStorage {
       .values(transacao)
       .returning();
     return newTransacao;
+  }
+
+  // User update operations
+  async updateUserPassword(id: string, passwordHash: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserProfileImage(id: string, imageUrl: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ profileImageUrl: imageUrl, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  // Goals operations
+  async getGoals(userId: string): Promise<Goal[]> {
+    return await db
+      .select()
+      .from(goals)
+      .where(eq(goals.userId, userId))
+      .orderBy(desc(goals.createdAt));
+  }
+
+  async createGoal(goal: InsertGoal): Promise<Goal> {
+    const [newGoal] = await db
+      .insert(goals)
+      .values(goal)
+      .returning();
+    return newGoal;
+  }
+
+  async updateGoalValorAtual(id: string, valorAtual: string): Promise<void> {
+    await db
+      .update(goals)
+      .set({ valorAtual })
+      .where(eq(goals.id, id));
+  }
+
+  async updateGoalStatus(id: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void> {
+    await db
+      .update(goals)
+      .set({ status })
+      .where(eq(goals.id, id));
+  }
+
+  // Spending limits operations
+  async getSpendingLimits(userId: string): Promise<SpendingLimit[]> {
+    return await db
+      .select()
+      .from(spendingLimits)
+      .where(eq(spendingLimits.userId, userId))
+      .orderBy(desc(spendingLimits.createdAt));
+  }
+
+  async createSpendingLimit(limit: InsertSpendingLimit): Promise<SpendingLimit> {
+    const [newLimit] = await db
+      .insert(spendingLimits)
+      .values(limit)
+      .returning();
+    return newLimit;
+  }
+
+  async updateSpendingLimit(id: string, valorLimite: string): Promise<void> {
+    await db
+      .update(spendingLimits)
+      .set({ valorLimite })
+      .where(eq(spendingLimits.id, id));
+  }
+
+  // Account members operations
+  async getAccountMembers(userId: string): Promise<AccountMember[]> {
+    return await db
+      .select()
+      .from(accountMembers)
+      .where(
+        or(
+          eq(accountMembers.accountOwnerId, userId),
+          eq(accountMembers.memberId, userId)
+        )
+      )
+      .orderBy(desc(accountMembers.createdAt));
+  }
+
+  async createAccountMember(member: InsertAccountMember): Promise<AccountMember> {
+    const [newMember] = await db
+      .insert(accountMembers)
+      .values(member)
+      .returning();
+    return newMember;
+  }
+
+  async removeAccountMember(id: string): Promise<void> {
+    await db
+      .update(accountMembers)
+      .set({ status: 'removido' })
+      .where(eq(accountMembers.id, id));
   }
 }
 

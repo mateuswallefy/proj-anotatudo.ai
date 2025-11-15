@@ -195,3 +195,90 @@ export const categorias = [
 ] as const;
 
 export type Categoria = typeof categorias[number];
+
+// Goals table (metas de economia)
+export const goals = pgTable("goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  nome: varchar("nome").notNull(),
+  descricao: text("descricao"),
+  valorAlvo: decimal("valor_alvo", { precision: 10, scale: 2 }).notNull(),
+  valorAtual: decimal("valor_atual", { precision: 10, scale: 2 }).default('0').notNull(),
+  dataInicio: date("data_inicio").notNull(),
+  dataFim: date("data_fim"),
+  status: varchar("status", { enum: ['ativa', 'concluida', 'cancelada'] }).default('ativa').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const goalsRelations = relations(goals, ({ one }) => ({
+  user: one(users, {
+    fields: [goals.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertGoalSchema = createInsertSchema(goals).omit({
+  id: true,
+  createdAt: true,
+  valorAtual: true,
+});
+
+export type InsertGoal = z.infer<typeof insertGoalSchema>;
+export type Goal = typeof goals.$inferSelect;
+
+// Spending limits table (tetos de gasto)
+export const spendingLimits = pgTable("spending_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tipo: varchar("tipo", { enum: ['mensal_total', 'mensal_categoria'] }).notNull(),
+  categoria: varchar("categoria"), // null para mensal_total
+  valorLimite: decimal("valor_limite", { precision: 10, scale: 2 }).notNull(),
+  mes: integer("mes"), // null para limite permanente
+  ano: integer("ano"), // null para limite permanente
+  ativo: varchar("ativo", { enum: ['sim', 'nao'] }).default('sim').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const spendingLimitsRelations = relations(spendingLimits, ({ one }) => ({
+  user: one(users, {
+    fields: [spendingLimits.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertSpendingLimitSchema = createInsertSchema(spendingLimits).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSpendingLimit = z.infer<typeof insertSpendingLimitSchema>;
+export type SpendingLimit = typeof spendingLimits.$inferSelect;
+
+// Account members table (membros compartilhados)
+export const accountMembers = pgTable("account_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountOwnerId: varchar("account_owner_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  memberId: varchar("member_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: varchar("role", { enum: ['owner', 'member', 'viewer'] }).default('member').notNull(),
+  status: varchar("status", { enum: ['ativo', 'pendente', 'removido'] }).default('ativo').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const accountMembersRelations = relations(accountMembers, ({ one }) => ({
+  accountOwner: one(users, {
+    fields: [accountMembers.accountOwnerId],
+    references: [users.id],
+  }),
+  member: one(users, {
+    fields: [accountMembers.memberId],
+    references: [users.id],
+  }),
+}));
+
+export const insertAccountMemberSchema = createInsertSchema(accountMembers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAccountMember = z.infer<typeof insertAccountMemberSchema>;
+export type AccountMember = typeof accountMembers.$inferSelect;

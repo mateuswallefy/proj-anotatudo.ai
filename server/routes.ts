@@ -2,8 +2,18 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { isAuthenticated, hashPassword, comparePassword } from "./auth";
-import { insertTransacaoSchema, insertCartaoSchema, insertUserSchema, loginSchema } from "@shared/schema";
+import { 
+  insertTransacaoSchema, 
+  insertCartaoSchema, 
+  insertUserSchema, 
+  loginSchema,
+  insertGoalSchema,
+  insertSpendingLimitSchema,
+  insertAccountMemberSchema
+} from "@shared/schema";
 import { processWhatsAppMessage } from "./ai";
+import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -101,6 +111,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.session.userId;
       const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
       
       // Remove sensitive data before sending to client
       const { passwordHash, ...sanitizedUser } = user;
@@ -277,6 +291,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).send(challenge);
     } else {
       res.status(403).send('Forbidden');
+    }
+  });
+
+  // Analytics routes
+  app.get("/api/insights", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      
+      const insights = await calculateFinancialInsights(userId, mes, ano);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error calculating insights:", error);
+      res.status(500).json({ message: "Failed to calculate insights" });
+    }
+  });
+
+  app.get("/api/spending-progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      
+      const progress = await calculateSpendingProgress(userId, mes, ano);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error calculating spending progress:", error);
+      res.status(500).json({ message: "Failed to calculate progress" });
+    }
+  });
+
+  // Goals routes
+  app.get("/api/goals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const goals = await storage.getGoals(userId);
+      res.json(goals);
+    } catch (error) {
+      console.error("Error fetching goals:", error);
+      res.status(500).json({ message: "Failed to fetch goals" });
+    }
+  });
+
+  app.post("/api/goals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const data = insertGoalSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const goal = await storage.createGoal(data);
+      res.status(201).json(goal);
+    } catch (error: any) {
+      console.error("Error creating goal:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create goal" });
+      }
+    }
+  });
+
+  app.patch("/api/goals/:id/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      await storage.updateGoalStatus(id, status);
+      res.json({ message: "Goal status updated" });
+    } catch (error) {
+      console.error("Error updating goal status:", error);
+      res.status(500).json({ message: "Failed to update goal status" });
+    }
+  });
+
+  // Spending limits routes
+  app.get("/api/spending-limits", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const limits = await storage.getSpendingLimits(userId);
+      res.json(limits);
+    } catch (error) {
+      console.error("Error fetching spending limits:", error);
+      res.status(500).json({ message: "Failed to fetch spending limits" });
+    }
+  });
+
+  app.post("/api/spending-limits", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const data = insertSpendingLimitSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const limit = await storage.createSpendingLimit(data);
+      res.status(201).json(limit);
+    } catch (error: any) {
+      console.error("Error creating spending limit:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create spending limit" });
+      }
+    }
+  });
+
+  app.patch("/api/spending-limits/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { valorLimite } = req.body;
+      
+      await storage.updateSpendingLimit(id, valorLimite);
+      res.json({ message: "Spending limit updated" });
+    } catch (error) {
+      console.error("Error updating spending limit:", error);
+      res.status(500).json({ message: "Failed to update spending limit" });
+    }
+  });
+
+  // Account members routes
+  app.get("/api/account-members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const members = await storage.getAccountMembers(userId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching account members:", error);
+      res.status(500).json({ message: "Failed to fetch account members" });
+    }
+  });
+
+  app.post("/api/account-members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const { memberEmail, role } = req.body;
+      
+      // Find member by email
+      const memberUser = await storage.getUserByEmail(memberEmail);
+      if (!memberUser) {
+        return res.status(404).json({ message: "User not found with this email" });
+      }
+      
+      const data = insertAccountMemberSchema.parse({
+        accountOwnerId: userId,
+        memberId: memberUser.id,
+        role: role || 'member',
+        status: 'ativo',
+      });
+      
+      const member = await storage.createAccountMember(data);
+      res.status(201).json(member);
+    } catch (error: any) {
+      console.error("Error adding account member:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to add account member" });
+      }
+    }
+  });
+
+  app.delete("/api/account-members/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.removeAccountMember(id);
+      res.json({ message: "Account member removed" });
+    } catch (error) {
+      console.error("Error removing account member:", error);
+      res.status(500).json({ message: "Failed to remove account member" });
+    }
+  });
+
+  // User settings routes
+  const changePasswordSchema = z.object({
+    currentPassword: z.string(),
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+  });
+
+  app.post("/api/user/change-password", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+      
+      const user = await storage.getUser(userId);
+      if (!user || !user.passwordHash) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify current password
+      const isValid = await comparePassword(currentPassword, user.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+      
+      // Hash and update new password
+      const newPasswordHash = await hashPassword(newPassword);
+      await storage.updateUserPassword(userId, newPasswordHash);
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to change password" });
+      }
+    }
+  });
+
+  app.post("/api/user/profile-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const { imageUrl } = req.body;
+      
+      if (!imageUrl) {
+        return res.status(400).json({ message: "Image URL is required" });
+      }
+      
+      await storage.updateUserProfileImage(userId, imageUrl);
+      res.json({ message: "Profile image updated successfully", imageUrl });
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      res.status(500).json({ message: "Failed to update profile image" });
     }
   });
 
