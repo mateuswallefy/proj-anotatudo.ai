@@ -90,22 +90,52 @@ export async function sendWhatsAppTemplate({ to, templateName, languageCode, com
   }
 }
 
-export async function sendVerificationCode(phoneNumber: string, code: string): Promise<boolean> {
-  try {
-    const message = `🔐 *AnotaTudo.AI* - Seu código de verificação é: *${code}*\n\nEste código expira em 5 minutos.\n\nSe você não solicitou este código, ignore esta mensagem.`;
-    
-    return await sendWhatsAppMessage({
-      to: phoneNumber,
-      message: message
-    });
-  } catch (error) {
-    console.error('[WhatsApp] Error sending verification code:', error);
-    return false;
-  }
+// Helper to send replies to users
+export async function sendWhatsAppReply(to: string, message: string): Promise<boolean> {
+  return await sendWhatsAppMessage({ to, message });
 }
 
-export function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+// Email validation regex
+export function isValidEmail(text: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(text.trim());
+}
+
+// Extract email from message text
+export function extractEmail(text: string): string | null {
+  const trimmed = text.trim().toLowerCase();
+  if (isValidEmail(trimmed)) {
+    return trimmed;
+  }
+  
+  // Try to find email in longer text
+  const emailRegex = /([^\s@]+@[^\s@]+\.[^\s@]+)/;
+  const match = text.match(emailRegex);
+  return match ? match[1].toLowerCase() : null;
+}
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+export function checkRateLimit(phoneNumber: string, maxRequests: number = 10, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const key = phoneNumber;
+  
+  const record = rateLimitMap.get(key);
+  
+  if (!record || now > record.resetAt) {
+    // Reset or create new window
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= maxRequests) {
+    console.log(`[Rate Limit] ${phoneNumber} exceeded ${maxRequests} requests in ${windowMs}ms`);
+    return false;
+  }
+  
+  record.count++;
+  return true;
 }
 
 export function normalizePhoneNumber(phone: string): string {

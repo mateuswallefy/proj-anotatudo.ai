@@ -22,6 +22,19 @@ AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp me
 
 ## Recent Changes (November 15, 2025)
 
+### Purchase-Based WhatsApp Authentication System
+- **Caktos Integration:** Webhook (`/api/webhook-caktos`) receives purchase notifications from Caktos payment platform
+- **Purchase Verification:** Only users with approved purchases can access the system
+- **WhatsApp Authentication Flow:**
+  1. User sends first message to WhatsApp → system creates user with `status='awaiting_email'`
+  2. System prompts: "Para liberar seu acesso, envie o e-mail usado na compra."
+  3. User sends email → system validates against `purchases` table
+  4. If purchase exists and is approved → user status updated to `authenticated`
+  5. Authenticated users can send transactions via text, audio, photo, or video
+- **Rate Limiting:** 10 messages per minute per phone number to prevent abuse
+- **Email Extraction:** Automatic email detection from user messages using regex validation
+- **Status-Based Processing:** Transactions only processed for authenticated users
+
 ### Instant Tab Navigation System
 - **TabShell Component:** All pages (Dashboard, Transações, Cartões, Adicionar, Configurações) remain mounted simultaneously
 - **Display Toggle:** Navigation switches between pages using `display: none/block` instead of mount/unmount
@@ -115,9 +128,15 @@ Preferred communication style: Simple, everyday language.
 **Database Schema (PostgreSQL via Drizzle ORM):**
 
 **Core Tables:**
-- `users` - User profiles with auth integration
-  - Stores: id, email, name, phone, plan (free/premium), profile image
+- `users` - User profiles with WhatsApp-based authentication
+  - Stores: id, email (nullable), telefone (unique), status ('awaiting_email' | 'authenticated'), plan
+  - Status field controls access: only authenticated users can create transactions
   - Created/updated timestamps
+
+- `purchases` - Purchase records from Caktos payment platform
+  - Stores: email, telefone, status ('approved' | 'pending' | 'refunded'), purchaseId, productName, amount
+  - Links purchases to users for authentication validation
+  - Updated when user authenticates via WhatsApp (telefone field populated)
 
 - `transacoes` (Transactions)
   - Type: entrada (income) / saida (expense)

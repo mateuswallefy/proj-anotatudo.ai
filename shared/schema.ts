@@ -28,13 +28,14 @@ export const sessions = pgTable(
 // User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique().notNull(),
+  email: varchar("email").unique(),
   passwordHash: varchar("password_hash"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  telefone: varchar("telefone"),
+  telefone: varchar("telefone").unique(),
   plano: varchar("plano").default('free'),
+  status: varchar("status", { enum: ['awaiting_email', 'authenticated'] }).default('awaiting_email'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -283,23 +284,24 @@ export const insertAccountMemberSchema = createInsertSchema(accountMembers).omit
 export type InsertAccountMember = z.infer<typeof insertAccountMemberSchema>;
 export type AccountMember = typeof accountMembers.$inferSelect;
 
-// WhatsApp verification codes table
-export const whatsappVerificationCodes = pgTable("whatsapp_verification_codes", {
+// Purchases table (compras do Caktos)
+export const purchases = pgTable("purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  telefone: varchar("telefone").notNull(),
-  codigo: varchar("codigo", { length: 6 }).notNull(),
-  tentativas: integer("tentativas").default(0).notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  verificado: varchar("verificado", { enum: ['sim', 'nao'] }).default('nao').notNull(),
+  email: varchar("email").notNull(),
+  telefone: varchar("telefone"),
+  status: varchar("status", { enum: ['approved', 'pending', 'refunded'] }).notNull(),
+  purchaseId: varchar("purchase_id").unique().notNull(), // UNIQUE constraint for UPSERT
+  productName: varchar("product_name"),
+  amount: decimal("amount", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertWhatsAppVerificationCodeSchema = createInsertSchema(whatsappVerificationCodes).omit({
+export const insertPurchaseSchema = createInsertSchema(purchases).omit({
   id: true,
   createdAt: true,
-  tentativas: true,
-  verificado: true,
+  updatedAt: true,
 });
 
-export type InsertWhatsAppVerificationCode = z.infer<typeof insertWhatsAppVerificationCodeSchema>;
-export type WhatsAppVerificationCode = typeof whatsappVerificationCodes.$inferSelect;
+export type InsertPurchase = z.infer<typeof insertPurchaseSchema>;
+export type Purchase = typeof purchases.$inferSelect;

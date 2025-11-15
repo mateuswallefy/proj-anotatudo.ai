@@ -14,7 +14,7 @@ import {
 import { processWhatsAppMessage } from "./ai";
 import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
 import { z } from "zod";
-import { sendVerificationCode, generateVerificationCode, normalizePhoneNumber } from "./whatsapp";
+import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit } from "./whatsapp";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -127,101 +127,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WhatsApp Authentication routes
-  app.post('/api/auth/whatsapp/request-code', async (req, res) => {
+  // Caktos Webhook - recebe notificações de compra
+  app.post('/api/webhook-caktos', async (req, res) => {
     try {
-      const { telefone } = req.body;
+      console.log("[Caktos Webhook] Received:", JSON.stringify(req.body, null, 2));
       
-      if (!telefone) {
-        return res.status(400).json({ message: "Telefone é obrigatório" });
+      const { email, phone, status, purchase_id, product_name, amount } = req.body;
+      
+      if (!email || !status) {
+        return res.status(400).json({ error: "Email e status são obrigatórios" });
       }
 
-      const normalizedPhone = normalizePhoneNumber(telefone);
-      
-      // Rate limiting: verificar se já não foi enviado código recentemente
-      const codigo = generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
-
-      // Criar código de verificação no banco
-      await storage.createVerificationCode({
-        telefone: normalizedPhone,
-        codigo,
-        expiresAt,
+      // Criar registro de compra
+      await storage.createPurchase({
+        email: email.toLowerCase(),
+        telefone: phone ? normalizePhoneNumber(phone) : null,
+        status,
+        purchaseId: purchase_id,
+        productName: product_name,
+        amount: amount ? String(amount) : null,
       });
 
-      // Enviar código via WhatsApp
-      const sent = await sendVerificationCode(normalizedPhone, codigo);
-      
-      if (!sent) {
-        return res.status(500).json({ message: "Erro ao enviar código. Tente novamente." });
-      }
-
-      res.json({ 
-        message: "Código enviado com sucesso!",
-        telefone: normalizedPhone
-      });
+      console.log(`[Caktos] Purchase registered: ${email} - ${status}`);
+      res.json({ success: true, message: "Purchase registered" });
     } catch (error: any) {
-      console.error("[WhatsApp Auth] Error requesting code:", error);
-      res.status(500).json({ message: "Erro ao solicitar código" });
-    }
-  });
-
-  app.post('/api/auth/whatsapp/verify-code', async (req, res) => {
-    try {
-      const { telefone, codigo } = req.body;
-      
-      if (!telefone || !codigo) {
-        return res.status(400).json({ message: "Telefone e código são obrigatórios" });
-      }
-
-      const normalizedPhone = normalizePhoneNumber(telefone);
-      
-      // Buscar código válido
-      const verificationCode = await storage.getValidVerificationCode(normalizedPhone, codigo);
-      
-      if (!verificationCode) {
-        return res.status(401).json({ message: "Código inválido ou expirado" });
-      }
-
-      // Verificar se expirou
-      if (new Date() > new Date(verificationCode.expiresAt)) {
-        return res.status(401).json({ message: "Código expirado" });
-      }
-
-      // Verificar tentativas
-      if (verificationCode.tentativas >= 3) {
-        return res.status(401).json({ message: "Muitas tentativas. Solicite um novo código." });
-      }
-
-      // Marcar código como usado
-      await storage.markVerificationCodeAsUsed(verificationCode.id);
-
-      // Buscar ou criar usuário
-      let user = await storage.getUserByPhone(normalizedPhone);
-      
-      if (!user) {
-        // Criar novo usuário
-        user = await storage.createUser({
-          email: `${normalizedPhone}@whatsapp.temp`,
-          telefone: normalizedPhone,
-          plano: 'free',
-        });
-      }
-
-      // Criar sessão
-      req.session.userId = user.id;
-
-      res.json({
-        id: user.id,
-        email: user.email,
-        telefone: user.telefone,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        plano: user.plano,
-      });
-    } catch (error: any) {
-      console.error("[WhatsApp Auth] Error verifying code:", error);
-      res.status(500).json({ message: "Erro ao verificar código" });
+      console.error("[Caktos Webhook] Error:", error);
+      res.status(500).json({ error: "Failed to process webhook" });
     }
   });
 
@@ -669,69 +600,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const message = value.messages[0];
             const fromNumber = message.from; // User's WhatsApp number
             const messageType = message.type; // text, image, audio, video, etc.
+            const messageId = message.id; // Unique message ID for idempotency
             
-            console.log(`[WhatsApp] New ${messageType} message from ${fromNumber}`);
+            console.log(`[WhatsApp] New ${messageType} message from ${fromNumber} (ID: ${messageId})`);
             
-            // Find user by phone number (format: +5511999999999)
-            const user = await storage.getUserByEmail(`whatsapp_${fromNumber}@temp.com`);
-            
-            if (!user) {
-              console.log(`[WhatsApp] User not found for phone ${fromNumber}`);
-              // TODO: Send welcome message asking user to register
-              // For now, skip processing
+            // Rate limiting - 10 messages per minute
+            if (!checkRateLimit(fromNumber, 10, 60000)) {
+              console.log(`[WhatsApp] Rate limit exceeded for ${fromNumber} (10 msg/min)`);
+              await sendWhatsAppReply(fromNumber, "⚠️ Você está enviando muitas mensagens. Por favor, aguarde um momento.");
               continue;
             }
             
-            // Process message with AI
-            try {
-              let messageContent = '';
+            // Find or create user by phone number
+            let user = await storage.getUserByPhone(fromNumber);
+            
+            if (!user) {
+              console.log(`[WhatsApp] Creating new user for phone ${fromNumber}`);
+              user = await storage.createUserFromPhone(fromNumber);
+              console.log(`[WhatsApp] User created with status: ${user.status}`);
+            }
+            
+            // Extract message content
+            let messageContent = '';
+            if (messageType === 'text') {
+              messageContent = message.text.body;
+            } else if (messageType === 'audio') {
+              messageContent = message.audio.id;
+            } else if (messageType === 'image') {
+              messageContent = message.image.id;
+            } else if (messageType === 'video') {
+              messageContent = message.video.id;
+            }
+            
+            console.log(`[WhatsApp] User status: ${user.status}, Message: "${messageContent}"`);
+            
+            // ========================================
+            // AUTHENTICATION FLOW
+            // ========================================
+            
+            if (user.status === 'awaiting_email') {
+              // User needs to send email to authenticate
               
               if (messageType === 'text') {
-                messageContent = message.text.body;
-              } else if (messageType === 'audio') {
-                messageContent = message.audio.id; // Media ID to download
-              } else if (messageType === 'image') {
-                messageContent = message.image.id;
-              } else if (messageType === 'video') {
-                messageContent = message.video.id;
-              }
-              
-              console.log(`[WhatsApp] Processing message: "${messageContent}"`);
-              
-              // Call AI to process the message
-              const result = await processWhatsAppMessage(
-                messageType as 'text' | 'audio' | 'image' | 'video',
-                messageContent
-              );
-              
-              console.log(`[WhatsApp] AI Result:`, result);
-              
-              // Create transaction if AI extracted valid financial data
-              if (result && result.valor !== null) {
-                await storage.createTransacao({
-                  userId: user.id,
-                  tipo: result.tipo,
-                  categoria: result.categoria,
-                  valor: result.valor.toString(),
-                  dataReal: result.dataReal,
-                  descricao: result.descricao || '',
-                  origem: messageType as 'texto' | 'audio' | 'foto' | 'video',
-                });
+                const extractedEmail = extractEmail(messageContent);
                 
-                console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}`);
-                console.log(`[WhatsApp] Transaction details:`, {
-                  type: result.tipo,
-                  value: result.valor,
-                  category: result.categoria,
-                  confidence: result.confianca
-                });
-                
-                // TODO: Send confirmation message back to user via WhatsApp
+                if (extractedEmail) {
+                  console.log(`[WhatsApp] Email extracted: ${extractedEmail}`);
+                  
+                  // Verify if purchase exists and is approved
+                  const purchase = await storage.getPurchaseByEmail(extractedEmail);
+                  
+                  if (purchase) {
+                    // Authenticate user
+                    await storage.updateUserEmail(user.id, extractedEmail);
+                    await storage.updateUserStatus(user.id, 'authenticated');
+                    await storage.updatePurchasePhone(extractedEmail, fromNumber);
+                    
+                    console.log(`[WhatsApp] ✅ User authenticated: ${extractedEmail}`);
+                    
+                    await sendWhatsAppReply(
+                      fromNumber,
+                      "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
+                    );
+                  } else {
+                    console.log(`[WhatsApp] ❌ No approved purchase found for ${extractedEmail}`);
+                    
+                    await sendWhatsAppReply(
+                      fromNumber,
+                      "❌ *Esse e-mail não possui compra válida.*\n\nVerifique se você digitou corretamente o e-mail usado na compra ou entre em contato com o suporte."
+                    );
+                  }
+                } else {
+                  // Not a valid email, prompt again
+                  console.log(`[WhatsApp] Invalid email format in message: "${messageContent}"`);
+                  
+                  await sendWhatsAppReply(
+                    fromNumber,
+                    "📧 *Para liberar seu acesso, envie o e-mail usado na compra.*\n\nExemplo: seuemail@gmail.com"
+                  );
+                }
               } else {
-                console.log(`[WhatsApp] ⚠️ No valid transaction data extracted (confidence: ${result?.confianca || 0})`);
+                // Non-text message while awaiting email
+                await sendWhatsAppReply(
+                  fromNumber,
+                  "📧 *Para liberar seu acesso, envie o e-mail usado na compra.*\n\nPor favor, envie uma mensagem de texto com seu e-mail."
+                );
               }
-            } catch (aiError) {
-              console.error("[WhatsApp] AI processing error:", aiError);
+            } 
+            
+            // ========================================
+            // TRANSACTION PROCESSING (AUTHENTICATED USERS ONLY)
+            // ========================================
+            
+            else if (user.status === 'authenticated') {
+              console.log(`[WhatsApp] Processing transaction for authenticated user`);
+              
+              try {
+                // Call AI to process the message
+                const result = await processWhatsAppMessage(
+                  messageType as 'text' | 'audio' | 'image' | 'video',
+                  messageContent
+                );
+                
+                console.log(`[WhatsApp] AI Result:`, result);
+                
+                // Create transaction if AI extracted valid financial data
+                if (result && result.valor !== null) {
+                  await storage.createTransacao({
+                    userId: user.id,
+                    tipo: result.tipo,
+                    categoria: result.categoria,
+                    valor: result.valor.toString(),
+                    dataReal: result.dataReal,
+                    descricao: result.descricao || '',
+                    origem: messageType === 'text' ? 'texto' : messageType === 'audio' ? 'audio' : messageType === 'image' ? 'foto' : 'video',
+                  });
+                  
+                  console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}`);
+                  
+                  // Send confirmation
+                  const tipoEmoji = result.tipo === 'entrada' ? '💰' : '💸';
+                  await sendWhatsAppReply(
+                    fromNumber,
+                    `${tipoEmoji} *Transação registrada!*\n\n` +
+                    `Tipo: ${result.tipo === 'entrada' ? 'Entrada' : 'Saída'}\n` +
+                    `Valor: R$ ${result.valor}\n` +
+                    `Categoria: ${result.categoria}\n` +
+                    `Descrição: ${result.descricao || 'N/A'}\n\n` +
+                    `Confiança: ${(result.confianca * 100).toFixed(0)}%`
+                  );
+                } else {
+                  console.log(`[WhatsApp] ⚠️ No valid transaction data extracted`);
+                  
+                  await sendWhatsAppReply(
+                    fromNumber,
+                    "⚠️ Não consegui entender a transação.\n\nTente novamente com mais detalhes:\n• Valor\n• Tipo (gasto ou recebimento)\n• Descrição ou categoria"
+                  );
+                }
+              } catch (aiError) {
+                console.error("[WhatsApp] AI processing error:", aiError);
+                
+                await sendWhatsAppReply(
+                  fromNumber,
+                  "❌ Erro ao processar mensagem. Tente novamente."
+                );
+              }
             }
           }
           

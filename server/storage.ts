@@ -7,7 +7,7 @@ import {
   goals,
   spendingLimits,
   accountMembers,
-  whatsappVerificationCodes,
+  purchases,
   type User,
   type UpsertUser,
   type Transacao,
@@ -24,11 +24,11 @@ import {
   type InsertSpendingLimit,
   type AccountMember,
   type InsertAccountMember,
-  type WhatsAppVerificationCode,
-  type InsertWhatsAppVerificationCode,
+  type Purchase,
+  type InsertPurchase,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, sql as sqlOp } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -75,13 +75,16 @@ export interface IStorage {
   createAccountMember(member: InsertAccountMember): Promise<AccountMember>;
   removeAccountMember(id: string): Promise<void>;
 
-  // WhatsApp verification operations
-  createVerificationCode(code: InsertWhatsAppVerificationCode): Promise<WhatsAppVerificationCode>;
-  getValidVerificationCode(telefone: string, codigo: string): Promise<WhatsAppVerificationCode | undefined>;
-  incrementVerificationAttempts(id: string): Promise<void>;
-  markVerificationCodeAsUsed(id: string): Promise<void>;
+  // Purchases operations (Caktos)
+  createPurchase(purchase: InsertPurchase): Promise<Purchase>;
+  getPurchaseByEmail(email: string): Promise<Purchase | undefined>;
+  updatePurchasePhone(email: string, telefone: string): Promise<void>;
+
+  // User operations for WhatsApp auth
   getUserByPhone(telefone: string): Promise<User | undefined>;
-  updateUserPhone(id: string, telefone: string): Promise<void>;
+  createUserFromPhone(telefone: string): Promise<User>;
+  updateUserEmail(id: string, email: string): Promise<void>;
+  updateUserStatus(id: string, status: 'awaiting_email' | 'authenticated'): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -314,52 +317,53 @@ export class DatabaseStorage implements IStorage {
       .where(eq(accountMembers.id, id));
   }
 
-  // WhatsApp verification operations
-  async createVerificationCode(codeData: InsertWhatsAppVerificationCode): Promise<WhatsAppVerificationCode> {
-    const [code] = await db
-      .insert(whatsappVerificationCodes)
-      .values(codeData)
+  // Purchases operations (Caktos)
+  async createPurchase(purchaseData: InsertPurchase): Promise<Purchase> {
+    // Real UPSERT using onConflictDoUpdate to handle status changes (approved → refunded)
+    // UNIQUE constraint on purchase_id ensures only one row per purchase
+    const [purchase] = await db
+      .insert(purchases)
+      .values(purchaseData)
+      .onConflictDoUpdate({
+        target: purchases.purchaseId,
+        set: {
+          email: purchaseData.email,
+          telefone: purchaseData.telefone,
+          status: purchaseData.status,
+          productName: purchaseData.productName,
+          amount: purchaseData.amount,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
-    return code;
+    return purchase;
   }
 
-  async getValidVerificationCode(telefone: string, codigo: string): Promise<WhatsAppVerificationCode | undefined> {
-    const [code] = await db
+  async getPurchaseByEmail(email: string): Promise<Purchase | undefined> {
+    // Get the most recent approved purchase for this email
+    // Order by created_at DESC to always get the latest approved purchase
+    const [purchase] = await db
       .select()
-      .from(whatsappVerificationCodes)
+      .from(purchases)
       .where(
         and(
-          eq(whatsappVerificationCodes.telefone, telefone),
-          eq(whatsappVerificationCodes.codigo, codigo),
-          eq(whatsappVerificationCodes.verificado, 'nao')
+          eq(purchases.email, email),
+          eq(purchases.status, 'approved')
         )
       )
-      .orderBy(desc(whatsappVerificationCodes.createdAt))
+      .orderBy(desc(purchases.createdAt))
       .limit(1);
-    return code;
+    return purchase;
   }
 
-  async incrementVerificationAttempts(id: string): Promise<void> {
-    const [code] = await db
-      .select()
-      .from(whatsappVerificationCodes)
-      .where(eq(whatsappVerificationCodes.id, id));
-    
-    if (code) {
-      await db
-        .update(whatsappVerificationCodes)
-        .set({ tentativas: code.tentativas + 1 })
-        .where(eq(whatsappVerificationCodes.id, id));
-    }
-  }
-
-  async markVerificationCodeAsUsed(id: string): Promise<void> {
+  async updatePurchasePhone(email: string, telefone: string): Promise<void> {
     await db
-      .update(whatsappVerificationCodes)
-      .set({ verificado: 'sim' })
-      .where(eq(whatsappVerificationCodes.id, id));
+      .update(purchases)
+      .set({ telefone })
+      .where(eq(purchases.email, email));
   }
 
+  // User operations for WhatsApp auth
   async getUserByPhone(telefone: string): Promise<User | undefined> {
     const [user] = await db
       .select()
@@ -368,10 +372,28 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserPhone(id: string, telefone: string): Promise<void> {
+  async createUserFromPhone(telefone: string): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        telefone,
+        status: 'awaiting_email',
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUserEmail(id: string, email: string): Promise<void> {
     await db
       .update(users)
-      .set({ telefone })
+      .set({ email })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserStatus(id: string, status: 'awaiting_email' | 'authenticated'): Promise<void> {
+    await db
+      .update(users)
+      .set({ status })
       .where(eq(users.id, id));
   }
 }
