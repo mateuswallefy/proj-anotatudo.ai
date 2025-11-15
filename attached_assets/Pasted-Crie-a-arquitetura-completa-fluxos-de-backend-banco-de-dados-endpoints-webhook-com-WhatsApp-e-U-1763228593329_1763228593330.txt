@@ -1,0 +1,274 @@
+Crie a arquitetura completa, fluxos de backend, banco de dados, endpoints, webhook com WhatsApp, e UI/UX de um SaaS chamado AnotaTudo.AI, que funciona como um “Meu Assessor” inteligente.
+O usuário envia 1 mensagem no WhatsApp — texto, áudio, foto ou vídeo — e a IA transforma isso em um registro estruturado dentro de um dashboard financeiro.
+
+O sistema deve:
+
+1) 📲 Conexão WhatsApp + Webhook + Automação
+
+Usar Meta WhatsApp Cloud API.
+
+Configurar endpoint /webhook para receber todas as mensagens.
+
+Detectar automaticamente o tipo da mensagem:
+
+texto
+
+áudio (transcrever)
+
+foto (OCR e interpretação)
+
+vídeo (extração de frames + OCR + resumo)
+
+Identificar o intuito da mensagem:
+
+gasto
+
+ganho (entrada financeira)
+
+lembrete
+
+meta
+
+dívida/cartão
+
+boleto/pagamento futuro
+
+A IA deve normalizar tudo em:
+data | categoria | descrição | valor | tipo | origem
+
+Exemplo de interpretações automáticas:
+
+“Paguei 32 reais no lanche” → despesa
+
+Áudio: “Entrou 580 do trabalho hoje” → receita
+
+Foto de boleto → OCR → extrair vencimento, valor, pagador
+
+Vídeo mostrando extrato → IA sumariza valores e registra
+
+2) 🤖 Módulo de IA
+
+Criar um motor central de entendimento com:
+
+LLM para classificação de intenção
+
+Whisper ou Speech-to-Text para áudios
+
+OCR para boletos, notas, cartões e faturas
+
+Vision para interpretar imagens
+
+Extractor financeiro para achar valores no texto
+
+A IA deve lembrar ao usuário quando algo não estiver claro:
+
+“Identifiquei que isso pode ser uma despesa, mas não encontrei o valor. Pode confirmar?”
+
+3) 🧩 Banco de Dados
+
+Criar tabelas:
+
+users
+
+id
+
+nome
+
+telefone
+
+plano
+
+data_criacao
+
+transacoes
+
+id
+
+user_id
+
+tipo (entrada/saída)
+
+categoria
+
+valor
+
+data_registro
+
+data_real
+
+origem (texto, audio, foto, video)
+
+descricao
+
+media_url (opcional)
+
+cartoes
+
+id
+
+user_id
+
+nome_cartao
+
+limite_total
+
+limite_usado
+
+fechamento
+
+vencimento
+
+faturas
+
+id
+
+cartao_id
+
+mes
+
+ano
+
+valor_fechado
+
+status (aberta/paga)
+
+cartao_transacoes
+
+id
+
+fatura_id
+
+descricao
+
+valor
+
+data
+
+4) 📊 Dashboard (Web App)
+
+Criar painel com:
+
+Home
+
+Total de entradas (mês)
+
+Total de saídas (mês)
+
+Saldo final
+
+Gráfico pizza por categoria
+
+Linha de evolução semanal
+
+Transações
+
+Tabela completa
+
+Filtros (data, categoria, valor, tipo, origem)
+
+Cartões
+
+Listagem dos cartões do usuário
+
+Para cada cartão:
+
+limite total
+
+limite usado
+
+limite disponível
+
+vencimento e fechamento
+
+fatura atual
+
+histórico de faturas
+
+Adicionar manualmente
+
+Formulário simples para criar entrada/saída
+
+Configurações
+
+Tipo de plano
+
+Chave do WhatsApp
+
+Preferências de notificação
+
+5) 🧠 Lógica avançada do módulo de cartões
+
+Quando o usuário mandar:
+
+foto de fatura → extrair:
+
+fechamento
+
+vencimento
+
+valor total
+
+lista de compras
+
+áudio descrevendo cartão → ex:
+“Meu cartão Nubank fecha dia 7 e vence dia 15”
+
+Deve salvar automaticamente.
+
+foto de comprovante → adicionar transação à fatura correta
+
+ao chegar perto do limite → notificação automática
+
+“Seu cartão Nubank já está em 83% do limite.”
+
+6) 🛠 Tecnologias sugeridas (pode adaptar conforme o gerador quiser)
+
+Frontend: Next.js + Tailwind + shadcn/ui
+
+Backend: Node.js + Express ou NestJS
+
+Banco: PostgreSQL
+
+IA: OpenAI GPT-4o mini + Whisper + Vision
+
+Webhook: Meta WhatsApp Cloud API
+
+OCR: Tesseract ou Vision API
+
+Hospedagem: Vercel (frontend) + Railway/Supabase (backend/db)
+
+7) 🔁 Fluxo geral resumido
+
+Usuário envia mensagem no WhatsApp
+
+Webhook recebe
+
+IA interpreta
+
+Sistema cria registro
+
+Dashboard atualiza em tempo real
+
+Notificações inteligentes aparecem conforme regras
+
+8) 🧙‍♂️ Função do Dev Assistente
+
+O assistente que receber este prompt deve:
+
+Criar arquitetura completa do SaaS
+
+Criar endpoints
+
+Criar esquema banco de dados
+
+Criar fluxo de mensagens WhatsApp
+
+Criar UI/UX do painel
+
+Criar lógica do módulo de cartão
+
+Criar exemplos de código do backend e frontend
+
+Criar documentação técnica
+
+Criar guia para deploy completo
