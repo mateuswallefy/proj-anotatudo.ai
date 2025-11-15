@@ -520,6 +520,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // WHATSAPP WEBHOOK ROUTES (Meta WhatsApp Cloud API)
+  // ============================================================================
+
+  // Webhook verification (GET) - Meta sends this to verify your endpoint
+  app.get("/api/whatsapp/webhook", (req, res) => {
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "seu_token_secreto_aqui";
+    
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    console.log("[WhatsApp Webhook] Verification request:", { mode, token });
+    
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log("[WhatsApp Webhook] ✅ Webhook verified successfully!");
+      res.status(200).send(challenge);
+    } else {
+      console.log("[WhatsApp Webhook] ❌ Verification failed");
+      res.sendStatus(403);
+    }
+  });
+
+  // Webhook notifications (POST) - Meta sends incoming messages here
+  app.post("/api/whatsapp/webhook", async (req, res) => {
+    try {
+      const body = req.body;
+      
+      // Always respond 200 immediately to acknowledge receipt
+      res.sendStatus(200);
+      
+      console.log("[WhatsApp Webhook] Received:", JSON.stringify(body, null, 2));
+      
+      if (body.object !== 'whatsapp_business_account') {
+        console.log("[WhatsApp Webhook] Ignoring non-WhatsApp event");
+        return;
+      }
+      
+      // Process each entry
+      for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+          if (change.field !== 'messages') continue;
+          
+          const value = change.value;
+          
+          // Handle incoming messages
+          if (value.messages && value.messages.length > 0) {
+            const message = value.messages[0];
+            const fromNumber = message.from; // User's WhatsApp number
+            const messageType = message.type; // text, image, audio, video, etc.
+            
+            console.log(`[WhatsApp] New ${messageType} message from ${fromNumber}`);
+            
+            // Find user by phone number (format: +5511999999999)
+            const user = await storage.getUserByEmail(`whatsapp_${fromNumber}@temp.com`);
+            
+            if (!user) {
+              console.log(`[WhatsApp] User not found for phone ${fromNumber}`);
+              // TODO: Send welcome message asking user to register
+              // For now, skip processing
+              continue;
+            }
+            
+            // Process message with AI
+            try {
+              let messageContent = '';
+              
+              if (messageType === 'text') {
+                messageContent = message.text.body;
+              } else if (messageType === 'audio') {
+                messageContent = message.audio.id; // Media ID to download
+              } else if (messageType === 'image') {
+                messageContent = message.image.id;
+              } else if (messageType === 'video') {
+                messageContent = message.video.id;
+              }
+              
+              console.log(`[WhatsApp] Processing message: "${messageContent}"`);
+              
+              // Call AI to process the message
+              const result = await processWhatsAppMessage(
+                messageType as 'text' | 'audio' | 'image' | 'video',
+                messageContent
+              );
+              
+              console.log(`[WhatsApp] AI Result:`, result);
+              
+              // Create transaction if AI extracted valid financial data
+              if (result && result.valor !== null) {
+                await storage.createTransacao({
+                  userId: user.id,
+                  tipo: result.tipo,
+                  categoria: result.categoria,
+                  valor: result.valor.toString(),
+                  dataReal: result.dataReal,
+                  descricao: result.descricao || '',
+                  origem: messageType as 'texto' | 'audio' | 'foto' | 'video',
+                });
+                
+                console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}`);
+                console.log(`[WhatsApp] Transaction details:`, {
+                  type: result.tipo,
+                  value: result.valor,
+                  category: result.categoria,
+                  confidence: result.confianca
+                });
+                
+                // TODO: Send confirmation message back to user via WhatsApp
+              } else {
+                console.log(`[WhatsApp] ⚠️ No valid transaction data extracted (confidence: ${result?.confianca || 0})`);
+              }
+            } catch (aiError) {
+              console.error("[WhatsApp] AI processing error:", aiError);
+            }
+          }
+          
+          // Handle status updates (optional)
+          if (value.statuses && value.statuses.length > 0) {
+            const status = value.statuses[0];
+            console.log(`[WhatsApp] Status update: ${status.id} - ${status.status}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[WhatsApp Webhook] Error processing webhook:", error);
+      // Don't send error response - already sent 200
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
