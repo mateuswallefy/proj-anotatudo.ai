@@ -282,3 +282,24 @@ export const insertAccountMemberSchema = createInsertSchema(accountMembers).omit
 
 export type InsertAccountMember = z.infer<typeof insertAccountMemberSchema>;
 export type AccountMember = typeof accountMembers.$inferSelect;
+
+// WhatsApp verification codes table
+export const whatsappVerificationCodes = pgTable("whatsapp_verification_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  telefone: varchar("telefone").notNull(),
+  codigo: varchar("codigo", { length: 6 }).notNull(),
+  tentativas: integer("tentativas").default(0).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verificado: varchar("verificado", { enum: ['sim', 'nao'] }).default('nao').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWhatsAppVerificationCodeSchema = createInsertSchema(whatsappVerificationCodes).omit({
+  id: true,
+  createdAt: true,
+  tentativas: true,
+  verificado: true,
+});
+
+export type InsertWhatsAppVerificationCode = z.infer<typeof insertWhatsAppVerificationCodeSchema>;
+export type WhatsAppVerificationCode = typeof whatsappVerificationCodes.$inferSelect;

@@ -14,6 +14,7 @@ import {
 import { processWhatsAppMessage } from "./ai";
 import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
 import { z } from "zod";
+import { sendVerificationCode, generateVerificationCode, normalizePhoneNumber } from "./whatsapp";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -123,6 +124,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // WhatsApp Authentication routes
+  app.post('/api/auth/whatsapp/request-code', async (req, res) => {
+    try {
+      const { telefone } = req.body;
+      
+      if (!telefone) {
+        return res.status(400).json({ message: "Telefone é obrigatório" });
+      }
+
+      const normalizedPhone = normalizePhoneNumber(telefone);
+      
+      // Rate limiting: verificar se já não foi enviado código recentemente
+      const codigo = generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
+
+      // Criar código de verificação no banco
+      await storage.createVerificationCode({
+        telefone: normalizedPhone,
+        codigo,
+        expiresAt,
+      });
+
+      // Enviar código via WhatsApp
+      const sent = await sendVerificationCode(normalizedPhone, codigo);
+      
+      if (!sent) {
+        return res.status(500).json({ message: "Erro ao enviar código. Tente novamente." });
+      }
+
+      res.json({ 
+        message: "Código enviado com sucesso!",
+        telefone: normalizedPhone
+      });
+    } catch (error: any) {
+      console.error("[WhatsApp Auth] Error requesting code:", error);
+      res.status(500).json({ message: "Erro ao solicitar código" });
+    }
+  });
+
+  app.post('/api/auth/whatsapp/verify-code', async (req, res) => {
+    try {
+      const { telefone, codigo } = req.body;
+      
+      if (!telefone || !codigo) {
+        return res.status(400).json({ message: "Telefone e código são obrigatórios" });
+      }
+
+      const normalizedPhone = normalizePhoneNumber(telefone);
+      
+      // Buscar código válido
+      const verificationCode = await storage.getValidVerificationCode(normalizedPhone, codigo);
+      
+      if (!verificationCode) {
+        return res.status(401).json({ message: "Código inválido ou expirado" });
+      }
+
+      // Verificar se expirou
+      if (new Date() > new Date(verificationCode.expiresAt)) {
+        return res.status(401).json({ message: "Código expirado" });
+      }
+
+      // Verificar tentativas
+      if (verificationCode.tentativas >= 3) {
+        return res.status(401).json({ message: "Muitas tentativas. Solicite um novo código." });
+      }
+
+      // Marcar código como usado
+      await storage.markVerificationCodeAsUsed(verificationCode.id);
+
+      // Buscar ou criar usuário
+      let user = await storage.getUserByPhone(normalizedPhone);
+      
+      if (!user) {
+        // Criar novo usuário
+        user = await storage.createUser({
+          email: `${normalizedPhone}@whatsapp.temp`,
+          telefone: normalizedPhone,
+          plano: 'free',
+        });
+      }
+
+      // Criar sessão
+      req.session.userId = user.id;
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        telefone: user.telefone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        plano: user.plano,
+      });
+    } catch (error: any) {
+      console.error("[WhatsApp Auth] Error verifying code:", error);
+      res.status(500).json({ message: "Erro ao verificar código" });
     }
   });
 
