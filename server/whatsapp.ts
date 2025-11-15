@@ -1,4 +1,10 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
+
+const streamPipeline = promisify(pipeline);
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 
@@ -150,4 +156,71 @@ export function normalizePhoneNumber(phone: string): string {
   }
   
   return normalized;
+}
+
+/**
+ * Download media file from WhatsApp Cloud API
+ * Returns the local file path where the media was saved
+ */
+export async function downloadWhatsAppMedia(mediaId: string, mediaType: 'audio' | 'image' | 'video'): Promise<string> {
+  try {
+    const token = process.env.WHATSAPP_TOKEN;
+
+    if (!token) {
+      throw new Error('WHATSAPP_TOKEN not configured');
+    }
+
+    // Step 1: Get media URL
+    console.log(`[WhatsApp] Getting media URL for ID: ${mediaId}`);
+    const mediaInfoResponse = await axios.get(
+      `${WHATSAPP_API_URL}/${mediaId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    const mediaUrl = mediaInfoResponse.data.url;
+    const mimeType = mediaInfoResponse.data.mime_type;
+    
+    console.log(`[WhatsApp] Media URL obtained: ${mediaUrl}`);
+    console.log(`[WhatsApp] MIME type: ${mimeType}`);
+
+    // Step 2: Download the actual file
+    const mediaResponse = await axios.get(mediaUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      responseType: 'stream'
+    });
+
+    // Step 3: Save to temporary directory
+    const tempDir = '/tmp/whatsapp_media';
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Determine file extension
+    let extension = '';
+    if (mediaType === 'audio') {
+      extension = mimeType.includes('ogg') ? '.ogg' : '.mp3';
+    } else if (mediaType === 'image') {
+      extension = mimeType.includes('png') ? '.png' : '.jpg';
+    } else if (mediaType === 'video') {
+      extension = '.mp4';
+    }
+
+    const filePath = path.join(tempDir, `${mediaId}${extension}`);
+    
+    // Save file
+    await streamPipeline(mediaResponse.data, fs.createWriteStream(filePath));
+    
+    console.log(`[WhatsApp] Media saved to: ${filePath}`);
+    return filePath;
+
+  } catch (error: any) {
+    console.error('[WhatsApp] Error downloading media:', error.response?.data || error.message);
+    throw new Error(`Failed to download WhatsApp media: ${error.message}`);
+  }
 }

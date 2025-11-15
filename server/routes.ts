@@ -14,7 +14,7 @@ import {
 import { processWhatsAppMessage } from "./ai";
 import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
 import { z } from "zod";
-import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit } from "./whatsapp";
+import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -625,7 +625,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (messageType === 'text') {
               messageContent = message.text.body;
             } else if (messageType === 'audio') {
-              messageContent = message.audio.id;
+              // Download audio file from WhatsApp
+              try {
+                messageContent = await downloadWhatsAppMedia(message.audio.id, 'audio');
+                console.log(`[WhatsApp] Audio downloaded: ${messageContent}`);
+              } catch (error: any) {
+                console.error(`[WhatsApp] Failed to download audio:`, error.message);
+                await sendWhatsAppReply(fromNumber, "❌ Erro ao baixar áudio. Por favor, tente novamente.");
+                continue;
+              }
             } else if (messageType === 'image') {
               messageContent = message.image.id;
             } else if (messageType === 'video') {
