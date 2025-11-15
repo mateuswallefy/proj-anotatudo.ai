@@ -11,16 +11,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { MessageSquare, Mail, Lock, User, ArrowRight, Sparkles } from "lucide-react";
+import { MessageSquare, Mail, Lock, User, ArrowRight, Sparkles, Smartphone, Send } from "lucide-react";
 import { insertUserSchema, loginSchema } from "@shared/schema";
 
 type RegisterFormData = z.infer<typeof insertUserSchema>;
 type LoginFormData = z.infer<typeof loginSchema>;
 
+const whatsappSchema = z.object({
+  telefone: z.string().min(10, "Telefone inválido"),
+  codigo: z.string().optional(),
+});
+
+type WhatsAppFormData = z.infer<typeof whatsappSchema>;
+
 export default function Auth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "whatsapp">("whatsapp");
+  const [codeSent, setCodeSent] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(insertUserSchema),
@@ -37,6 +46,14 @@ export default function Auth() {
     defaultValues: {
       email: "",
       password: "",
+    },
+  });
+
+  const whatsappForm = useForm<WhatsAppFormData>({
+    resolver: zodResolver(whatsappSchema),
+    defaultValues: {
+      telefone: "",
+      codigo: "",
     },
   });
 
@@ -92,6 +109,67 @@ export default function Auth() {
 
   const onLoginSubmit = (data: LoginFormData) => {
     loginMutation.mutate(data);
+  };
+
+  const requestCodeMutation = useMutation({
+    mutationFn: async (telefone: string) => {
+      const response = await apiRequest("POST", "/api/auth/whatsapp/request-code", { telefone });
+      return response;
+    },
+    onSuccess: (data: any) => {
+      setCodeSent(true);
+      setPhoneNumber(data.telefone);
+      toast({
+        title: "Código enviado!",
+        description: `Verifique seu WhatsApp ${data.telefone}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao enviar código",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyCodeMutation = useMutation({
+    mutationFn: async (data: { telefone: string; codigo: string }) => {
+      await apiRequest("POST", "/api/auth/whatsapp/verify-code", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Login realizado!",
+        description: "Redirecionando para o dashboard...",
+      });
+      setTimeout(() => {
+        setLocation("/");
+      }, 100);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao verificar código",
+        description: error.message || "Código inválido ou expirado",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onRequestCode = () => {
+    const telefone = whatsappForm.getValues("telefone");
+    if (telefone) {
+      requestCodeMutation.mutate(telefone);
+    }
+  };
+
+  const onVerifyCode = (data: WhatsAppFormData) => {
+    if (data.telefone && data.codigo) {
+      verifyCodeMutation.mutate({
+        telefone: data.telefone,
+        codigo: data.codigo,
+      });
+    }
   };
 
   return (
@@ -180,11 +258,96 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register" | "whatsapp")}>
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="whatsapp" data-testid="tab-whatsapp">WhatsApp</TabsTrigger>
                 <TabsTrigger value="login" data-testid="tab-login">Entrar</TabsTrigger>
                 <TabsTrigger value="register" data-testid="tab-register">Criar Conta</TabsTrigger>
               </TabsList>
+
+              {/* WhatsApp Tab */}
+              <TabsContent value="whatsapp">
+                <form onSubmit={whatsappForm.handleSubmit(onVerifyCode)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp-phone">Número do WhatsApp</Label>
+                    <div className="relative">
+                      <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="whatsapp-phone"
+                        type="tel"
+                        placeholder="+55 11 98765-4321"
+                        className="pl-9"
+                        disabled={codeSent}
+                        {...whatsappForm.register("telefone")}
+                        data-testid="input-whatsapp-phone"
+                      />
+                    </div>
+                    {whatsappForm.formState.errors.telefone && (
+                      <p className="text-sm text-destructive">
+                        {whatsappForm.formState.errors.telefone.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {!codeSent ? (
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={onRequestCode}
+                      disabled={requestCodeMutation.isPending}
+                      data-testid="button-request-code"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      {requestCodeMutation.isPending ? "Enviando..." : "Enviar código"}
+                    </Button>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp-code">Código de Verificação</Label>
+                        <Input
+                          id="whatsapp-code"
+                          type="text"
+                          placeholder="123456"
+                          maxLength={6}
+                          {...whatsappForm.register("codigo")}
+                          data-testid="input-whatsapp-code"
+                        />
+                        {whatsappForm.formState.errors.codigo && (
+                          <p className="text-sm text-destructive">
+                            {whatsappForm.formState.errors.codigo.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={verifyCodeMutation.isPending}
+                        data-testid="button-verify-code"
+                      >
+                        {verifyCodeMutation.isPending ? "Verificando..." : "Verificar código"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full"
+                        onClick={() => {
+                          setCodeSent(false);
+                          whatsappForm.reset();
+                        }}
+                        data-testid="button-change-phone"
+                      >
+                        Alterar número
+                      </Button>
+                    </>
+                  )}
+
+                  <p className="text-xs text-center text-muted-foreground">
+                    Receba um código de verificação diretamente no WhatsApp para fazer login.
+                  </p>
+                </form>
+              </TabsContent>
 
               {/* Login Tab */}
               <TabsContent value="login">
