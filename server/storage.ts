@@ -75,6 +75,8 @@ export interface IStorage {
   getFaturas(cartaoId: string): Promise<Fatura[]>;
   createFatura(fatura: InsertFatura): Promise<Fatura>;
   getFaturaById(id: string): Promise<Fatura | undefined>;
+  getOrCreateFaturaAberta(cartaoId: string, mes: number, ano: number): Promise<Fatura>;
+  updateFaturaValor(faturaId: string, novoValor: string): Promise<void>;
 
   // Card transaction operations
   getCartaoTransacoes(faturaId: string): Promise<CartaoTransacao[]>;
@@ -287,6 +289,41 @@ export class DatabaseStorage implements IStorage {
       .from(faturas)
       .where(eq(faturas.id, id));
     return fatura;
+  }
+
+  async getOrCreateFaturaAberta(cartaoId: string, mes: number, ano: number): Promise<Fatura> {
+    // Buscar fatura aberta existente para o mês/ano
+    const [faturaExistente] = await db
+      .select()
+      .from(faturas)
+      .where(
+        and(
+          eq(faturas.cartaoId, cartaoId),
+          eq(faturas.mes, mes),
+          eq(faturas.ano, ano),
+          eq(faturas.status, 'aberta')
+        )
+      );
+    
+    if (faturaExistente) {
+      return faturaExistente;
+    }
+    
+    // Criar nova fatura aberta se não existir
+    return await this.createFatura({
+      cartaoId,
+      mes,
+      ano,
+      valorFechado: '0',
+      status: 'aberta',
+    });
+  }
+
+  async updateFaturaValor(faturaId: string, novoValor: string): Promise<void> {
+    await db
+      .update(faturas)
+      .set({ valorFechado: novoValor })
+      .where(eq(faturas.id, faturaId));
   }
 
   // Card transaction operations

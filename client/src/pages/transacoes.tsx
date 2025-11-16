@@ -71,6 +71,7 @@ const formSchema = z.object({
   tipo: z.enum(["receita", "despesa"], { required_error: "Selecione o tipo" }),
   categoria: z.string().min(1, "Categoria obrigatória"),
   data: z.string().optional(),
+  cartaoId: z.string().optional(),
 });
 
 export default function Transacoes() {
@@ -96,6 +97,10 @@ export default function Transacoes() {
     }
   });
 
+  const { data: cartoes } = useQuery<any[]>({
+    queryKey: ["/api/cartoes"],
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -106,12 +111,13 @@ export default function Transacoes() {
       tipo: undefined,
       categoria: "",
       data: new Date().toISOString().split('T')[0],
+      cartaoId: undefined,
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const dataToSend = {
+      const dataToSend: any = {
         descricao: values.descricao,
         valor: values.valor.toString(),
         tipo: values.tipo === "receita" ? "entrada" : "saida",
@@ -119,6 +125,10 @@ export default function Transacoes() {
         dataReal: values.data || new Date().toISOString().split('T')[0],
         origem: "manual",
       };
+      
+      if (values.cartaoId && values.cartaoId !== "none") {
+        dataToSend.cartaoId = values.cartaoId;
+      }
       
       return await apiRequest("POST", "/api/transacoes", dataToSend);
     },
@@ -348,6 +358,34 @@ export default function Transacoes() {
                         {categorias.map((cat) => (
                           <SelectItem key={cat} value={cat} data-testid={`option-categoria-${cat}`}>
                             {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cartaoId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cartão (opcional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-cartao">
+                          <SelectValue placeholder="Nenhum cartão" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none" data-testid="option-cartao-none">
+                          Nenhum cartão
+                        </SelectItem>
+                        {cartoes?.map((cartao) => (
+                          <SelectItem key={cartao.id} value={cartao.id} data-testid={`option-cartao-${cartao.id}`}>
+                            {cartao.nome} - {cartao.bandeira}
                           </SelectItem>
                         ))}
                       </SelectContent>

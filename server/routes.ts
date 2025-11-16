@@ -289,6 +289,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Validar cartaoId antes de criar a transação
+      if (data.cartaoId) {
+        const cartao = await storage.getCartaoById(data.cartaoId);
+        if (!cartao || cartao.userId !== userId) {
+          return res.status(403).json({ message: "Cartão não encontrado ou não autorizado" });
+        }
+      }
+      
       const transacao = await storage.createTransacao(data);
       
       // Se a transação está vinculada a uma meta, atualizar valorAtual da meta
@@ -303,6 +311,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateGoalStatus(data.goalId, userId, 'concluida');
           }
         }
+      }
+      
+      // Se a transação está vinculada a um cartão, criar entrada em cartao_transacoes
+      if (data.cartaoId) {
+        const dataTransacao = new Date(data.dataReal);
+        const mes = dataTransacao.getMonth() + 1; // getMonth() retorna 0-11
+        const ano = dataTransacao.getFullYear();
+        
+        // Buscar ou criar fatura aberta para o mês/ano da transação
+        const fatura = await storage.getOrCreateFaturaAberta(data.cartaoId, mes, ano);
+        
+        // Criar entrada em cartao_transacoes
+        await storage.createCartaoTransacao({
+          faturaId: fatura.id,
+          descricao: data.descricao || 'Transação',
+          valor: data.valor,
+          dataCompra: data.dataReal,
+          categoria: data.categoria,
+        });
+        
+        // Atualizar valorFechado da fatura
+        const novoValor = parseFloat(fatura.valorFechado) + parseFloat(data.valor);
+        await storage.updateFaturaValor(fatura.id, novoValor.toString());
       }
       
       res.status(201).json(transacao);
