@@ -1,5 +1,5 @@
 import { Route, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, apiRequest } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +7,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, startTransition } from "react";
+import { useEffect, startTransition, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import Transacoes from "@/pages/transacoes";
@@ -70,14 +71,55 @@ function AuthenticatedShell() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, refetchUser } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [processingToken, setProcessingToken] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if (token && !processingToken) {
+      setProcessingToken(true);
+
+      apiRequest('POST', '/api/auth/magic-link', { token })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+          refetchUser();
+          
+          window.history.replaceState({}, '', '/');
+          setLocation('/');
+          
+          toast({
+            title: "Login realizado!",
+            description: "Bem-vindo ao seu dashboard financeiro.",
+          });
+        })
+        .catch((error) => {
+          console.error('[MagicLink] Erro ao processar token:', error);
+          toast({
+            variant: "destructive",
+            title: "Link inválido ou expirado",
+            description: "Solicite um novo link de acesso via WhatsApp.",
+          });
+          
+          window.history.replaceState({}, '', '/');
+        })
+        .finally(() => {
+          setProcessingToken(false);
+        });
+    }
+  }, [toast, setLocation, refetchUser, processingToken]);
+
+  if (isLoading || processingToken) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando...</p>
+          <p className="text-muted-foreground">
+            {processingToken ? "Autenticando..." : "Carregando..."}
+          </p>
         </div>
       </div>
     );
