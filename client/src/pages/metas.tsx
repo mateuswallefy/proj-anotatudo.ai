@@ -51,7 +51,7 @@ export default function Metas() {
   const [dialogOpen, setDialogOpen] = useState(false);
   
   const { data: goals, isLoading } = useQuery<Goal[]>({
-    queryKey: ["/api/goals", period],
+    queryKey: ["/api/goals"],
   });
 
   const form = useForm<FormValues>({
@@ -114,6 +114,7 @@ export default function Metas() {
     );
   }
 
+  const allGoals = goals || [];
   const activeGoals = goals?.filter(g => g.status === 'ativa') || [];
   const completedGoals = goals?.filter(g => g.status === 'concluida') || [];
   const currentYear = new Date().getFullYear();
@@ -123,7 +124,7 @@ export default function Metas() {
     return createdYear === currentYear;
   });
 
-  const totalSaved = activeGoals.reduce((sum, goal) => {
+  const totalSaved = allGoals.reduce((sum, goal) => {
     return sum + parseFloat(goal.valorAtual || '0');
   }, 0);
 
@@ -212,36 +213,49 @@ export default function Metas() {
           </Button>
         </div>
 
-        {activeGoals && activeGoals.length > 0 ? (
+        {allGoals && allGoals.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {activeGoals.map((goal, index) => {
+            {allGoals.map((goal, index) => {
               const valorAtual = parseFloat(goal.valorAtual);
               const valorAlvo = parseFloat(goal.valorAlvo);
               const progresso = valorAlvo > 0 ? (valorAtual / valorAlvo) * 100 : 0;
               const faltam = valorAlvo - valorAtual;
+              const isCompleted = goal.status === 'concluida';
               
               return (
                 <Card
                   key={goal.id}
-                  className="hover-elevate active-elevate-2"
+                  className={`hover-elevate active-elevate-2 ${isCompleted ? 'border-green-500/50' : ''}`}
                   data-testid={`goal-card-${index}`}
                 >
                   <CardContent className="p-6 space-y-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        {goal.prioridade && (
-                          <Badge 
-                            variant={goal.prioridade === 'alta' ? 'destructive' : 'default'}
-                            className={`mb-2 ${
-                              goal.prioridade === 'media' ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20' :
-                              goal.prioridade === 'baixa' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' :
-                              ''
-                            }`}
-                            data-testid={`badge-priority-${index}`}
-                          >
-                            {goal.prioridade === 'alta' ? 'Alta' : goal.prioridade === 'media' ? 'Média' : 'Baixa'}
-                          </Badge>
-                        )}
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {isCompleted && (
+                            <Badge 
+                              variant="default"
+                              className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                              data-testid={`badge-completed-${index}`}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Concluída
+                            </Badge>
+                          )}
+                          {goal.prioridade && (
+                            <Badge 
+                              variant={goal.prioridade === 'alta' ? 'destructive' : 'default'}
+                              className={`${
+                                goal.prioridade === 'media' ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20' :
+                                goal.prioridade === 'baixa' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' :
+                                ''
+                              }`}
+                              data-testid={`badge-priority-${index}`}
+                            >
+                              {goal.prioridade === 'alta' ? 'Alta' : goal.prioridade === 'media' ? 'Média' : 'Baixa'}
+                            </Badge>
+                          )}
+                        </div>
                         <h3 className="font-semibold text-lg mb-1" data-testid={`goal-name-${index}`}>
                           {goal.nome}
                         </h3>
