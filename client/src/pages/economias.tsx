@@ -16,6 +16,8 @@ type PeriodSummary = {
   totalReceitas: number;
   totalDespesas: number;
   saldoPeriodo: number;
+  variacaoReceitas: number;
+  variacaoDespesas: number;
 };
 
 export default function Economias() {
@@ -54,7 +56,7 @@ export default function Economias() {
   const totalDespesas = periodSummary?.totalDespesas || 0;
   const economia = totalReceitas - totalDespesas;
   const taxaEconomia = totalReceitas > 0 ? (economia / totalReceitas) * 100 : 0;
-  const variacaoReceitas = (periodSummary as any)?.variacaoReceitas || 0;
+  const variacaoReceitas = periodSummary?.variacaoReceitas || 0;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -68,7 +70,7 @@ export default function Economias() {
 
       {/* CTA Button */}
       <Button
-        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 hover:from-blue-700 hover:to-purple-700"
+        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 no-default-hover-elevate"
         data-testid="button-registrar-economia"
       >
         <Plus className="h-4 w-4" />
@@ -81,7 +83,7 @@ export default function Economias() {
           icon={PiggyBank}
           label="Total Economizado"
           value={`R$ ${economia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          subtitle="+10% da renda"
+          subtitle={`${taxaEconomia.toFixed(1)}% da renda`}
           iconColor="text-purple-600 dark:text-purple-400"
           iconBg="bg-purple-600/10"
           data-testid="card-total-economizado"
@@ -101,7 +103,7 @@ export default function Economias() {
           icon={Percent}
           label="% da Renda"
           value={`${taxaEconomia.toFixed(1)}%`}
-          subtitle="Meta: 15%"
+          subtitle={economia >= 0 ? `Economizando ${taxaEconomia.toFixed(1)}%` : `Gastando mais que a renda`}
           iconColor="text-purple-600 dark:text-purple-400"
           iconBg="bg-purple-600/10"
           data-testid="card-percentual-renda"
