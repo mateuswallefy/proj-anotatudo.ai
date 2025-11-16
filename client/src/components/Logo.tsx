@@ -29,7 +29,7 @@ export function Logo({ className = "h-8" }: { className?: string }) {
         x="110" 
         y="75" 
         className="fill-[#1e3a5f] dark:fill-slate-100"
-        style={{ fontSize: '42px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.5px' }}
+        style={{ fontSize: '36px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-1.5px' }}
       >
         AnotaTudo<tspan className="fill-[#10b981]">.AI</tspan>
       </text>
