@@ -10,13 +10,18 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend
 - **Technology Stack**: React with TypeScript, Vite, TailwindCSS, Shadcn UI (Radix UI primitives).
-- **Design System**: Adheres to Material Design 3 principles for financial layouts, mobile-first responsive design, HSL-based CSS variables for theming, Inter for primary typography, JetBrains Mono for financial values, and full dark mode support.
-- **State Management**: TanStack Query (React Query) for server state, custom hooks for authentication and UI state, React Hook Form with Zod for form management.
-- **Routing**: Wouter for client-side routing with protected authentication-based routes.
-- **Instant Tab Navigation**: Pages remain mounted using `display: none/block` for smooth transitions without loading states.
-- **Premium Analytics Dashboard**: Features redesigned components like PeriodSummaryCards, MonthlyComparisonChart, ExpensesByCategoryChart, IncomeByCategoryChart, and YearlyEvolutionChart, incorporating glassmorphism and smooth animations with a modern Material Design 3 color palette.
+- **Design System**: Adheres to Material Design 3 principles for financial layouts, mobile-first responsive design, HSL-based CSS variables for theming, Inter for primary typography, JetBrains Mono for financial values, and full dark mode support. Design inspiration from Lasy.AI fintech dashboard.
+- **State Management**: TanStack Query (React Query) for server state, TabContext for instant navigation state, custom hooks for authentication and UI state, React Hook Form with Zod for form management.
+- **Navigation Architecture**: 
+  - **Horizontal NavBar**: Lasy.AI-inspired top navigation with 8 tabs (Dashboard, Transações, Economias, Orçamento, Metas, Cartões, Insights, Configurações)
+  - **Zero Reload Navigation**: All pages mounted simultaneously, TabContext controls visibility via CSS `display: none/block` for instant switching
+  - **Responsive Design**: Desktop tabs in center, mobile scrollable tabs below navbar, period selector and theme toggle on right
+- **Monthly Focus Dashboard**: 
+  - **CardsMensais Component**: 4 monthly summary cards (ENTRADAS, DESPESAS, ECONOMIAS, SALDO DO MÊS) with glassmorphism design
+  - **New Pages**: Economias (savings breakdown), Orçamento (budget limits), Metas (financial goals), Insights (AI insights - separated from dashboard)
+  - **Data Source**: `/api/analytics/period-summary` endpoint providing monthly financial overview
 - **Period Filtering System**: Comprehensive month-based filtering system integrated with URL synchronization and React Query caching, allowing users to view transactions and analytics for any specific month.
-- **Mobile UX Enhancements**: Includes improved navigation (larger tap targets, visible logo), responsive transaction list (card layout on mobile), and a Floating Action Button (FAB) for quick transaction creation.
+- **Mobile UX**: Horizontal scrollable tabs, responsive card layouts, optimized touch targets, period selector accessible on all screen sizes.
 
 ### Backend
 - **Technology Stack**: Express.js with TypeScript.
