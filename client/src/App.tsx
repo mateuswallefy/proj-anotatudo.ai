@@ -1,24 +1,25 @@
-import { Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { NavBar } from "@/components/NavBar";
 import { FAB } from "@/components/fab";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
+import { TabProvider, useTab } from "@/contexts/TabContext";
 import { useEffect, startTransition } from "react";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import Transacoes from "@/pages/transacoes";
+import Economias from "@/pages/economias";
+import Orcamento from "@/pages/orcamento";
+import Metas from "@/pages/metas";
 import Cartoes from "@/pages/cartoes";
-import Adicionar from "@/pages/adicionar";
+import Insights from "@/pages/insights";
 import Configuracoes from "@/pages/configuracoes";
 
 function AuthenticatedShell() {
-  const [location] = useLocation();
+  const { activeTab } = useTab();
 
   // Prefetch non-period-specific data on mount
   useEffect(() => {
@@ -27,53 +28,47 @@ function AuthenticatedShell() {
       queryClient.prefetchQuery({ queryKey: ["/api/goals"] });
       queryClient.prefetchQuery({ queryKey: ["/api/spending-limits"] });
       queryClient.prefetchQuery({ queryKey: ["/api/account-members"] });
+      queryClient.prefetchQuery({ queryKey: ["/api/contas"] });
+      queryClient.prefetchQuery({ queryKey: ["/api/investimentos"] });
+      queryClient.prefetchQuery({ queryKey: ["/api/alertas"] });
+      queryClient.prefetchQuery({ queryKey: ["/api/insights-ai"] });
     });
   }, []);
 
-  const style = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
-  };
-
   return (
-    <PeriodProvider>
-      <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
-          <AppSidebar />
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <header className="flex items-center justify-between px-4 py-3 border-b bg-background sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <SidebarTrigger 
-                  data-testid="button-sidebar-toggle" 
-                  className="h-11 w-11 md:h-9 md:w-9"
-                />
-                <h1 className="text-lg font-bold md:hidden">AnotaTudo.AI</h1>
-              </div>
-              <ThemeToggle />
-            </header>
-            <main className="flex-1 overflow-auto w-full">
-              <div className="w-full" style={{ display: location === "/" ? "block" : "none" }}>
-                <Dashboard />
-              </div>
-              <div className="w-full" style={{ display: location === "/transacoes" ? "block" : "none" }}>
-                <Transacoes />
-              </div>
-              <div className="w-full" style={{ display: location === "/cartoes" ? "block" : "none" }}>
-                <Cartoes />
-              </div>
-              <div className="w-full" style={{ display: location === "/adicionar" ? "block" : "none" }}>
-                <Adicionar />
-              </div>
-              <div className="w-full" style={{ display: location === "/configuracoes" ? "block" : "none" }}>
-                <Configuracoes />
-              </div>
-            </main>
-          </div>
+    <div className="flex flex-col h-screen w-full">
+      <NavBar />
+      
+      <main className="flex-1 overflow-auto w-full">
+        <div className="w-full" style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
+          <Dashboard />
         </div>
-        <FAB />
-        <Toaster />
-      </SidebarProvider>
-    </PeriodProvider>
+        <div className="w-full" style={{ display: activeTab === "transacoes" ? "block" : "none" }}>
+          <Transacoes />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "economias" ? "block" : "none" }}>
+          <Economias />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "orcamento" ? "block" : "none" }}>
+          <Orcamento />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "metas" ? "block" : "none" }}>
+          <Metas />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "cartoes" ? "block" : "none" }}>
+          <Cartoes />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "insights" ? "block" : "none" }}>
+          <Insights />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "configuracoes" ? "block" : "none" }}>
+          <Configuracoes />
+        </div>
+      </main>
+
+      <FAB />
+      <Toaster />
+    </div>
   );
 }
 
@@ -94,13 +89,19 @@ function AppContent() {
   if (!isAuthenticated) {
     return (
       <>
-        <Route path="/" component={Auth} />
+        <Auth />
         <Toaster />
       </>
     );
   }
 
-  return <AuthenticatedShell />;
+  return (
+    <PeriodProvider>
+      <TabProvider>
+        <AuthenticatedShell />
+      </TabProvider>
+    </PeriodProvider>
+  );
 }
 
 function App() {

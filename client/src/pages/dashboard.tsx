@@ -14,12 +14,9 @@ import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoryChart";
 import { IncomeByCategoryChart } from "@/components/IncomeByCategoryChart";
 import { YearlyEvolutionChart } from "@/components/YearlyEvolutionChart";
 import { AlertasImportantes } from "@/components/AlertasImportantes";
-import { ResumoPatrimonial } from "@/components/ResumoPatrimonial";
-import { PortfolioInvestimentos } from "@/components/PortfolioInvestimentos";
-import { InsightsInteligentes } from "@/components/InsightsInteligentes";
+import { CardsMensais } from "@/components/CardsMensais";
 import { LightbulbIcon } from "lucide-react";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { PeriodSelector } from "@/components/PeriodSelector";
 
 interface FinancialInsights {
   mediaDiariaGastos: number;
@@ -152,22 +149,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard Financeiro Premium</h1>
-          <p className="text-muted-foreground">
-            Visão completa e inteligente das suas finanças
-          </p>
-        </div>
-        <PeriodSelector />
-      </div>
-
-      {/* Alertas Importantes - NOVO! */}
+      {/* Alertas Importantes */}
       <AlertasImportantes />
 
-      {/* Resumo Patrimonial - 4 Cards Principais - NOVO! */}
-      <ResumoPatrimonial />
+      {/* Cards Mensais - ENTRADAS, DESPESAS, ECONOMIAS, SALDO */}
+      <CardsMensais />
 
       {/* Monthly Comparison Chart */}
       <MonthlyComparisonChart />
@@ -180,12 +166,6 @@ export default function Dashboard() {
 
       {/* Yearly Evolution */}
       <YearlyEvolutionChart />
-
-      {/* Portfólio e Insights - NOVO! */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PortfolioInvestimentos />
-        <InsightsInteligentes />
-      </div>
 
       {/* Insights Cards */}
       {insights && (
