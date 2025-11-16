@@ -8,6 +8,11 @@ import { CategoryRanking } from "@/components/CategoryRanking";
 import { WeekdayAnalysis } from "@/components/WeekdayAnalysis";
 import { DailyAverageChart } from "@/components/DailyAverageChart";
 import { RecentTransactions } from "@/components/RecentTransactions";
+import { PeriodSummaryCards } from "@/components/PeriodSummaryCards";
+import { MonthlyComparisonChart } from "@/components/MonthlyComparisonChart";
+import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoryChart";
+import { IncomeByCategoryChart } from "@/components/IncomeByCategoryChart";
+import { YearlyEvolutionChart } from "@/components/YearlyEvolutionChart";
 import { LightbulbIcon } from "lucide-react";
 
 interface FinancialInsights {
@@ -124,14 +129,29 @@ export default function Dashboard() {
   const hasSpendingLimit = spendingProgress && spendingProgress.limiteTotal > 0;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-8 p-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard Financeiro</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard Financeiro</h1>
         <p className="text-muted-foreground">
-          Visão completa com insights inteligentes sobre suas finanças
+          Visão completa e inteligente das suas finanças
         </p>
       </div>
+
+      {/* Premium Summary Cards - New! */}
+      <PeriodSummaryCards />
+
+      {/* Monthly Comparison Chart - New! */}
+      <MonthlyComparisonChart />
+
+      {/* Category Charts Row - New! */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ExpensesByCategoryChart />
+        <IncomeByCategoryChart />
+      </div>
+
+      {/* Yearly Evolution - New! */}
+      <YearlyEvolutionChart />
 
       {/* Insights Cards */}
       {insights && (
@@ -143,6 +163,25 @@ export default function Dashboard() {
           totalReceitasMes={insights.totalReceitasMes}
         />
       )}
+
+      {/* Analysis Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Daily Average Chart */}
+        {insights && (
+          <DailyAverageChart
+            gastosPorDia={insights.gastosPorDia}
+            receitasPorDia={insights.receitasPorDia}
+          />
+        )}
+
+        {/* Weekday Analysis */}
+        {insights && (
+          <WeekdayAnalysis
+            gastosPorDiaSemana={insights.gastosPorDiaSemana}
+            diaSemanaQueMaisGasta={insights.diaSemanaQueMaisGasta}
+          />
+        )}
+      </div>
 
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -163,25 +202,6 @@ export default function Dashboard() {
           <div className={hasSpendingLimit ? "lg:col-span-2" : "lg:col-span-3"}>
             <CategoryRanking topCategorias={insights.topCategorias} />
           </div>
-        )}
-      </div>
-
-      {/* Analysis Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Average Chart */}
-        {insights && (
-          <DailyAverageChart
-            gastosPorDia={insights.gastosPorDia}
-            receitasPorDia={insights.receitasPorDia}
-          />
-        )}
-
-        {/* Weekday Analysis */}
-        {insights && (
-          <WeekdayAnalysis
-            gastosPorDiaSemana={insights.gastosPorDiaSemana}
-            diaSemanaQueMaisGasta={insights.diaSemanaQueMaisGasta}
-          />
         )}
       </div>
 

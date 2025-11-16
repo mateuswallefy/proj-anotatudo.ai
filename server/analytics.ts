@@ -282,3 +282,286 @@ export async function calculateSpendingProgress(
     status,
   };
 }
+
+// New premium analytics functions
+
+export interface MonthlyComparison {
+  mes: string;
+  receitas: number;
+  despesas: number;
+  saldo: number;
+}
+
+export interface CategoryBreakdown {
+  categoria: string;
+  total: number;
+  percentual: number;
+  transacoes: number;
+  cor: string;
+}
+
+export interface PeriodSummary {
+  totalReceitas: number;
+  totalDespesas: number;
+  saldo: number;
+  variacaoReceitas: number; // % vs período anterior
+  variacaoDespesas: number; // % vs período anterior
+  transacoesTotal: number;
+}
+
+export interface YearlyEvolution {
+  ano: number;
+  mes: number;
+  mesNome: string;
+  receitas: number;
+  despesas: number;
+  saldo: number;
+}
+
+// Receitas x Despesas por Mês (últimos 12 meses)
+export async function getMonthlyComparison(
+  userId: string,
+  months: number = 12
+): Promise<MonthlyComparison[]> {
+  const allTransactions = await storage.getTransacoes(userId);
+  const now = new Date();
+  const results: MonthlyComparison[] = [];
+
+  for (let i = months - 1; i >= 0; i--) {
+    const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const targetMes = targetDate.getMonth() + 1;
+    const targetAno = targetDate.getFullYear();
+
+    const monthTransactions = allTransactions.filter(t => {
+      const date = new Date(t.dataReal);
+      return date.getMonth() + 1 === targetMes && date.getFullYear() === targetAno;
+    });
+
+    const receitas = monthTransactions
+      .filter(t => t.tipo === 'entrada')
+      .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+    const despesas = monthTransactions
+      .filter(t => t.tipo === 'saida')
+      .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+    const mesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    results.push({
+      mes: `${mesNomes[targetMes - 1]}/${targetAno.toString().slice(2)}`,
+      receitas,
+      despesas,
+      saldo: receitas - despesas,
+    });
+  }
+
+  return results;
+}
+
+// Despesas por Categoria
+export async function getExpensesByCategory(
+  userId: string,
+  mes?: number,
+  ano?: number
+): Promise<CategoryBreakdown[]> {
+  const now = new Date();
+  const targetMes = mes ?? now.getMonth() + 1;
+  const targetAno = ano ?? now.getFullYear();
+
+  const allTransactions = await storage.getTransacoes(userId);
+  const monthTransactions = allTransactions.filter(t => {
+    const date = new Date(t.dataReal);
+    return (
+      t.tipo === 'saida' &&
+      date.getMonth() + 1 === targetMes &&
+      date.getFullYear() === targetAno
+    );
+  });
+
+  const categorias: Record<string, number> = {};
+  const transacoesPorCategoria: Record<string, number> = {};
+
+  monthTransactions.forEach(t => {
+    if (!categorias[t.categoria]) {
+      categorias[t.categoria] = 0;
+      transacoesPorCategoria[t.categoria] = 0;
+    }
+    categorias[t.categoria] += parseFloat(t.valor);
+    transacoesPorCategoria[t.categoria]++;
+  });
+
+  const total = Object.values(categorias).reduce((sum, val) => sum + val, 0);
+
+  // Cores da paleta de charts
+  const coresPaleta = [
+    '#F2994A', // Laranja (despesas)
+    '#8B5CF6', // Roxo
+    '#EC4899', // Rosa
+    '#3B82F6', // Azul
+    '#0AA298', // Teal
+    '#F59E0B', // Amber
+  ];
+
+  return Object.entries(categorias)
+    .map(([categoria, valor], index) => ({
+      categoria,
+      total: valor,
+      percentual: total > 0 ? (valor / total) * 100 : 0,
+      transacoes: transacoesPorCategoria[categoria],
+      cor: coresPaleta[index % coresPaleta.length],
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+// Receitas por Categoria
+export async function getIncomeByCategory(
+  userId: string,
+  mes?: number,
+  ano?: number
+): Promise<CategoryBreakdown[]> {
+  const now = new Date();
+  const targetMes = mes ?? now.getMonth() + 1;
+  const targetAno = ano ?? now.getFullYear();
+
+  const allTransactions = await storage.getTransacoes(userId);
+  const monthTransactions = allTransactions.filter(t => {
+    const date = new Date(t.dataReal);
+    return (
+      t.tipo === 'entrada' &&
+      date.getMonth() + 1 === targetMes &&
+      date.getFullYear() === targetAno
+    );
+  });
+
+  const categorias: Record<string, number> = {};
+  const transacoesPorCategoria: Record<string, number> = {};
+
+  monthTransactions.forEach(t => {
+    if (!categorias[t.categoria]) {
+      categorias[t.categoria] = 0;
+      transacoesPorCategoria[t.categoria] = 0;
+    }
+    categorias[t.categoria] += parseFloat(t.valor);
+    transacoesPorCategoria[t.categoria]++;
+  });
+
+  const total = Object.values(categorias).reduce((sum, val) => sum + val, 0);
+
+  const coresPaleta = [
+    '#0F9D58', // Esmeralda (receitas)
+    '#0AA298', // Teal
+    '#3B82F6', // Azul
+    '#8B5CF6', // Roxo
+    '#10B981', // Green
+    '#06B6D4', // Cyan
+  ];
+
+  return Object.entries(categorias)
+    .map(([categoria, valor], index) => ({
+      categoria,
+      total: valor,
+      percentual: total > 0 ? (valor / total) * 100 : 0,
+      transacoes: transacoesPorCategoria[categoria],
+      cor: coresPaleta[index % coresPaleta.length],
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+// Evolução Anual
+export async function getYearlyEvolution(
+  userId: string,
+  ano?: number
+): Promise<YearlyEvolution[]> {
+  const targetAno = ano ?? new Date().getFullYear();
+  const allTransactions = await storage.getTransacoes(userId);
+  const mesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  
+  const results: YearlyEvolution[] = [];
+
+  for (let mes = 1; mes <= 12; mes++) {
+    const monthTransactions = allTransactions.filter(t => {
+      const date = new Date(t.dataReal);
+      return date.getMonth() + 1 === mes && date.getFullYear() === targetAno;
+    });
+
+    const receitas = monthTransactions
+      .filter(t => t.tipo === 'entrada')
+      .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+    const despesas = monthTransactions
+      .filter(t => t.tipo === 'saida')
+      .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+    results.push({
+      ano: targetAno,
+      mes,
+      mesNome: mesNomes[mes - 1],
+      receitas,
+      despesas,
+      saldo: receitas - despesas,
+    });
+  }
+
+  return results;
+}
+
+// Resumo do Período
+export async function getPeriodSummary(
+  userId: string,
+  mes?: number,
+  ano?: number
+): Promise<PeriodSummary> {
+  const now = new Date();
+  const targetMes = mes ?? now.getMonth() + 1;
+  const targetAno = ano ?? now.getFullYear();
+
+  const allTransactions = await storage.getTransacoes(userId);
+
+  // Current period
+  const currentPeriod = allTransactions.filter(t => {
+    const date = new Date(t.dataReal);
+    return date.getMonth() + 1 === targetMes && date.getFullYear() === targetAno;
+  });
+
+  // Previous period (month before)
+  const prevMes = targetMes === 1 ? 12 : targetMes - 1;
+  const prevAno = targetMes === 1 ? targetAno - 1 : targetAno;
+  const previousPeriod = allTransactions.filter(t => {
+    const date = new Date(t.dataReal);
+    return date.getMonth() + 1 === prevMes && date.getFullYear() === prevAno;
+  });
+
+  const totalReceitas = currentPeriod
+    .filter(t => t.tipo === 'entrada')
+    .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+  const totalDespesas = currentPeriod
+    .filter(t => t.tipo === 'saida')
+    .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+  const prevReceitas = previousPeriod
+    .filter(t => t.tipo === 'entrada')
+    .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+  const prevDespesas = previousPeriod
+    .filter(t => t.tipo === 'saida')
+    .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+  const variacaoReceitas = prevReceitas > 0 
+    ? ((totalReceitas - prevReceitas) / prevReceitas) * 100 
+    : 0;
+
+  const variacaoDespesas = prevDespesas > 0 
+    ? ((totalDespesas - prevDespesas) / prevDespesas) * 100 
+    : 0;
+
+  return {
+    totalReceitas,
+    totalDespesas,
+    saldo: totalReceitas - totalDespesas,
+    variacaoReceitas,
+    variacaoDespesas,
+    transacoesTotal: currentPeriod.length,
+  };
+}

@@ -13,7 +13,15 @@ import {
   insertCategoriaCustomizadaSchema
 } from "@shared/schema";
 import { processWhatsAppMessage } from "./ai";
-import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
+import { 
+  calculateFinancialInsights, 
+  calculateSpendingProgress,
+  getMonthlyComparison,
+  getExpensesByCategory,
+  getIncomeByCategory,
+  getYearlyEvolution,
+  getPeriodSummary
+} from "./analytics";
 import { z } from "zod";
 import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp";
 
@@ -709,6 +717,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error calculating spending progress:", error);
       res.status(500).json({ message: "Failed to calculate progress" });
+    }
+  });
+
+  // Premium analytics endpoints
+  app.get("/api/analytics/monthly-comparison", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const months = req.query.months ? parseInt(req.query.months as string) : 12;
+      
+      const data = await getMonthlyComparison(userId, months);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting monthly comparison:", error);
+      res.status(500).json({ message: "Failed to get monthly comparison" });
+    }
+  });
+
+  app.get("/api/analytics/expenses-by-category", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      
+      const data = await getExpensesByCategory(userId, mes, ano);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting expenses by category:", error);
+      res.status(500).json({ message: "Failed to get expenses by category" });
+    }
+  });
+
+  app.get("/api/analytics/income-by-category", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      
+      const data = await getIncomeByCategory(userId, mes, ano);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting income by category:", error);
+      res.status(500).json({ message: "Failed to get income by category" });
+    }
+  });
+
+  app.get("/api/analytics/yearly-evolution", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      
+      const data = await getYearlyEvolution(userId, ano);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting yearly evolution:", error);
+      res.status(500).json({ message: "Failed to get yearly evolution" });
+    }
+  });
+
+  app.get("/api/analytics/period-summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      
+      const data = await getPeriodSummary(userId, mes, ano);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting period summary:", error);
+      res.status(500).json({ message: "Failed to get period summary" });
     }
   });
 
