@@ -1,261 +1,131 @@
 # AnotaTudo.AI - Replit Development Guide
 
 ## Overview
-
-AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp messages into structured financial records using AI. Users can send text, audio, photos, or videos via WhatsApp, and the system automatically categorizes and organizes these inputs into a comprehensive financial dashboard.
-
-**Core Functionality:**
-- WhatsApp integration for receiving financial data in multiple formats (text, audio, image, video)
-- AI-powered classification and extraction of financial transaction data
-- Dashboard for visualizing income, expenses, credit cards, and financial trends
-- Manual transaction entry and management
-- Credit card tracking with invoice management
-
-**Technology Stack:**
-- Frontend: React with TypeScript, Vite, TailwindCSS
-- Backend: Express.js with TypeScript
-- Database: PostgreSQL via Neon (serverless)
-- ORM: Drizzle ORM
-- UI Components: Shadcn UI (Radix UI primitives)
-- AI: OpenAI API (GPT-5)
-- Authentication: Replit Auth (OpenID Connect)
-
-## Recent Changes (November 16, 2025)
-
-### Simplified Authentication System (No Magic Links)
-- **Security Decision:** Removed phone-based login AND magic-links - web dashboard access now **requires email+password only**
-- **Caktos Integration:** Webhook (`/api/webhook-caktos`) receives purchase notifications from Caktos payment platform
-  - **UPSERT Logic:** Uses Postgres `onConflictDoUpdate` on `purchases.purchaseId` (UNIQUE constraint)
-  - **Status Updates:** When Caktos sends approved→refunded, existing record is atomically updated
-  - **Thread-Safe:** Concurrent webhook deliveries collapse into single row per purchase
-  - **User Creation:** Creates user record WITHOUT password (password set via WhatsApp)
-  
-- **WhatsApp-to-Database Pipeline:** WhatsApp messages automatically create transactions in database (no web login required)
-  1. User sends first WhatsApp message → system creates user with `status='awaiting_email'`
-  2. System prompts: "Para liberar seu acesso, envie o e-mail usado na compra."
-  3. User sends email → system validates against `purchases` table
-  4. If purchase approved → **system generates secure temporary password using crypto.randomBytes**
-  5. **Password sent via WhatsApp message** (12 characters, cryptographically secure)
-  6. User can login immediately with email + temporary password
-  7. Transactions sent via WhatsApp automatically appear in database
-  
-- **Web Dashboard Access:** Users login with email+password (traditional authentication)
-  - Session duration: 30 days for convenience
-  - bcrypt password hashing for security
-  - No phone-based login available
-  - Cookie security: `secure: process.env.NODE_ENV === 'production'` allows HTTP in dev, HTTPS in prod
-  - SameSite: 'lax' for CSRF protection
-  
-- **Password Management:**
-  - **Initial Password:** Generated via WhatsApp authentication (crypto.randomBytes - CSPRNG)
-  - **Password Reset:** Send WhatsApp message with commands: "senha", "recuperar senha", "esqueci senha", or "nova senha"
-  - **Reset Security:** Only authenticated WhatsApp users can request new password (validated via phone number)
-  - **Process:** User sends command → System generates new secure temporary password → Sends via WhatsApp
-  - **Web Registration:** `/api/auth/register` rejects existing emails (no web-based password reset to prevent account hijacking)
-  
-- **Rate Limiting:** 10 messages per minute per phone number to prevent WhatsApp abuse
-  - In-memory token bucket implementation
-  - Normalized phone numbers to prevent bypass via different formats
-
-### Instant Tab Navigation System
-- **TabShell Component:** All pages (Dashboard, Transações, Cartões, Adicionar, Configurações) remain mounted simultaneously
-- **Display Toggle:** Navigation switches between pages using `display: none/block` instead of mount/unmount
-- **Zero Loading States:** Eliminates loading spinners when switching tabs
-- **Smart Prefetch:** All critical data queries prefetch on initial app mount using React Query
-- **Smooth Transitions:** Uses React's `startTransition` for 60fps tab switches
-- **URL Sync:** Browser history and URL update without page remount
-
-### Material Design 3 Dashboard Redesign
-- **Modern Color Palette:**
-  - Primary: Emerald (#10B981) - income, positive values
-  - Secondary: Teal (#0AA298) - expenses, neutral actions  
-  - Accent: Orange (#F2994A) - warnings, highlights
-  - Neutrals: Blue-gray tones for sophisticated backgrounds
-- **Typography:** Inter for UI text, JetBrains Mono for financial values (tabular-nums)
-- **Redesigned Components:**
-  - **SpendingSpeedometer:** RadialBarChart with radial gradients, centered percentage display (48px font)
-  - **DailyAverageChart:** AreaChart with 0.6→0 opacity gradients, animated dots, glassmorphism tooltips
-  - **WeekdayAnalysis:** Rounded bars (8px radius), vertical gradients, highlighted max values
-  - **CategoryRanking:** Circular tonal icons (40px), badges for transaction counts, mini progress bars
-  - **InsightsCards:** Tonal surfaces (HSL alpha 0.05-0.15), circular icons (48px), uppercase labels
-- **Glassmorphism:** Chart tooltips use backdrop-blur with semi-transparent backgrounds
-- **Animations:** All charts use 400ms smooth transitions following Material Motion guidelines
-- **Dark Mode:** Full HSL-based color system with proper alpha channel support for both themes
+AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp messages into structured financial records using AI. It allows users to send financial data via WhatsApp (text, audio, photos, videos) which is then categorized and organized into a comprehensive financial dashboard. The platform provides tools for visualizing income, expenses, credit cards, and financial trends, alongside manual transaction management. The project aims to provide a seamless and intuitive financial tracking experience, leveraging AI for automatic data processing.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
+- **Technology Stack**: React with TypeScript, Vite, TailwindCSS, Shadcn UI (Radix UI primitives).
+- **Component System**: Utilizes Shadcn UI, adhering to Material Design 3 principles for financial layouts. Responsive design is mobile-first.
+- **State Management**: TanStack Query (React Query) for server state, custom hooks for authentication and UI state, React Hook Form with Zod for form management.
+- **Routing**: Wouter for client-side routing, with protected routes based on authentication.
+- **Design System**: HSL-based CSS variables for theming, Inter for primary typography, JetBrains Mono for financial values, with full dark mode support.
+- **Instant Tab Navigation**: Pages remain mounted, using `display: none/block` for switching, eliminating loading states and prefetching data with React Query.
+- **Material Design 3 Dashboard Redesign**: Features a modern color palette (Emerald, Teal, Orange), enhanced typography, and redesigned components like SpendingSpeedometer, DailyAverageChart, WeekdayAnalysis, CategoryRanking, and InsightsCards, incorporating glassmorphism and smooth animations.
 
-**Component System:**
-- Uses Shadcn UI component library built on Radix UI primitives
-- Material Design 3 principles for information-dense financial layouts
-- Component path aliases configured via `components.json`
-- Responsive design with mobile-first breakpoints (768px threshold)
+## Premium Analytics Dashboard (November 16, 2025)
 
-**State Management:**
-- TanStack Query (React Query) for server state management
-- Custom hooks for authentication (`useAuth`) and UI state
-- Form state managed via React Hook Form with Zod validation
+### New Analytics Endpoints
+- **`/api/analytics/period-summary`**: Returns total income, total expenses, and period balance with month-over-month percentage variations. Aggregates current month vs previous month.
+- **`/api/analytics/monthly-comparison`**: Provides 12-month comparison of revenues vs expenses with Portuguese month names (e.g., "Jan/25"). Each entry includes `mes`, `receitas`, `despesas`, and `saldo`.
+- **`/api/analytics/expenses-by-category`**: Category breakdown with totals, percentages, transaction counts, and assigned colors. Top categories sorted by total amount.
+- **`/api/analytics/income-by-category`**: Income source distribution with same structure as expenses.
+- **`/api/analytics/yearly-evolution`**: Monthly progression for the current year showing revenues, expenses, and balance evolution.
 
-**Routing:**
-- Wouter for client-side routing (lightweight alternative to React Router)
-- Protected routes based on authentication state
-- Main routes: Dashboard, Transactions, Cards, Add Transaction, Settings
+### Premium Dashboard Components
 
-**Design System:**
-- Typography: Inter (primary), JetBrains Mono (financial values)
-- Color system: HSL-based CSS variables for theming
-- Spacing: Tailwind's spacing scale (2, 4, 6, 8, 12, 16)
-- Dark mode support via class-based theme switching
+#### PeriodSummaryCards
+Three large cards displaying Total Income, Total Expenses, and Period Balance.
+- Material Design 3 gradients: emerald (#0F9D58), orange (#F2994A), teal/red (#0AA298 / #EF4444)
+- Tonal surfaces with HSL alpha 0.05-0.15
+- Circular icons (48px: DollarSign, Wallet, PiggyBank)
+- Month-over-month variation with TrendingUp/Down icons
+- Hover elevation effects (hover-elevate, active-elevate-2)
+- Data-testid: `period-summary-cards`, `summary-card-{index}`
 
-### Backend Architecture
+#### MonthlyComparisonChart
+Dual-bar chart comparing income vs expenses over 12 months.
+- Vertical gradients: emerald for income, orange for expenses (5%→95% opacity)
+- 8px rounded bar tops
+- Glassmorphism tooltip showing receitas, despesas, and calculated saldo
+- Currency-formatted Y-axis (R$ x.xxx)
+- Legend with circle icons
+- 600ms ease-out animations
+- Data-testid: `monthly-comparison-chart`
 
-**API Structure:**
-- RESTful endpoints under `/api` prefix
-- Express.js server with TypeScript
-- Session-based authentication using connect-pg-simple
-- Middleware for request logging and JSON parsing
+#### ExpensesByCategoryChart
+PieChart with percentage distribution and color-coded categories.
+- Custom color per category (12-color palette, modulo for overflow)
+- Percentage labels on slices (only shown if >5%)
+- Glassmorphism tooltip: total, percentage, transaction count
+- Legend with abbreviated percentages
+- Bottom grid showing top 4 categories with color dots
+- 800ms ease-out animation
+- Data-testid: `expenses-by-category-chart`
 
-**Key Endpoints:**
-- `/api/auth/user` - Get current user information
-- `/api/transacoes` - CRUD operations for transactions
-- `/api/cartoes` - Credit card management
-- `/api/faturas` - Invoice management
-- `/api/whatsapp/webhook` - WhatsApp message reception (planned)
+#### IncomeByCategoryChart
+DonutChart with centered total display.
+- Inner radius: 90px, outer radius: 140px, padding angle: 2px
+- Centered total amount in emerald color (#0F9D58)
+- Full category breakdown grid below chart
+- Glassmorphism tooltip with all metrics
+- 800ms ease-out animation
+- Data-testid: `income-by-category-chart`
 
-**Authentication Flow:**
-- **Email+Password Only:** Traditional login for security (no phone-based access)
-- Session storage in PostgreSQL using connect-pg-simple
-- bcrypt password hashing (10 rounds)
-- Protected routes require `isAuthenticated` middleware
-- Session duration: 30 days
+#### YearlyEvolutionChart
+ComposedChart with dual areas and trend line.
+- Dual area charts: emerald (#0F9D58) for income, orange (#F2994A) for expenses
+- Gradient fills (60%→0% opacity)
+- 3px stroke width for areas
+- Dashed trend line for balance (teal #0AA298, 2px stroke, 5-5 dash)
+- Month abbreviations on X-axis (Jan, Fev, Mar...)
+- Glassmorphism tooltip with receitas, despesas, and calculated saldo
+- 800-1000ms staggered animations
+- Data-testid: `yearly-evolution-chart`
 
-**Password Setup (First-Time Users):**
-- WhatsApp authentication triggers magic-link generation
-- Link format: `/setup-password?token=HMAC_SIGNED_TOKEN`
-- Token validation: userId + email verification
-- Password requirements enforced via Zod schema
-- Auto-login after successful password creation
+### Dashboard Layout
+1. Period summary cards at top (3-column grid: `grid-cols-1 md:grid-cols-3`)
+2. Monthly comparison chart (full width)
+3. Category charts side-by-side (2-column grid: `grid-cols-1 lg:grid-cols-2`)
+4. Yearly evolution chart (full width)
+5. Legacy insights and analysis components below
+6. Responsive: mobile (1 col), tablet (2 col), desktop (3 col)
 
-**AI Processing Pipeline:**
-1. Receive message from WhatsApp webhook
-2. Determine message type (text, audio, image, video)
-3. Process content:
-   - Text: Direct classification
-   - Audio: Transcription → classification
-   - Image: OCR → classification
-   - Video: Frame extraction → OCR → classification
-4. Extract structured data (type, category, amount, date, description)
-5. Return confidence score with extracted data
-6. Create transaction record in database
+### Backend Analytics Functions (server/analytics.ts)
+- **`getPeriodSummary(userId)`**: Aggregates transactions from current month and previous month. Calculates totals and percentage variations with zero-safe guards.
+- **`getMonthlyComparison(userId)`**: Fetches last 12 months of transactions, groups by month, formats with Portuguese names.
+- **`getExpensesByCategory(userId)`**: Filters expense transactions, groups by category, assigns colors from palette, calculates percentages.
+- **`getIncomeByCategory(userId)`**: Same as expenses but for income transactions.
+- **`getYearlyEvolution(userId)`**: Groups transactions by month for current year, includes full month names.
+- All functions: user-scoped (WHERE userId = $1), zero-safe calculations, predefined 12-color palette.
 
-### Data Storage Solutions
+### Backend
+- **Technology Stack**: Express.js with TypeScript.
+- **API Structure**: RESTful endpoints under `/api`, using session-based authentication with `connect-pg-simple`.
+- **Authentication Flow**:
+    - **Email+Password Only**: Traditional login for web dashboard access. No phone-based login.
+    - **WhatsApp-to-Database Pipeline**: Initial user creation and password generation occur via WhatsApp interaction.
+    - **Password Management**: Initial passwords are cryptographically secure and sent via WhatsApp. Password resets are also handled via WhatsApp for authenticated users.
+- **AI Processing Pipeline**: Receives messages from WhatsApp, determines type, processes content (transcription, OCR), extracts structured financial data using GPT-5, and records transactions with a confidence score.
+- **Rate Limiting**: Implemented for WhatsApp messages (10 messages/minute per phone number).
 
-**Database Schema (PostgreSQL via Drizzle ORM):**
-
-**Core Tables:**
-- `users` - User profiles with WhatsApp-based authentication
-  - Stores: id, email (nullable), telefone (unique), status ('awaiting_email' | 'authenticated'), plan
-  - Status field controls access: only authenticated users can create transactions
-  - Created/updated timestamps
-
-- `purchases` - Purchase records from Caktos payment platform
-  - Stores: email, telefone, status ('approved' | 'pending' | 'refunded'), purchaseId, productName, amount
-  - Links purchases to users for authentication validation
-  - Updated when user authenticates via WhatsApp (telefone field populated)
-
-- `transacoes` (Transactions)
-  - Type: entrada (income) / saida (expense)
-  - Categories: Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Compras, Contas, Salário, Investimentos, Outros
-  - Origin tracking: texto, audio, foto, video, manual
-  - Linked to user via userId foreign key
-  - Stores: amount, date, description, confidence score
-
-- `cartoes` (Credit Cards)
-  - Card details: name, total limit, used limit
-  - Billing cycle: closing day, due day
-  - Card brand: visa, mastercard, elo, amex, etc.
-  - Per-user card management
-
-- `faturas` (Invoices)
-  - Linked to specific credit card
-  - Month/year tracking
-  - Status: aberta (open), fechada (closed), paga (paid), atrasada (late)
-  - Total amount and due date
-
-- `cartao_transacoes` (Card Transactions)
-  - Links transactions to specific invoices
-  - Installment tracking (current/total)
-  - Separate from main transactions table
-
-- `sessions` - Session storage for authentication
-  - Required for Replit Auth integration
-
-**ORM Configuration:**
-- Drizzle ORM with PostgreSQL dialect
-- Schema-first approach with type inference
-- Zod integration for runtime validation
-- Migrations managed in `/migrations` directory
-
-**Data Access Pattern:**
-- Storage abstraction layer (`IStorage` interface)
-- `DatabaseStorage` implementation for all CRUD operations
-- User-scoped queries for data isolation
-- Transactional operations for related data updates
+### Data Storage
+- **Database**: PostgreSQL via Neon (serverless) with Drizzle ORM.
+- **Schema**:
+    - `users`: User profiles with WhatsApp-based authentication and plan status.
+    - `purchases`: Records from Caktos payment platform, linking purchases to users.
+    - `transacoes`: Financial transactions (income/expense) with categories, origin tracking, and AI confidence scores.
+    - `cartoes`: Credit card details, including limits and billing cycles.
+    - `faturas`: Invoices linked to credit cards, tracking status and amounts.
+    - `cartao_transacoes`: Links transactions to invoices and manages installments.
+    - `sessions`: Stores authentication sessions.
+- **Data Access**: Storage abstraction layer with user-scoped queries and transactional operations.
 
 ### Authentication and Authorization
+- **Replit Auth Integration**: OAuth 2.0 / OpenID Connect flow with PostgreSQL session storage and HTTPS-only cookies.
+- **User Session Management**: Sessions stored in the database, user info cached, with token refresh and automatic user creation/update.
+- **Authorization**: Route-level protection via `isAuthenticated` middleware, ensuring all queries are scoped to the authenticated user's ID.
 
-**Replit Auth Integration:**
-- OAuth 2.0 / OpenID Connect flow
-- Discovery endpoint: `https://replit.com/oidc`
-- Session management with PostgreSQL storage
-- 7-day session TTL
-- HTTPS-only cookies for security
-
-**User Session Management:**
-- Sessions stored in `sessions` table
-- User information cached in session
-- Token refresh mechanism for expired access tokens
-- Automatic user creation/update on login
-
-**Authorization Pattern:**
-- Route-level protection via `isAuthenticated` middleware
-- User ID from session claims (`req.user.claims.sub`)
-- All queries scoped to authenticated user's ID
-- No cross-user data access
-
-### External Dependencies
-
-**OpenAI Integration:**
-- Model: GPT-5 (latest as of August 2025)
-- Usage: Financial transaction classification and data extraction
-- Structured JSON output for transaction data
-- Confidence scoring for AI interpretations
-
-**WhatsApp Business API (Planned):**
-- Meta WhatsApp Cloud API integration
-- Webhook endpoint for message reception
-- Message type detection and routing
-- Media download and processing capabilities
-
-**Neon Database:**
-- Serverless PostgreSQL hosting
-- WebSocket connection pooling
-- Connection string via `DATABASE_URL` environment variable
-- Automatic connection management
-
-**Third-Party Libraries:**
-- Chart rendering: Recharts for financial visualizations
-- Date handling: date-fns for date formatting and calculations
-- Form validation: Zod schemas with react-hook-form
-- UI components: Complete Radix UI primitive set
-
-**Build and Development Tools:**
-- Vite for frontend bundling and HMR
-- esbuild for backend bundling
-- TypeScript for type safety across full stack
-- Replit-specific plugins for development environment integration
+## External Dependencies
+- **OpenAI API**: Utilized for AI-powered financial transaction classification and data extraction (GPT-5).
+- **WhatsApp Business API**: Planned integration for message reception, processing, and media handling.
+- **Neon Database**: Serverless PostgreSQL hosting.
+- **Recharts**: For rendering financial visualizations.
+- **date-fns**: For date formatting and calculations.
+- **Zod**: For schema validation.
+- **Radix UI**: Primitives for UI components.
+- **Vite & esbuild**: For frontend and backend bundling, respectively.
