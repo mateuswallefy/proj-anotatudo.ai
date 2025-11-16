@@ -282,6 +282,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/transacoes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      const data = insertTransacaoSchema.partial().parse(req.body);
+      
+      const transacao = await storage.updateTransacao(id, userId, data);
+      if (!transacao) {
+        return res.status(404).json({ message: "Transaction not found or unauthorized" });
+      }
+      res.json(transacao);
+    } catch (error: any) {
+      console.error("Error updating transaction:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update transaction" });
+      }
+    }
+  });
+
+  app.delete("/api/transacoes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      await storage.deleteTransacao(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      res.status(500).json({ message: "Failed to delete transaction" });
+    }
+  });
+
   // Custom categories routes
   app.get("/api/categorias-customizadas", isAuthenticated, async (req: any, res) => {
     try {

@@ -14,6 +14,7 @@ import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoryChart";
 import { IncomeByCategoryChart } from "@/components/IncomeByCategoryChart";
 import { YearlyEvolutionChart } from "@/components/YearlyEvolutionChart";
 import { LightbulbIcon } from "lucide-react";
+import { FAB } from "@/components/fab";
 
 interface FinancialInsights {
   mediaDiariaGastos: number;
@@ -229,6 +230,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      
+      <FAB />
     </div>
   );
 }

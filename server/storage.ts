@@ -46,6 +46,8 @@ export interface IStorage {
   getTransacoes(userId: string): Promise<Transacao[]>;
   createTransacao(transacao: InsertTransacao): Promise<Transacao>;
   getTransacaoById(id: string): Promise<Transacao | undefined>;
+  updateTransacao(id: string, userId: string, transacao: Partial<InsertTransacao>): Promise<Transacao | undefined>;
+  deleteTransacao(id: string, userId: string): Promise<void>;
 
   // Card operations
   getCartoes(userId: string): Promise<Cartao[]>;
@@ -152,6 +154,21 @@ export class DatabaseStorage implements IStorage {
       .from(transacoes)
       .where(eq(transacoes.id, id));
     return transacao;
+  }
+
+  async updateTransacao(id: string, userId: string, transacao: Partial<InsertTransacao>): Promise<Transacao | undefined> {
+    const [updatedTransacao] = await db
+      .update(transacoes)
+      .set(transacao)
+      .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
+      .returning();
+    return updatedTransacao;
+  }
+
+  async deleteTransacao(id: string, userId: string): Promise<void> {
+    await db
+      .delete(transacoes)
+      .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)));
   }
 
   // Card operations

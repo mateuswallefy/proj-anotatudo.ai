@@ -81,20 +81,21 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-lg font-bold px-4 py-4">
+          <SidebarGroupLabel className="text-xl font-bold px-4 py-6 mb-2">
             AnotaTudo.AI
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2 px-2">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
                     isActive={location === item.url}
                     data-testid={`sidebar-${item.title.toLowerCase()}`}
+                    className="h-12 text-base"
                   >
                     <a href={item.url}>
-                      <item.icon className="w-4 h-4" />
+                      <item.icon className="w-5 h-5" />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>
@@ -104,16 +105,16 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t">
-        <div className="flex items-center gap-3 mb-3">
-          <Avatar className="w-10 h-10">
+      <SidebarFooter className="p-4 border-t mt-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <Avatar className="w-12 h-12">
             <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-            <AvatarFallback className="bg-primary text-primary-foreground">
+            <AvatarFallback className="bg-primary text-primary-foreground text-base">
               {getUserInitials()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
+            <p className="text-sm font-semibold truncate">
               {user?.firstName && user?.lastName 
                 ? `${user.firstName} ${user.lastName}` 
                 : user?.email || "Usuário"}
@@ -125,7 +126,7 @@ export function AppSidebar() {
         </div>
         <Button
           variant="outline"
-          className="w-full justify-start"
+          className="w-full justify-start h-11"
           onClick={() => logoutMutation.mutate()}
           disabled={logoutMutation.isPending}
           data-testid="button-logout"

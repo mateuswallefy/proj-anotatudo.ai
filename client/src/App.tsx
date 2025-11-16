@@ -42,7 +42,13 @@ function AuthenticatedShell() {
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between px-4 py-3 border-b bg-background sticky top-0 z-10">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-3">
+              <SidebarTrigger 
+                data-testid="button-sidebar-toggle" 
+                className="h-11 w-11 md:h-9 md:w-9"
+              />
+              <h1 className="text-lg font-bold md:hidden">AnotaTudo.AI</h1>
+            </div>
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto">
