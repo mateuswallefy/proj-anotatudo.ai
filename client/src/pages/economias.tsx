@@ -70,7 +70,8 @@ export default function Economias() {
 
       {/* CTA Button */}
       <Button
-        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 no-default-hover-elevate"
+        variant="default"
+        size="lg"
         data-testid="button-registrar-economia"
       >
         <Plus className="h-4 w-4" />

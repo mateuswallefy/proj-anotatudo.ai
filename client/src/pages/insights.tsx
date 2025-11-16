@@ -136,7 +136,8 @@ export default function Insights() {
       <Button 
         onClick={() => generateInsightsMutation.mutate()}
         disabled={generateInsightsMutation.isPending}
-        className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
+        variant="default"
+        size="lg"
         data-testid="button-generate-insights"
       >
         <Lightbulb className="h-4 w-4" />
