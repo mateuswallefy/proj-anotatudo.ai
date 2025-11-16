@@ -25,6 +25,14 @@ import {
 import { z } from "zod";
 import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp";
 
+function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
+  if (!period || !/^\d{4}-\d{2}$/.test(period)) {
+    return {};
+  }
+  const [year, month] = period.split('-').map(Number);
+  return { mes: month, ano: year };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
 
   // Health check endpoints for Cloud Run (must be first)
@@ -254,7 +262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/transacoes", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const transacoes = await storage.getTransacoes(userId);
+      const period = req.query.period as string | undefined;
+      const transacoes = await storage.getTransacoes(userId, period);
       res.json(transacoes);
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -728,8 +737,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/insights", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
-      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
       
       const insights = await calculateFinancialInsights(userId, mes, ano);
       res.json(insights);
@@ -742,8 +752,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/spending-progress", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
-      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
       
       const progress = await calculateSpendingProgress(userId, mes, ano);
       res.json(progress);
@@ -770,8 +781,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/expenses-by-category", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
-      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
       
       const data = await getExpensesByCategory(userId, mes, ano);
       res.json(data);
@@ -784,8 +796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/income-by-category", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
-      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
       
       const data = await getIncomeByCategory(userId, mes, ano);
       res.json(data);
@@ -811,8 +824,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/period-summary", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const mes = req.query.mes ? parseInt(req.query.mes as string) : undefined;
-      const ano = req.query.ano ? parseInt(req.query.ano as string) : undefined;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
       
       const data = await getPeriodSummary(userId, mes, ano);
       res.json(data);

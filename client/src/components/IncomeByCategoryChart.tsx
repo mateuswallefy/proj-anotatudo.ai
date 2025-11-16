@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 interface CategoryData {
   categoria: string;
@@ -19,8 +20,14 @@ interface CategoryData {
 }
 
 export function IncomeByCategoryChart() {
+  const { period } = usePeriod();
   const { data, isLoading } = useQuery<CategoryData[]>({
-    queryKey: ["/api/analytics/income-by-category"],
+    queryKey: ["/api/analytics/income-by-category", { period }],
+    queryFn: async () => {
+      const response = await fetch(`/api/analytics/income-by-category?period=${period}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch income by category');
+      return response.json();
+    }
   });
 
   if (isLoading) {

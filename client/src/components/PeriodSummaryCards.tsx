@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, DollarSign, Wallet, PiggyBank } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 interface PeriodSummary {
   totalReceitas: number;
@@ -13,8 +14,14 @@ interface PeriodSummary {
 }
 
 export function PeriodSummaryCards() {
+  const { period } = usePeriod();
   const { data: summary, isLoading } = useQuery<PeriodSummary>({
-    queryKey: ["/api/analytics/period-summary"],
+    queryKey: ["/api/analytics/period-summary", { period }],
+    queryFn: async () => {
+      const response = await fetch(`/api/analytics/period-summary?period=${period}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch period summary');
+      return response.json();
+    }
   });
 
   if (isLoading) {

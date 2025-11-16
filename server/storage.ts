@@ -32,6 +32,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, or, sql as sqlOp } from "drizzle-orm";
+import { format } from "date-fns";
 
 export interface IStorage {
   // User operations
@@ -43,7 +44,7 @@ export interface IStorage {
   updateUserProfileImage(id: string, imageUrl: string): Promise<void>;
 
   // Transaction operations
-  getTransacoes(userId: string): Promise<Transacao[]>;
+  getTransacoes(userId: string, period?: string): Promise<Transacao[]>;
   createTransacao(transacao: InsertTransacao): Promise<Transacao>;
   getTransacaoById(id: string): Promise<Transacao | undefined>;
   updateTransacao(id: string, userId: string, transacao: Partial<InsertTransacao>): Promise<Transacao | undefined>;
@@ -132,11 +133,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Transaction operations
-  async getTransacoes(userId: string): Promise<Transacao[]> {
+  async getTransacoes(userId: string, period?: string): Promise<Transacao[]> {
+    let whereClause = eq(transacoes.userId, userId);
+    
+    if (period && /^\d{4}-\d{2}$/.test(period)) {
+      const [year, month] = period.split('-').map(Number);
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0);
+      const startDate = format(startOfMonth, 'yyyy-MM-dd');
+      const endDate = format(endOfMonth, 'yyyy-MM-dd');
+      
+      whereClause = and(
+        eq(transacoes.userId, userId),
+        sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`,
+        sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`
+      ) as any;
+    }
+    
     return await db
       .select()
       .from(transacoes)
-      .where(eq(transacoes.userId, userId))
+      .where(whereClause)
       .orderBy(desc(transacoes.dataReal));
   }
 

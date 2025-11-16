@@ -14,6 +14,8 @@ import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoryChart";
 import { IncomeByCategoryChart } from "@/components/IncomeByCategoryChart";
 import { YearlyEvolutionChart } from "@/components/YearlyEvolutionChart";
 import { LightbulbIcon } from "lucide-react";
+import { usePeriod } from "@/contexts/PeriodContext";
+import { PeriodSelector } from "@/components/PeriodSelector";
 
 interface FinancialInsights {
   mediaDiariaGastos: number;
@@ -63,23 +65,39 @@ interface SpendingProgress {
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
+  const { period } = usePeriod();
 
   // Fetch insights
-  const { data: insights, isLoading: loadingInsights } = useQuery<FinancialInsights>({
-    queryKey: ["/api/insights"],
+  const { data: insights, isLoading: loadingInsights} = useQuery<FinancialInsights>({
+    queryKey: ["/api/insights", { period }],
+    queryFn: async () => {
+      const response = await fetch(`/api/insights?period=${period}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch insights');
+      return response.json();
+    }
   });
 
   // Fetch spending progress
   const { data: spendingProgress, isLoading: loadingProgress } = useQuery<SpendingProgress>({
-    queryKey: ["/api/spending-progress"],
+    queryKey: ["/api/spending-progress", { period }],
+    queryFn: async () => {
+      const response = await fetch(`/api/spending-progress?period=${period}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch spending progress');
+      return response.json();
+    }
   });
 
   // Fetch transactions for recent list
   const { data: transacoes, isLoading: loadingTransacoes } = useQuery<Transacao[]>({
-    queryKey: ["/api/transacoes"],
+    queryKey: ["/api/transacoes", { period }],
+    queryFn: async () => {
+      const response = await fetch(`/api/transacoes?period=${period}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      return response.json();
+    }
   });
 
-  // Fetch goals
+  // Fetch goals (not period-specific)
   const { data: goals, isLoading: loadingGoals } = useQuery<Goal[]>({
     queryKey: ["/api/goals"],
   });
@@ -131,11 +149,14 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard Financeiro</h1>
-        <p className="text-muted-foreground">
-          Visão completa e inteligente das suas finanças
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard Financeiro</h1>
+          <p className="text-muted-foreground">
+            Visão completa e inteligente das suas finanças
+          </p>
+        </div>
+        <PeriodSelector />
       </div>
 
       {/* Premium Summary Cards - New! */}

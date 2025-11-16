@@ -11,10 +11,18 @@ import { categorias } from "@shared/schema";
 import { useState, useMemo } from "react";
 import { TrendingUp, TrendingDown, Search, Edit } from "lucide-react";
 import { EditTransactionDialog } from "@/components/edit-transaction-dialog";
+import { usePeriod } from "@/contexts/PeriodContext";
+import { PeriodSelector } from "@/components/PeriodSelector";
 
 export default function Transacoes() {
+  const { period } = usePeriod();
   const { data: transacoes, isLoading } = useQuery<Transacao[]>({
-    queryKey: ["/api/transacoes"],
+    queryKey: ["/api/transacoes", { period }],
+    queryFn: async () => {
+      const response = await fetch(`/api/transacoes?period=${period}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      return response.json();
+    }
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,11 +84,14 @@ export default function Transacoes() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Transações</h1>
-        <p className="text-muted-foreground">
-          Histórico completo de todas as suas transações
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Transações</h1>
+          <p className="text-muted-foreground">
+            Histórico completo de todas as suas transações
+          </p>
+        </div>
+        <PeriodSelector />
       </div>
 
       {/* Filters */}

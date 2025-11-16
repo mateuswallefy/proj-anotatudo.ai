@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { FAB } from "@/components/fab";
 import { useAuth } from "@/hooks/useAuth";
+import { PeriodProvider } from "@/contexts/PeriodContext";
 import { useEffect, startTransition } from "react";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
@@ -19,13 +20,10 @@ import Configuracoes from "@/pages/configuracoes";
 function AuthenticatedShell() {
   const [location] = useLocation();
 
-  // Prefetch all critical data on mount
+  // Prefetch non-period-specific data on mount
   useEffect(() => {
     startTransition(() => {
-      queryClient.prefetchQuery({ queryKey: ["/api/transacoes"] });
       queryClient.prefetchQuery({ queryKey: ["/api/cartoes"] });
-      queryClient.prefetchQuery({ queryKey: ["/api/insights"] });
-      queryClient.prefetchQuery({ queryKey: ["/api/spending-progress"] });
       queryClient.prefetchQuery({ queryKey: ["/api/goals"] });
       queryClient.prefetchQuery({ queryKey: ["/api/spending-limits"] });
       queryClient.prefetchQuery({ queryKey: ["/api/account-members"] });
@@ -38,42 +36,44 @@ function AuthenticatedShell() {
   };
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between px-4 py-3 border-b bg-background sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger 
-                data-testid="button-sidebar-toggle" 
-                className="h-11 w-11 md:h-9 md:w-9"
-              />
-              <h1 className="text-lg font-bold md:hidden">AnotaTudo.AI</h1>
-            </div>
-            <ThemeToggle />
-          </header>
-          <main className="flex-1 overflow-auto w-full">
-            <div className="w-full" style={{ display: location === "/" ? "block" : "none" }}>
-              <Dashboard />
-            </div>
-            <div className="w-full" style={{ display: location === "/transacoes" ? "block" : "none" }}>
-              <Transacoes />
-            </div>
-            <div className="w-full" style={{ display: location === "/cartoes" ? "block" : "none" }}>
-              <Cartoes />
-            </div>
-            <div className="w-full" style={{ display: location === "/adicionar" ? "block" : "none" }}>
-              <Adicionar />
-            </div>
-            <div className="w-full" style={{ display: location === "/configuracoes" ? "block" : "none" }}>
-              <Configuracoes />
-            </div>
-          </main>
+    <PeriodProvider>
+      <SidebarProvider style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <AppSidebar />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <header className="flex items-center justify-between px-4 py-3 border-b bg-background sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <SidebarTrigger 
+                  data-testid="button-sidebar-toggle" 
+                  className="h-11 w-11 md:h-9 md:w-9"
+                />
+                <h1 className="text-lg font-bold md:hidden">AnotaTudo.AI</h1>
+              </div>
+              <ThemeToggle />
+            </header>
+            <main className="flex-1 overflow-auto w-full">
+              <div className="w-full" style={{ display: location === "/" ? "block" : "none" }}>
+                <Dashboard />
+              </div>
+              <div className="w-full" style={{ display: location === "/transacoes" ? "block" : "none" }}>
+                <Transacoes />
+              </div>
+              <div className="w-full" style={{ display: location === "/cartoes" ? "block" : "none" }}>
+                <Cartoes />
+              </div>
+              <div className="w-full" style={{ display: location === "/adicionar" ? "block" : "none" }}>
+                <Adicionar />
+              </div>
+              <div className="w-full" style={{ display: location === "/configuracoes" ? "block" : "none" }}>
+                <Configuracoes />
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
-      <FAB />
-      <Toaster />
-    </SidebarProvider>
+        <FAB />
+        <Toaster />
+      </SidebarProvider>
+    </PeriodProvider>
   );
 }
 
