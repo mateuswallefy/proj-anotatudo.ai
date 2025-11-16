@@ -35,15 +35,14 @@ export function BottomNavigation() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              className={`flex items-center justify-center transition-colors ${
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               data-testid={`bottom-nav-${tab.id}`}
             >
-              <Icon className={`h-5 w-5 ${isActive ? 'fill-primary/20' : ''}`} />
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <Icon className={`h-6 w-6 ${isActive ? 'fill-primary/20' : ''}`} />
             </button>
           );
         })}
