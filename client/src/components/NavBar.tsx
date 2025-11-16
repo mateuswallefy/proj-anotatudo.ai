@@ -1,7 +1,7 @@
 import { useTab, TabType } from "@/contexts/TabContext";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { Button } from "@/components/ui/button";
-import logoUrl from "@assets/generated_images/AnotaTudo.AI_Transparent_Logo_7f9130d6.png";
+import { Logo } from "@/components/Logo";
 import { 
   LayoutDashboard, 
   Receipt, 
@@ -124,7 +124,7 @@ export function NavBar() {
         {/* Logo */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
-            <img src={logoUrl} alt="AnotaTudo.AI" className="h-10" />
+            <Logo className="h-14" />
           </div>
 
           {/* Tabs */}
@@ -173,7 +173,7 @@ export function NavBar() {
       <div className="lg:hidden flex items-center justify-between px-4 py-3">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <img src={logoUrl} alt="AnotaTudo.AI" className="h-8" />
+          <Logo className="h-10" />
         </div>
 
         {/* Mobile Controls */}
