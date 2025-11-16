@@ -24,24 +24,14 @@ export function Logo({ className = "h-8" }: { className?: string }) {
       {/* Círculo verde */}
       <circle cx="65" cy="45" r="10" className="fill-[#10b981]"/>
       
-      {/* Texto AnotaTudo */}
+      {/* Texto AnotaTudo.AI */}
       <text 
         x="110" 
         y="75" 
         className="fill-[#1e3a5f] dark:fill-slate-100"
-        style={{ fontSize: '48px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif' }}
+        style={{ fontSize: '42px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.5px' }}
       >
-        AnotaTudo
-      </text>
-      
-      {/* Texto .AI */}
-      <text 
-        x="320" 
-        y="75" 
-        className="fill-[#10b981]"
-        style={{ fontSize: '48px', fontWeight: 'bold', fontFamily: 'JetBrains Mono, monospace' }}
-      >
-        .AI
+        AnotaTudo<tspan className="fill-[#10b981]">.AI</tspan>
       </text>
     </svg>
   );
