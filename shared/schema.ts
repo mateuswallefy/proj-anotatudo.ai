@@ -329,3 +329,119 @@ export const insertCategoriaCustomizadaSchema = createInsertSchema(categoriasCus
 
 export type InsertCategoriaCustomizada = z.infer<typeof insertCategoriaCustomizadaSchema>;
 export type CategoriaCustomizada = typeof categoriasCustomizadas.$inferSelect;
+
+// Contas bancárias table (saldo em conta)
+export const contas = pgTable("contas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  nomeConta: varchar("nome_conta").notNull(), // Ex: "Nubank", "Itaú"
+  tipoConta: varchar("tipo_conta", { enum: ['corrente', 'poupanca', 'investimento'] }).notNull(),
+  saldoAtual: decimal("saldo_atual", { precision: 10, scale: 2 }).default('0').notNull(),
+  banco: varchar("banco"),
+  corIdentificacao: varchar("cor_identificacao").default('#10B981'), // Cor para UI
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const contasRelations = relations(contas, ({ one }) => ({
+  user: one(users, {
+    fields: [contas.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertContaSchema = createInsertSchema(contas).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertConta = z.infer<typeof insertContaSchema>;
+export type Conta = typeof contas.$inferSelect;
+
+// Investimentos table (portfólio)
+export const investimentos = pgTable("investimentos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  nomeInvestimento: varchar("nome_investimento").notNull(), // Ex: "Tesouro Direto"
+  tipoInvestimento: varchar("tipo_investimento", { enum: ['renda_fixa', 'renda_variavel', 'fundos', 'cripto', 'outro'] }).notNull(),
+  valorAplicado: decimal("valor_aplicado", { precision: 10, scale: 2 }).notNull(),
+  valorAtual: decimal("valor_atual", { precision: 10, scale: 2 }).notNull(),
+  rentabilidade: decimal("rentabilidade", { precision: 5, scale: 2 }).default('0').notNull(), // Em porcentagem
+  dataAplicacao: date("data_aplicacao").notNull(),
+  instituicao: varchar("instituicao"), // Ex: "Banco Inter"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const investimentosRelations = relations(investimentos, ({ one }) => ({
+  user: one(users, {
+    fields: [investimentos.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertInvestimentoSchema = createInsertSchema(investimentos).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInvestimento = z.infer<typeof insertInvestimentoSchema>;
+export type Investimento = typeof investimentos.$inferSelect;
+
+// Alertas table (alertas importantes)
+export const alertas = pgTable("alertas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tipoAlerta: varchar("tipo_alerta", { enum: ['orcamento_excedido', 'vencimento_fatura', 'meta_atingida', 'gasto_acima_media', 'outro'] }).notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao"),
+  prioridade: varchar("prioridade", { enum: ['baixa', 'media', 'alta'] }).default('media').notNull(),
+  lido: varchar("lido", { enum: ['sim', 'nao'] }).default('nao').notNull(),
+  dataExpiracao: timestamp("data_expiracao"), // Alertas podem expirar
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const alertasRelations = relations(alertas, ({ one }) => ({
+  user: one(users, {
+    fields: [alertas.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertAlertaSchema = createInsertSchema(alertas).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAlerta = z.infer<typeof insertAlertaSchema>;
+export type Alerta = typeof alertas.$inferSelect;
+
+// Insights table (insights inteligentes gerados por AI)
+export const insights = pgTable("insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tipoInsight: varchar("tipo_insight", { enum: ['economia', 'investimento', 'otimizacao_cartao', 'outro'] }).notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao").notNull(),
+  valorImpacto: decimal("valor_impacto", { precision: 10, scale: 2 }), // Impacto financeiro estimado
+  percentualImpacto: decimal("percentual_impacto", { precision: 5, scale: 2 }), // % de impacto
+  acaoSugerida: text("acao_sugerida"),
+  dataGeracao: timestamp("data_geracao").defaultNow(),
+  dataExpiracao: timestamp("data_expiracao"), // Insights podem expirar
+  relevancia: varchar("relevancia", { enum: ['baixa', 'media', 'alta'] }).default('media').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insightsRelations = relations(insights, ({ one }) => ({
+  user: one(users, {
+    fields: [insights.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertInsightSchema = createInsertSchema(insights).omit({
+  id: true,
+  createdAt: true,
+  dataGeracao: true,
+});
+
+export type InsertInsight = z.infer<typeof insertInsightSchema>;
+export type Insight = typeof insights.$inferSelect;
