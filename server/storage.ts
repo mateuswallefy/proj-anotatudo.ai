@@ -208,6 +208,24 @@ export class DatabaseStorage implements IStorage {
       .insert(transacoes)
       .values(transacao)
       .returning();
+    
+    // Se é economia com meta vinculada, atualizar valorAtual da meta
+    if (newTransacao.tipo === 'economia' && newTransacao.goalId) {
+      const goal = await this.getGoalById(newTransacao.goalId);
+      if (goal) {
+        const novoValorAtual = parseFloat(goal.valorAtual) + parseFloat(newTransacao.valor);
+        const valorAlvo = parseFloat(goal.valorAlvo);
+        
+        // Atualizar valorAtual da meta
+        await this.updateGoalValorAtual(goal.id, goal.userId, novoValorAtual.toFixed(2));
+        
+        // Se atingiu ou ultrapassou a meta, marcar como concluída
+        if (novoValorAtual >= valorAlvo && goal.status === 'ativa') {
+          await this.updateGoalStatus(goal.id, goal.userId, 'concluida');
+        }
+      }
+    }
+    
     return newTransacao;
   }
 

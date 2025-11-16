@@ -48,9 +48,13 @@ type CategoryData = {
 type PeriodSummary = {
   totalReceitas: number;
   totalDespesas: number;
-  saldoPeriodo: number;
+  totalEconomias: number;
+  saldo: number;
   variacaoReceitas: number;
   variacaoDespesas: number;
+  variacaoEconomias: number;
+  variacaoSaldo: number;
+  transacoesTotal: number;
 };
 
 const formSchema = z.object({
@@ -87,7 +91,7 @@ export default function Economias() {
     queryKey: ["/api/transacoes", { period }],
   });
 
-  const economias = allTransacoes?.filter(t => t.categoria === 'Economia') || [];
+  const economias = allTransacoes?.filter(t => t.tipo === 'economia') || [];
 
   const activeGoals = goals?.filter(g => g.status === 'ativa') || [];
 
@@ -108,7 +112,7 @@ export default function Economias() {
       const payload: any = {
         descricao: data.descricao,
         valor: data.valor.toString(),
-        tipo: "entrada",
+        tipo: "economia",
         categoria: "Economia",
         dataReal: data.data || new Date().toISOString().split('T')[0],
         origem: "manual",
@@ -166,9 +170,9 @@ export default function Economias() {
 
   const totalReceitas = periodSummary?.totalReceitas || 0;
   const totalDespesas = periodSummary?.totalDespesas || 0;
-  const economia = totalReceitas - totalDespesas;
-  const taxaEconomia = totalReceitas > 0 ? (economia / totalReceitas) * 100 : 0;
-  const variacaoReceitas = periodSummary?.variacaoReceitas || 0;
+  const totalEconomias = periodSummary?.totalEconomias || 0;
+  const taxaEconomia = totalReceitas > 0 ? (totalEconomias / totalReceitas) * 100 : 0;
+  const variacaoEconomias = periodSummary?.variacaoEconomias || 0;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -196,7 +200,7 @@ export default function Economias() {
         <MetricCard
           icon={PiggyBank}
           label="Total Economizado"
-          value={`R$ ${economia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          value={`R$ ${totalEconomias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           subtitle={`${taxaEconomia.toFixed(1)}% da renda`}
           iconColor="text-purple-600 dark:text-purple-400"
           iconBg="bg-purple-600/10"
@@ -206,8 +210,8 @@ export default function Economias() {
         <MetricCard
           icon={TrendingUp}
           label="Este Mês"
-          value={`R$ ${economia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          subtitle={variacaoReceitas >= 0 ? `+${variacaoReceitas.toFixed(1)}% vs mês anterior` : `${variacaoReceitas.toFixed(1)}% vs mês anterior`}
+          value={`R$ ${totalEconomias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          subtitle={variacaoEconomias >= 0 ? `+${variacaoEconomias.toFixed(1)}% vs mês anterior` : `${variacaoEconomias.toFixed(1)}% vs mês anterior`}
           iconColor="text-blue-600 dark:text-blue-400"
           iconBg="bg-blue-600/10"
           data-testid="card-este-mes"
@@ -217,7 +221,7 @@ export default function Economias() {
           icon={Percent}
           label="% da Renda"
           value={`${taxaEconomia.toFixed(1)}%`}
-          subtitle={economia >= 0 ? `Economizando ${taxaEconomia.toFixed(1)}%` : `Gastando mais que a renda`}
+          subtitle={totalEconomias >= 0 ? `Economizando ${taxaEconomia.toFixed(1)}%` : `Gastando mais que a renda`}
           iconColor="text-purple-600 dark:text-purple-400"
           iconBg="bg-purple-600/10"
           data-testid="card-percentual-renda"
@@ -242,9 +246,9 @@ export default function Economias() {
               </p>
             </div>
             <div className="p-4 rounded-lg border">
-              <p className="text-sm text-muted-foreground mb-1">Saldo do Período</p>
-              <p className={`text-2xl font-bold ${economia >= 0 ? 'text-success' : 'text-destructive'}`} data-testid="text-saldo-periodo">
-                R$ {economia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <p className="text-sm text-muted-foreground mb-1">Economias do Período</p>
+              <p className={`text-2xl font-bold ${totalEconomias >= 0 ? 'text-success' : 'text-destructive'}`} data-testid="text-economias-periodo">
+                R$ {totalEconomias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>

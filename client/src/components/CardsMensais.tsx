@@ -7,11 +7,12 @@ import { usePeriod } from "@/contexts/PeriodContext";
 type PeriodSummary = {
   totalReceitas: number;
   totalDespesas: number;
-  saldoPeriodo: number;
-  receitasTotal: number;
-  despesasTotal: number;
+  totalEconomias: number;
+  saldo: number;
   variacaoReceitas: number;
   variacaoDespesas: number;
+  variacaoEconomias: number;
+  variacaoSaldo: number;
   transacoesTotal: number;
 };
 
@@ -41,12 +42,13 @@ export function CardsMensais() {
 
   const entradas = periodSummary?.totalReceitas || 0;
   const despesas = periodSummary?.totalDespesas || 0;
-  const economias = entradas - despesas;
-  const saldoMes = economias; // Same as economias for now
+  const economias = periodSummary?.totalEconomias || 0;
+  const saldoMes = periodSummary?.saldo || 0;
   
   const variacaoReceitas = periodSummary?.variacaoReceitas || 0;
   const variacaoDespesas = periodSummary?.variacaoDespesas || 0;
-  const variacaoEconomia = variacaoReceitas - variacaoDespesas;
+  const variacaoEconomias = periodSummary?.variacaoEconomias || 0;
+  const variacaoSaldo = periodSummary?.variacaoSaldo || 0;
 
   const cards = [
     {
@@ -74,7 +76,7 @@ export function CardsMensais() {
     {
       title: "ECONOMIAS",
       value: economias,
-      variation: variacaoEconomia,
+      variation: variacaoEconomias,
       variationLabel: "vs mês anterior",
       icon: PiggyBank,
       gradient: economias >= 0 ? "from-teal-500/5 to-teal-500/15" : "from-red-500/5 to-red-500/15",
@@ -85,7 +87,7 @@ export function CardsMensais() {
     {
       title: "SALDO DO MÊS",
       value: saldoMes,
-      variation: variacaoEconomia,
+      variation: variacaoSaldo,
       variationLabel: "vs mês anterior",
       icon: Wallet,
       gradient: saldoMes >= 0 ? "from-blue-500/5 to-blue-500/15" : "from-red-500/5 to-red-500/15",

@@ -303,9 +303,12 @@ export interface CategoryBreakdown {
 export interface PeriodSummary {
   totalReceitas: number;
   totalDespesas: number;
+  totalEconomias: number;
   saldo: number;
   variacaoReceitas: number; // % vs período anterior
   variacaoDespesas: number; // % vs período anterior
+  variacaoEconomias: number; // % vs período anterior
+  variacaoSaldo: number; // % vs período anterior
   transacoesTotal: number;
 }
 
@@ -540,6 +543,10 @@ export async function getPeriodSummary(
     .filter(t => t.tipo === 'saida')
     .reduce((sum, t) => sum + parseFloat(t.valor), 0);
 
+  const totalEconomias = currentPeriod
+    .filter(t => t.tipo === 'economia')
+    .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
   const prevReceitas = previousPeriod
     .filter(t => t.tipo === 'entrada')
     .reduce((sum, t) => sum + parseFloat(t.valor), 0);
@@ -547,6 +554,13 @@ export async function getPeriodSummary(
   const prevDespesas = previousPeriod
     .filter(t => t.tipo === 'saida')
     .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+  const prevEconomias = previousPeriod
+    .filter(t => t.tipo === 'economia')
+    .reduce((sum, t) => sum + parseFloat(t.valor), 0);
+
+  const saldoAtual = totalReceitas - totalDespesas - totalEconomias;
+  const saldoAnterior = prevReceitas - prevDespesas - prevEconomias;
 
   const variacaoReceitas = prevReceitas > 0 
     ? ((totalReceitas - prevReceitas) / prevReceitas) * 100 
@@ -556,12 +570,32 @@ export async function getPeriodSummary(
     ? ((totalDespesas - prevDespesas) / prevDespesas) * 100 
     : 0;
 
+  const variacaoEconomias = prevEconomias > 0 
+    ? ((totalEconomias - prevEconomias) / prevEconomias) * 100 
+    : 0;
+
+  // Calcular variação de saldo com tratamento especial para saldo anterior = 0
+  let variacaoSaldo = 0;
+  if (saldoAnterior !== 0) {
+    variacaoSaldo = ((saldoAtual - saldoAnterior) / Math.abs(saldoAnterior)) * 100;
+  } else if (saldoAtual > 0) {
+    // Saldo anterior era 0 e agora é positivo: crescimento total
+    variacaoSaldo = 100;
+  } else if (saldoAtual < 0) {
+    // Saldo anterior era 0 e agora é negativo: queda total
+    variacaoSaldo = -100;
+  }
+  // Se ambos são 0, mantém variacaoSaldo = 0
+
   return {
     totalReceitas,
     totalDespesas,
-    saldo: totalReceitas - totalDespesas,
+    totalEconomias,
+    saldo: saldoAtual,
     variacaoReceitas,
     variacaoDespesas,
+    variacaoEconomias,
+    variacaoSaldo,
     transacoesTotal: currentPeriod.length,
   };
 }

@@ -63,7 +63,7 @@ export type LoginCredentials = z.infer<typeof loginSchema>;
 export const transacoes = pgTable("transacoes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  tipo: varchar("tipo", { enum: ['entrada', 'saida'] }).notNull(),
+  tipo: varchar("tipo", { enum: ['entrada', 'saida', 'economia'] }).notNull(),
   categoria: varchar("categoria").notNull(),
   valor: decimal("valor", { precision: 10, scale: 2 }).notNull(),
   dataRegistro: timestamp("data_registro").defaultNow(),
