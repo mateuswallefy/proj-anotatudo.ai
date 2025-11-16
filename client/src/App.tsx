@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavBar } from "@/components/NavBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { FAB } from "@/components/fab";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { TabProvider, useTab } from "@/contexts/TabContext";
@@ -68,7 +67,6 @@ function AuthenticatedShell() {
       </main>
 
       <BottomNavigation />
-      <FAB />
       <Toaster />
     </div>
   );
