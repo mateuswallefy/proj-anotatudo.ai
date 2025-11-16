@@ -1,6 +1,7 @@
 import { useTab, TabType } from "@/contexts/TabContext";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { Button } from "@/components/ui/button";
+import logoUrl from "@assets/logo-anotatudo.png";
 import { 
   LayoutDashboard, 
   Receipt, 
@@ -123,10 +124,7 @@ export function NavBar() {
         {/* Logo */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
-            </div>
-            <span className="font-semibold text-lg">anotatudo.ai</span>
+            <img src={logoUrl} alt="AnotaTudo.AI" className="h-8" />
           </div>
 
           {/* Tabs */}
@@ -175,16 +173,13 @@ export function NavBar() {
       <div className="lg:hidden flex items-center justify-between px-4 py-3">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">$</span>
-          </div>
-          <span className="font-semibold text-base">anotatudo.ai</span>
+          <img src={logoUrl} alt="AnotaTudo.AI" className="h-7" />
         </div>
 
         {/* Mobile Controls */}
         <div className="flex items-center gap-2">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[100px] h-9" data-testid="period-selector-mobile">
+            <SelectTrigger className="w-[130px] h-9" data-testid="period-selector-mobile">
               <SelectValue placeholder="30 dias" />
             </SelectTrigger>
             <SelectContent>
