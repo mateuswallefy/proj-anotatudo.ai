@@ -19,6 +19,15 @@ import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, 
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  // Health check endpoints for Cloud Run (must be first)
+  app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.get('/_health', (_req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // Local Auth routes
   app.post('/api/auth/register', async (req, res) => {
     try {
