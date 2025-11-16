@@ -312,37 +312,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extrair informações da mensagem
       const phoneNumber = message.from;
-      const messageType = message.type; // text, audio, image, video
+      const messageType = message.type;
       let content = "";
+      let mediaId = "";
 
+      // Extrair conteúdo baseado no tipo de mensagem
       switch (messageType) {
         case 'text':
           content = message.text?.body || "";
           break;
         case 'audio':
-          // Em produção, você baixaria o áudio usando a API do WhatsApp
-          content = ""; // caminho do arquivo de áudio
+          mediaId = message.audio?.id || "";
           break;
         case 'image':
-          // Em produção, você baixaria a imagem e converteria para base64
-          content = ""; // base64 da imagem
+          mediaId = message.image?.id || "";
+          content = message.image?.caption || "";
           break;
         case 'video':
-          // Em produção, você extrairia frames do vídeo
-          content = ""; // base64 do frame
-          break;
+          // Vídeo não suportado ainda - requer extração de frames via ffmpeg
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Vídeos ainda não são suportados.\n\nPor favor, envie:\n• Texto: Almoço R$ 45\n• Áudio com sua transação\n• Foto de nota fiscal ou comprovante"
+          );
+          res.status(200).json({ success: true });
+          return;
+        default:
+          console.log(`[WhatsApp] Unsupported message type: ${messageType}`);
+          res.status(200).json({ success: true });
+          return;
       }
 
-      // Processar com IA apenas se tiver conteúdo
-      // NOTA: Este código antigo não está sendo utilizado - o novo fluxo está implementado abaixo
-      // if (content && messageType === 'text') {
-      //   const extractedData = await processWhatsAppMessage(messageType, content, userId);
-      //   
-      //   console.log("Dados extraídos da mensagem do WhatsApp:", {
-      //     phoneNumber,
-      //     extractedData,
-      //   });
-      // }
+      // Se não tem conteúdo de texto e não tem mídia, ignorar
+      if (!content && !mediaId) {
+        res.status(200).json({ success: true });
+        return;
+      }
+
+      // Rate limiting: 10 mensagens por minuto por telefone
+      if (!checkRateLimit(phoneNumber)) {
+        await sendWhatsAppReply(
+          phoneNumber,
+          "Você está enviando mensagens muito rápido. Por favor, aguarde um momento."
+        );
+        res.status(200).json({ success: true });
+        return;
+      }
+
+      // Buscar usuário pelo telefone
+      let user = await storage.getUserByPhone(phoneNumber);
+
+      // Se não existe usuário, criar com status='awaiting_email'
+      if (!user) {
+        user = await storage.createUserFromPhone(phoneNumber);
+        await sendWhatsAppReply(
+          phoneNumber,
+          "Bem-vindo ao AnotaTudo.AI!\n\nPara liberar seu acesso, envie o e-mail usado na compra."
+        );
+        res.status(200).json({ success: true });
+        return;
+      }
+
+      // Se usuário está aguardando email
+      if (user.status === 'awaiting_email') {
+        // Só aceitar texto para autenticação
+        if (messageType !== 'text' || !content) {
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Por favor, envie o e-mail usado na compra (apenas texto).\n\nExemplo: seu@email.com"
+          );
+          res.status(200).json({ success: true });
+          return;
+        }
+
+        const email = extractEmail(content);
+
+        if (!email) {
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Por favor, envie um e-mail válido para continuar.\n\nExemplo: seu@email.com"
+          );
+          res.status(200).json({ success: true });
+          return;
+        }
+
+        // Buscar compra aprovada
+        const purchase = await storage.getPurchaseByEmail(email);
+
+        if (!purchase || purchase.status !== 'approved') {
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Email não encontrado ou compra não aprovada.\n\nPor favor, use o mesmo e-mail da compra ou entre em contato com o suporte."
+          );
+          res.status(200).json({ success: true });
+          return;
+        }
+
+        // Verificar se já existe usuário web com esse email
+        const existingWebUser = await storage.getUserByEmail(email);
+
+        if (existingWebUser) {
+          // Usuário web já existe - vincular telefone e mesclar transações
+          await storage.updateUserTelefone(existingWebUser.id, phoneNumber);
+          await storage.transferTransactions(user.id, existingWebUser.id);
+          
+          // Atualizar telefone na tabela de compras
+          await storage.updatePurchasePhone(email, phoneNumber);
+
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Telefone vinculado com sucesso!\n\nAgora você pode enviar suas transações via WhatsApp e elas aparecerão automaticamente no seu dashboard.\n\nExemplos:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000"
+          );
+        } else {
+          // Nenhum usuário web - atualizar email do usuário atual
+          await storage.updateUserEmail(user.id, email);
+          await storage.updateUserStatus(user.id, 'authenticated');
+          await storage.updatePurchasePhone(email, phoneNumber);
+
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Autenticação concluída!\n\nAgora você pode enviar suas transações via WhatsApp.\n\nExemplos:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000"
+          );
+        }
+
+        res.status(200).json({ success: true });
+        return;
+      }
+
+      // Se usuário está autenticado, processar transação
+      if (user.status === 'authenticated') {
+        try {
+          let processedContent = content;
+          let mediaUrl = "";
+
+          // Se tem mídia, baixar e processar
+          if (mediaId) {
+            try {
+              const mediaPath = await downloadWhatsAppMedia(mediaId, messageType as 'audio' | 'image' | 'video');
+              console.log(`[WhatsApp] Media downloaded: ${mediaPath}`);
+              mediaUrl = mediaPath;
+
+              // Para imagem, converter para base64
+              if (messageType === 'image') {
+                const fs = await import('fs');
+                const fileBuffer = fs.readFileSync(mediaPath);
+                const base64 = fileBuffer.toString('base64');
+                processedContent = base64;
+              } else {
+                // Para áudio, passar o caminho do arquivo
+                processedContent = mediaPath;
+              }
+            } catch (mediaError) {
+              console.error("[WhatsApp] Error downloading media:", mediaError);
+              await sendWhatsAppReply(
+                phoneNumber,
+                "Erro ao baixar mídia. Por favor, tente novamente."
+              );
+              res.status(200).json({ success: true });
+              return;
+            }
+          }
+
+          // Processar com IA
+          let extractedData: any = null;
+          try {
+            extractedData = await processWhatsAppMessage(messageType, processedContent || content, user.id);
+          } catch (aiError: any) {
+            console.error("[WhatsApp] AI processing error:", aiError);
+            await sendWhatsAppReply(
+              phoneNumber,
+              `Erro ao processar ${messageType === 'text' ? 'mensagem' : 'mídia'}.\n\nTente novamente ou envie uma mensagem de texto:\n• Almoço R$ 45\n• Gasolina 200 reais`
+            );
+            res.status(200).json({ success: true });
+            return;
+          }
+
+          if (extractedData && extractedData.tipo && extractedData.valor) {
+            const transacao = await storage.createTransacao({
+              userId: user.id,
+              tipo: extractedData.tipo,
+              categoria: extractedData.categoria || 'Outros',
+              valor: String(extractedData.valor),
+              descricao: extractedData.descricao || content || `${messageType} recebido`,
+              dataReal: extractedData.dataReal || new Date().toISOString().split('T')[0],
+              origem: messageType,
+              mediaUrl: mediaUrl || undefined,
+            });
+
+            console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}: ${extractedData.tipo} R$ ${extractedData.valor}`);
+
+            await sendWhatsAppReply(
+              phoneNumber,
+              `Transação registrada!\n\n${extractedData.tipo === 'entrada' ? 'Entrada' : 'Saída'}: R$ ${extractedData.valor}\nCategoria: ${extractedData.categoria}\n\nVeja no dashboard: https://anotatudo.replit.app`
+            );
+          } else {
+            console.log(`[WhatsApp] ⚠️ Could not extract transaction data from ${messageType}`);
+            await sendWhatsAppReply(
+              phoneNumber,
+              "Não consegui entender essa transação.\n\nTente novamente:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000"
+            );
+          }
+        } catch (error: any) {
+          console.error("[WhatsApp] Unexpected error processing transaction:", error);
+          await sendWhatsAppReply(
+            phoneNumber,
+            "Erro inesperado. Por favor, tente novamente."
+          );
+        }
+      }
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -590,70 +766,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating profile image:", error);
       res.status(500).json({ message: "Failed to update profile image" });
-    }
-  });
-
-  // Vincular telefone do WhatsApp
-  const vincularTelefoneSchema = z.object({
-    telefone: z.string().min(10, "Telefone inválido").max(20, "Telefone inválido"),
-  });
-
-  app.post("/api/user/vincular-telefone", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.session.userId;
-      const { telefone } = vincularTelefoneSchema.parse(req.body);
-      
-      // Normalize phone number
-      const normalizedPhone = normalizePhoneNumber(telefone);
-      console.log(`[Vincular Telefone] User ${userId} vinculando telefone: ${normalizedPhone}`);
-      
-      // Get current user
-      const currentUser = await storage.getUser(userId);
-      if (!currentUser) {
-        return res.status(404).json({ message: "Usuário não encontrado" });
-      }
-      
-      // Check if phone is already linked to current user
-      if (currentUser.telefone === normalizedPhone) {
-        return res.json({ 
-          message: "Este telefone já está vinculado à sua conta",
-          telefone: normalizedPhone 
-        });
-      }
-      
-      // Check if another user exists with this phone
-      const existingUserWithPhone = await storage.getUserByPhone(normalizedPhone);
-      
-      if (existingUserWithPhone && existingUserWithPhone.id !== userId) {
-        console.log(`[Vincular Telefone] Found existing user with phone: ${existingUserWithPhone.id}`);
-        
-        // Merge transactions from old user to current user
-        const oldUserTransactions = await storage.getTransacoes(existingUserWithPhone.id);
-        console.log(`[Vincular Telefone] Merging ${oldUserTransactions.length} transactions`);
-        
-        // Transfer all transactions to current user
-        await storage.transferTransactions(existingUserWithPhone.id, userId);
-        
-        // Delete old user (optional - or just mark as inactive)
-        // await storage.deleteUser(existingUserWithPhone.id);
-        console.log(`[Vincular Telefone] ✅ Merged ${oldUserTransactions.length} transactions from old user`);
-      }
-      
-      // Update current user's phone
-      await storage.updateUserTelefone(userId, normalizedPhone);
-      
-      res.json({ 
-        message: "Telefone vinculado com sucesso!",
-        telefone: normalizedPhone,
-        transacoesMescladas: existingUserWithPhone ? true : false
-      });
-    } catch (error: any) {
-      console.error("Error linking phone:", error);
-      if (error.name === 'ZodError') {
-        res.status(400).json({ message: "Telefone inválido", errors: error.errors });
-      } else {
-        res.status(500).json({ message: "Erro ao vincular telefone" });
-      }
     }
   });
 

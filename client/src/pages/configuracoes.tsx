@@ -48,12 +48,6 @@ const customCategorySchema = z.object({
 
 type CustomCategoryFormData = z.infer<typeof customCategorySchema>;
 
-const vincularTelefoneSchema = z.object({
-  telefone: z.string().min(10, "Telefone inválido").max(20, "Telefone inválido"),
-});
-
-type VincularTelefoneFormData = z.infer<typeof vincularTelefoneSchema>;
-
 interface AccountMember {
   id: string;
   accountOwnerId: string;
@@ -126,30 +120,6 @@ export default function Configuracoes() {
     onError: (error: any) => {
       toast({
         title: "Erro ao atualizar foto",
-        description: error.message || "Tente novamente",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Vincular telefone mutation
-  const vincularTelefoneMutation = useMutation({
-    mutationFn: async (data: VincularTelefoneFormData) => {
-      return await apiRequest("POST", "/api/user/vincular-telefone", data);
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Telefone vinculado!",
-        description: data.transacoesMescladas 
-          ? "Telefone vinculado e transações do WhatsApp mescladas com sucesso!" 
-          : "Telefone vinculado com sucesso!",
-      });
-      telefoneForm.reset();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao vincular telefone",
         description: error.message || "Tente novamente",
         variant: "destructive",
       });
@@ -268,19 +238,8 @@ export default function Configuracoes() {
     },
   });
 
-  const telefoneForm = useForm<VincularTelefoneFormData>({
-    resolver: zodResolver(vincularTelefoneSchema),
-    defaultValues: {
-      telefone: "",
-    },
-  });
-
   const handlePasswordSubmit = (data: ChangePasswordFormData) => {
     changePasswordMutation.mutate(data);
-  };
-
-  const handleTelefoneSubmit = (data: VincularTelefoneFormData) => {
-    vincularTelefoneMutation.mutate(data);
   };
 
   const handleMemberSubmit = (data: AddMemberFormData) => {
@@ -391,89 +350,6 @@ export default function Configuracoes() {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* WhatsApp Integration */}
-      <Card data-testid="card-whatsapp">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            Integração WhatsApp
-          </CardTitle>
-          <CardDescription>Vincule seu telefone para receber transações via WhatsApp</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {user?.telefone ? (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Telefone Vinculado</p>
-                  <p className="text-lg font-mono mt-1">{user.telefone}</p>
-                </div>
-                <Badge variant="default" className="bg-primary">
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Ativo
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mt-3">
-                Todas as transações enviadas via WhatsApp deste número são automaticamente registradas em sua conta.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-muted/50 border border-dashed rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">
-                Nenhum telefone vinculado. Vincule seu número para receber transações via WhatsApp.
-              </p>
-            </div>
-          )}
-
-          <form onSubmit={telefoneForm.handleSubmit(handleTelefoneSubmit)} className="space-y-4">
-            <div>
-              <Label htmlFor="telefone">
-                {user?.telefone ? "Atualizar Telefone" : "Vincular Telefone"}
-              </Label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  id="telefone"
-                  placeholder="559183139299"
-                  {...telefoneForm.register("telefone")}
-                  data-testid="input-telefone"
-                />
-                <Button
-                  type="submit"
-                  disabled={vincularTelefoneMutation.isPending}
-                  data-testid="button-vincular-telefone"
-                >
-                  {vincularTelefoneMutation.isPending ? "Vinculando..." : "Vincular"}
-                </Button>
-              </div>
-              {telefoneForm.formState.errors.telefone && (
-                <p className="text-sm text-destructive mt-1">
-                  {telefoneForm.formState.errors.telefone.message}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground mt-2">
-                Digite o número no formato internacional (ex: 559183139299)
-              </p>
-            </div>
-          </form>
-
-          {!user?.telefone && (
-            <div className="bg-accent/5 border border-accent/20 rounded-lg p-4">
-              <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-accent-foreground">
-                    Mesclar transações existentes
-                  </p>
-                  <p className="text-muted-foreground mt-1">
-                    Se você já enviou transações pelo WhatsApp, elas serão automaticamente vinculadas à sua conta ao conectar o telefone.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
