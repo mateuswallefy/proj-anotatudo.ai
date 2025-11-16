@@ -10,7 +10,9 @@ import {
   insertGoalSchema,
   insertSpendingLimitSchema,
   insertAccountMemberSchema,
-  insertCategoriaCustomizadaSchema
+  insertCategoriaCustomizadaSchema,
+  insertNotificationPreferencesSchema,
+  updateNotificationPreferencesSchema
 } from "@shared/schema";
 import { processWhatsAppMessage } from "./ai";
 import { 
@@ -1030,6 +1032,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating profile image:", error);
       res.status(500).json({ message: "Failed to update profile image" });
+    }
+  });
+
+  // Notification preferences routes
+  app.get("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const preferences = await storage.getNotificationPreferences(userId);
+      
+      // If no preferences exist, return default values
+      if (!preferences) {
+        return res.json({
+          alertasOrcamento: 'ativo',
+          vencimentoCartoes: 'ativo',
+          insightsSemanais: 'inativo',
+          metasAtingidas: 'ativo',
+        });
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.post("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const data = updateNotificationPreferencesSchema.parse(req.body);
+      
+      const preferences = await storage.upsertNotificationPreferences(userId, data);
+      res.json(preferences);
+    } catch (error: any) {
+      console.error("Error updating notification preferences:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update notification preferences" });
+      }
     }
   });
 

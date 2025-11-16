@@ -1,11 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Cartao } from "@shared/schema";
-import { CreditCard, Plus, Calendar, AlertCircle } from "lucide-react";
+import { CreditCard, Plus } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -17,7 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +23,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { ProgressCard } from "@/components/cards/ProgressCard";
 
 export default function Cartoes() {
   const { data: cartoes, isLoading } = useQuery<Cartao[]>({
@@ -98,26 +95,32 @@ export default function Cartoes() {
     return (usedNum / totalNum) * 100;
   };
 
-  const getLimitColor = (percentage: number) => {
-    if (percentage >= 90) return "text-destructive";
-    if (percentage >= 70) return "text-chart-4";
-    return "text-chart-1";
+  const getProgressColor = (percentage: number) => {
+    if (percentage >= 90) return "bg-red-500";
+    if (percentage >= 75) return "bg-orange-500";
+    return "bg-green-500";
+  };
+
+  const formatDueDate = (diaVencimento: number) => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const dueDate = new Date(currentYear, currentMonth, diaVencimento);
+    
+    if (dueDate < currentDate) {
+      dueDate.setMonth(currentMonth + 1);
+    }
+    
+    return dueDate.toISOString().split('T')[0];
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-6" data-testid="loading-state">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2].map(i => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-32 w-full" />
-              </CardContent>
-            </Card>
+            <Skeleton key={i} className="h-48 w-full" />
           ))}
         </div>
       </div>
@@ -128,9 +131,9 @@ export default function Cartoes() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Cartões de Crédito</h1>
-          <p className="text-muted-foreground">
-            Gerencie seus cartões e acompanhe limites
+          <h1 className="text-3xl font-bold mb-2" data-testid="title-page">Cartões de Crédito</h1>
+          <p className="text-muted-foreground" data-testid="subtitle-page">
+            Gerencia seus cartões e limites
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -169,7 +172,7 @@ export default function Cartoes() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Bandeira</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || "visa"}>
                         <FormControl>
                           <SelectTrigger data-testid="select-card-brand">
                             <SelectValue placeholder="Selecione a bandeira" />
@@ -268,92 +271,45 @@ export default function Cartoes() {
       </div>
 
       {cartoes && cartoes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="list-cartoes">
           {cartoes.map((cartao) => {
             const percentage = calculatePercentage(cartao.limiteUsado, cartao.limiteTotal);
-            const disponivel = parseFloat(cartao.limiteTotal) - parseFloat(cartao.limiteUsado);
+            const used = parseFloat(cartao.limiteUsado);
+            const limit = parseFloat(cartao.limiteTotal);
+            const dueDate = formatDueDate(cartao.diaVencimento);
 
             return (
-              <Card key={cartao.id} className="hover-elevate" data-testid={`card-cartao-${cartao.id}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-primary/10 rounded-md flex items-center justify-center">
-                        <CreditCard className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{cartao.nomeCartao}</CardTitle>
-                        {cartao.bandeira && (
-                          <Badge variant="outline" className="mt-1 capitalize">
-                            {cartao.bandeira}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    {percentage >= 80 && (
-                      <AlertCircle className="w-5 h-5 text-chart-4" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">Limite Usado</span>
-                      <span className={`text-sm font-mono font-semibold ${getLimitColor(percentage)}`}>
-                        {percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                    <Progress value={percentage} className="h-2" />
-                    <div className="flex justify-between mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        {formatCurrency(cartao.limiteUsado)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatCurrency(cartao.limiteTotal)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Disponível</span>
-                      <span className="text-sm font-mono font-semibold text-chart-1">
-                        {formatCurrency(disponivel.toString())}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>Fecha: dia {cartao.diaFechamento}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>Vence: dia {cartao.diaVencimento}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={cartao.id} data-testid={`card-cartao-${cartao.id}`}>
+                <ProgressCard
+                  name={cartao.nomeCartao}
+                  icon={<CreditCard className="w-5 h-5 text-primary" data-testid={`icon-card-${cartao.id}`} />}
+                  used={used}
+                  limit={limit}
+                  percentage={percentage}
+                  subtitle={`Vencimento: ${dueDate}`}
+                  progressColor={getProgressColor(percentage)}
+                  className="data-testid-wrapper"
+                />
+              </div>
             );
           })}
         </div>
       ) : (
-        <Card data-testid="card-empty-state-cartoes">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-              <CreditCard className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Nenhum cartão cadastrado</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Adicione seus cartões para acompanhar limites e faturas
-            </p>
-            <Button onClick={() => setDialogOpen(true)} data-testid="button-add-first-card">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Primeiro Cartão
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-12 px-6" data-testid="empty-state-cartoes">
+          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+            <CreditCard className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2" data-testid="text-empty-title">
+            Nenhum cartão cadastrado
+          </h3>
+          <p className="text-muted-foreground text-center mb-4" data-testid="text-empty-description">
+            Adicione seus cartões para acompanhar limites e faturas
+          </p>
+          <Button onClick={() => setDialogOpen(true)} data-testid="button-add-first-card">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Primeiro Cartão
+          </Button>
+        </div>
       )}
     </div>
   );

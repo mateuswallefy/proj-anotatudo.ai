@@ -446,3 +446,36 @@ export const insertInsightSchema = createInsertSchema(insights).omit({
 
 export type InsertInsight = z.infer<typeof insertInsightSchema>;
 export type Insight = typeof insights.$inferSelect;
+
+// Notification preferences table
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  alertasOrcamento: varchar("alertas_orcamento", { enum: ['ativo', 'inativo'] }).default('ativo').notNull(),
+  vencimentoCartoes: varchar("vencimento_cartoes", { enum: ['ativo', 'inativo'] }).default('ativo').notNull(),
+  insightsSemanais: varchar("insights_semanais", { enum: ['ativo', 'inativo'] }).default('inativo').notNull(),
+  metasAtingidas: varchar("metas_atingidas", { enum: ['ativo', 'inativo'] }).default('ativo').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateNotificationPreferencesSchema = insertNotificationPreferencesSchema.partial().omit({
+  userId: true,
+});
+
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type UpdateNotificationPreferences = z.infer<typeof updateNotificationPreferencesSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;

@@ -13,6 +13,7 @@ import {
   investimentos,
   alertas,
   insights,
+  notificationPreferences,
   type User,
   type UpsertUser,
   type Transacao,
@@ -41,6 +42,8 @@ import {
   type InsertAlerta,
   type Insight,
   type InsertInsight,
+  type NotificationPreferences,
+  type UpdateNotificationPreferences,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, or, sql as sqlOp } from "drizzle-orm";
@@ -133,6 +136,10 @@ export interface IStorage {
   getInsights(userId: string, limit?: number): Promise<Insight[]>;
   createInsight(insight: InsertInsight): Promise<Insight>;
   deleteInsight(id: string, userId: string): Promise<void>;
+
+  // Notification preferences operations
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
+  upsertNotificationPreferences(userId: string, preferences: UpdateNotificationPreferences): Promise<NotificationPreferences>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -673,6 +680,40 @@ export class DatabaseStorage implements IStorage {
           eq(insights.userId, userId)
         )
       );
+  }
+
+  // Notification preferences operations
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    const [preferences] = await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId));
+    return preferences;
+  }
+
+  async upsertNotificationPreferences(userId: string, preferences: UpdateNotificationPreferences): Promise<NotificationPreferences> {
+    const existing = await this.getNotificationPreferences(userId);
+
+    if (existing) {
+      const [updated] = await db
+        .update(notificationPreferences)
+        .set({
+          ...preferences,
+          updatedAt: new Date(),
+        })
+        .where(eq(notificationPreferences.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(notificationPreferences)
+        .values({
+          userId,
+          ...preferences,
+        })
+        .returning();
+      return created;
+    }
   }
 }
 

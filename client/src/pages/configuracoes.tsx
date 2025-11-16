@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Trash2, UserPlus, KeyRound, Camera, Crown, Sparkles, Plus, MessageSquare } from "lucide-react";
+import { Trash2, UserPlus, KeyRound, Camera, Crown, Sparkles, Plus, MessageSquare, Bell, DollarSign, CreditCard, TrendingUp, Target } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 // Emojis comuns para categorias financeiras
@@ -65,6 +66,13 @@ interface CategoriaCustomizada {
   createdAt: string;
 }
 
+interface NotificationPreferences {
+  alertasOrcamento: 'ativo' | 'inativo';
+  vencimentoCartoes: 'ativo' | 'inativo';
+  insightsSemanais: 'ativo' | 'inativo';
+  metasAtingidas: 'ativo' | 'inativo';
+}
+
 export default function Configuracoes() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -79,6 +87,11 @@ export default function Configuracoes() {
   // Fetch custom categories
   const { data: categoriasCustomizadas } = useQuery<CategoriaCustomizada[]>({
     queryKey: ["/api/categorias-customizadas"],
+  });
+
+  // Fetch notification preferences
+  const { data: notificationPreferences } = useQuery<NotificationPreferences>({
+    queryKey: ["/api/notification-preferences"],
   });
 
   // Change password mutation
@@ -213,6 +226,27 @@ export default function Configuracoes() {
     },
   });
 
+  // Update notification preferences mutation
+  const updateNotificationMutation = useMutation({
+    mutationFn: async (preferences: Partial<NotificationPreferences>) => {
+      await apiRequest("POST", "/api/notification-preferences", preferences);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notification-preferences"] });
+      toast({
+        title: "Preferências atualizadas!",
+        description: "Suas preferências de notificação foram salvas.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar preferências",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    },
+  });
+
   const passwordForm = useForm<ChangePasswordFormData>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: {
@@ -268,12 +302,167 @@ export default function Configuracoes() {
     return `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "U";
   };
 
+  const handleNotificationToggle = (key: keyof NotificationPreferences) => {
+    if (!notificationPreferences) return;
+    
+    const currentValue = notificationPreferences[key];
+    const newValue = currentValue === 'ativo' ? 'inativo' : 'ativo';
+    
+    updateNotificationMutation.mutate({
+      [key]: newValue,
+    });
+  };
+
   return (
     <div className="space-y-6 p-6 max-w-5xl">
       <div>
         <h1 className="text-3xl font-bold mb-2">Configurações</h1>
         <p className="text-muted-foreground">Gerencie suas preferências e configurações da conta</p>
       </div>
+
+      {/* Notifications Section */}
+      <Card data-testid="card-notifications">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+              <Bell className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Notificações</CardTitle>
+              <CardDescription>Configure suas preferências de alertas e lembretes</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Alertas de Orçamento */}
+          <div
+            className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+            onClick={() => handleNotificationToggle('alertasOrcamento')}
+            data-testid="notification-alertas-orcamento"
+          >
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-accent/10">
+                <DollarSign className="h-5 w-5 text-accent" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold">Alertas de Orçamento</h4>
+                <p className="text-sm text-muted-foreground">Quando exceder limites</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant={notificationPreferences?.alertasOrcamento === 'ativo' ? 'default' : 'secondary'}
+                className={notificationPreferences?.alertasOrcamento === 'ativo' ? 'bg-success text-success-foreground' : ''}
+                data-testid="badge-alertas-orcamento"
+              >
+                {notificationPreferences?.alertasOrcamento === 'ativo' ? 'Ativo' : 'Inativo'}
+              </Badge>
+              <Switch
+                checked={notificationPreferences?.alertasOrcamento === 'ativo'}
+                onCheckedChange={() => handleNotificationToggle('alertasOrcamento')}
+                data-testid="switch-alertas-orcamento"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Vencimento de Cartões */}
+          <div
+            className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+            onClick={() => handleNotificationToggle('vencimentoCartoes')}
+            data-testid="notification-vencimento-cartoes"
+          >
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold">Vencimento de Cartões</h4>
+                <p className="text-sm text-muted-foreground">Lembrete de faturas</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant={notificationPreferences?.vencimentoCartoes === 'ativo' ? 'default' : 'secondary'}
+                className={notificationPreferences?.vencimentoCartoes === 'ativo' ? 'bg-success text-success-foreground' : ''}
+                data-testid="badge-vencimento-cartoes"
+              >
+                {notificationPreferences?.vencimentoCartoes === 'ativo' ? 'Ativo' : 'Inativo'}
+              </Badge>
+              <Switch
+                checked={notificationPreferences?.vencimentoCartoes === 'ativo'}
+                onCheckedChange={() => handleNotificationToggle('vencimentoCartoes')}
+                data-testid="switch-vencimento-cartoes"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Insights Semanais */}
+          <div
+            className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+            onClick={() => handleNotificationToggle('insightsSemanais')}
+            data-testid="notification-insights-semanais"
+          >
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-info/10">
+                <TrendingUp className="h-5 w-5 text-info" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold">Insights Semanais</h4>
+                <p className="text-sm text-muted-foreground">Relatório por email</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant={notificationPreferences?.insightsSemanais === 'ativo' ? 'default' : 'secondary'}
+                className={notificationPreferences?.insightsSemanais === 'ativo' ? 'bg-success text-success-foreground' : ''}
+                data-testid="badge-insights-semanais"
+              >
+                {notificationPreferences?.insightsSemanais === 'ativo' ? 'Ativo' : 'Inativo'}
+              </Badge>
+              <Switch
+                checked={notificationPreferences?.insightsSemanais === 'ativo'}
+                onCheckedChange={() => handleNotificationToggle('insightsSemanais')}
+                data-testid="switch-insights-semanais"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Metas Atingidas */}
+          <div
+            className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+            onClick={() => handleNotificationToggle('metasAtingidas')}
+            data-testid="notification-metas-atingidas"
+          >
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+                <Target className="h-5 w-5 text-success" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold">Metas Atingidas</h4>
+                <p className="text-sm text-muted-foreground">Celebrar conquistas</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant={notificationPreferences?.metasAtingidas === 'ativo' ? 'default' : 'secondary'}
+                className={notificationPreferences?.metasAtingidas === 'ativo' ? 'bg-success text-success-foreground' : ''}
+                data-testid="badge-metas-atingidas"
+              >
+                {notificationPreferences?.metasAtingidas === 'ativo' ? 'Ativo' : 'Inativo'}
+              </Badge>
+              <Switch
+                checked={notificationPreferences?.metasAtingidas === 'ativo'}
+                onCheckedChange={() => handleNotificationToggle('metasAtingidas')}
+                data-testid="switch-metas-atingidas"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Profile Section */}
       <Card data-testid="card-profile">

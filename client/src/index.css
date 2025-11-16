@@ -53,6 +53,14 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   
+  /* Success - Green */
+  --success: 142 76% 36%;
+  --success-foreground: 144 61% 97%;
+  
+  /* Info - Teal */
+  --info: 174 77% 34%;
+  --info-foreground: 0 0% 100%;
+  
   /* Input & Ring */
   --input: 210 16% 82%;
   --ring: 142 76% 36%;
@@ -157,6 +165,14 @@
   /* Destructive - Red */
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
+  
+  /* Success - Green */
+  --success: 142 76% 36%;
+  --success-foreground: 144 61% 97%;
+  
+  /* Info - Teal */
+  --info: 174 77% 40%;
+  --info-foreground: 0 0% 100%;
   
   /* Input & Ring Dark */
   --input: 214 20% 25%;

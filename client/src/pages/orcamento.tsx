@@ -1,24 +1,37 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Wallet, Plus, AlertTriangle } from "lucide-react";
+import { Filter, Home, ShoppingCart, Car, Utensils, Heart, GraduationCap, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { MetricCard } from "@/components/cards/MetricCard";
+import { Button } from "@/components/ui/button";
 
 type SpendingLimit = {
   id: string;
   userId: string;
-  categoria: string;
-  limite: string;
-  periodo: 'mensal' | 'semanal' | 'anual';
+  tipo: string;
+  categoria: string | null;
+  valorLimite: string;
+  mes: number | null;
+  ano: number | null;
+  ativo: string;
 };
 
 type CategoryData = {
   categoria: string;
   total: number;
   percentual: number;
+};
+
+const categoryIcons: Record<string, any> = {
+  'Moradia': Home,
+  'Alimentação': Utensils,
+  'Transporte': Car,
+  'Compras': ShoppingCart,
+  'Saúde': Heart,
+  'Educação': GraduationCap,
+  'Lazer': Sparkles,
 };
 
 export default function Orcamento() {
@@ -38,131 +51,188 @@ export default function Orcamento() {
     return (
       <div className="space-y-6 p-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
             <Skeleton key={i} className="h-32" />
           ))}
         </div>
+        <Skeleton className="h-64" />
       </div>
     );
   }
 
+  // Calculate totals
+  const totalBudget = limits?.reduce((sum, limit) => {
+    if (limit.categoria && limit.ativo === 'sim') {
+      return sum + parseFloat(limit.valorLimite);
+    }
+    return sum;
+  }, 0) || 0;
+
+  const totalSpent = despesas?.reduce((sum, cat) => sum + cat.total, 0) || 0;
+  const totalAvailable = totalBudget - totalSpent;
+  const totalExceeded = totalSpent > totalBudget ? totalSpent - totalBudget : 0;
+
+  // Calculate percentages
+  const percentSpent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const percentAvailable = totalBudget > 0 ? (totalAvailable / totalBudget) * 100 : 0;
+  const percentExceeded = totalBudget > 0 ? (totalExceeded / totalBudget) * 100 : 0;
+
   // Match spending limits with actual spending
-  const orcamentoComGastos = limits?.map(limit => {
-    const gastoCategoria = despesas?.find(d => d.categoria === limit.categoria);
-    const gastoAtual = gastoCategoria?.total || 0;
-    const limiteValor = parseFloat(limit.limite);
-    const percentualUsado = limiteValor > 0 ? (gastoAtual / limiteValor) * 100 : 0;
-    const status = percentualUsado >= 100 ? 'excedido' : percentualUsado >= 80 ? 'alerta' : 'ok';
-    
-    return {
-      ...limit,
-      gastoAtual,
-      limiteValor,
-      percentualUsado,
-      status,
-    };
-  }) || [];
+  const categoryBudgets = limits
+    ?.filter(limit => limit.categoria && limit.ativo === 'sim')
+    .map(limit => {
+      const gastoCategoria = despesas?.find(d => d.categoria === limit.categoria);
+      const gastoAtual = gastoCategoria?.total || 0;
+      const limiteValor = parseFloat(limit.valorLimite);
+      const percentualUsado = limiteValor > 0 ? (gastoAtual / limiteValor) * 100 : 0;
+      
+      return {
+        ...limit,
+        gastoAtual,
+        limiteValor,
+        percentualUsado,
+      };
+    })
+    .sort((a, b) => b.percentualUsado - a.percentualUsado) || [];
+
+  const getProgressColor = (percentage: number) => {
+    if (percentage >= 100) return "bg-red-500";
+    if (percentage >= 75) return "bg-orange-500";
+    return "bg-emerald-500";
+  };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Orçamento</h1>
-          <p className="text-muted-foreground">
-            Gerencie seus limites de gastos por categoria
+          <h1 className="text-3xl font-bold tracking-tight mb-2" data-testid="title-orcamento">
+            Orçamento Mensal
+          </h1>
+          <p className="text-muted-foreground" data-testid="subtitle-orcamento">
+            Controle seus gastos por categoria
           </p>
         </div>
-        <Button data-testid="button-add-limit">
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Limite
-        </Button>
+        <div className="text-left md:text-right">
+          <p className="text-sm text-muted-foreground mb-1">Orçamento Total</p>
+          <p className="text-2xl font-bold font-mono tabular-nums" data-testid="text-total-budget">
+            R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
       </div>
 
-      {/* Budget Overview */}
-      {orcamentoComGastos.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4">
-          {orcamentoComGastos.map((item, index) => (
-            <Card 
-              key={item.id} 
-              className={`p-6 ${item.status === 'excedido' ? 'border-red-500/50' : item.status === 'alerta' ? 'border-orange-500/50' : ''}`}
-              data-testid={`orcamento-card-${index}`}
-            >
-              <CardContent className="p-0">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">{item.categoria}</h3>
-                      {item.status === 'excedido' && (
-                        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Período: {item.periodo}
-                    </p>
-                  </div>
-                  <Wallet className="h-6 w-6 text-muted-foreground" />
-                </div>
+      {/* Budget Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <MetricCard
+          icon={Sparkles}
+          label="Disponível"
+          value={`R$ ${Math.max(0, totalAvailable).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
+          subtitle={`${percentAvailable.toFixed(1)}% do orçamento`}
+          iconColor="text-purple-600"
+          iconBg="bg-purple-100 dark:bg-purple-950"
+          valueColor="text-purple-600 dark:text-purple-400"
+          data-testid="card-disponivel"
+        />
+        
+        <MetricCard
+          icon={ShoppingCart}
+          label="Gasto"
+          value={`R$ ${totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
+          subtitle={`${percentSpent.toFixed(1)}% do orçamento`}
+          iconColor="text-blue-600"
+          iconBg="bg-blue-100 dark:bg-blue-950"
+          valueColor="text-blue-600 dark:text-blue-400"
+          data-testid="card-gasto"
+        />
+        
+        <MetricCard
+          icon={Heart}
+          label="Excedido"
+          value={`R$ ${totalExceeded.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
+          subtitle={totalExceeded > 0 ? `${percentExceeded.toFixed(1)}% acima` : '0% acima'}
+          iconColor="text-red-600"
+          iconBg="bg-red-100 dark:bg-red-950"
+          valueColor="text-red-600 dark:text-red-400"
+          data-testid="card-excedido"
+        />
+      </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Gasto atual</span>
-                    <span className="font-semibold">
-                      R$ {item.gastoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Limite</span>
-                    <span className="font-semibold">
-                      R$ {item.limiteValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  
-                  <Progress 
-                    value={Math.min(item.percentualUsado, 100)} 
-                    className="h-2"
-                  />
-                  
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm font-medium ${
-                      item.status === 'excedido' ? 'text-red-600 dark:text-red-400' : 
-                      item.status === 'alerta' ? 'text-orange-600 dark:text-orange-400' : 
-                      'text-emerald-600 dark:text-emerald-400'
-                    }`}>
-                      {item.percentualUsado.toFixed(1)}% usado
-                    </span>
-                    {item.percentualUsado < 100 && (
-                      <span className="text-sm text-muted-foreground">
-                        Restam R$ {(item.limiteValor - item.gastoAtual).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    )}
-                    {item.percentualUsado >= 100 && (
-                      <span className="text-sm text-red-600 dark:text-red-400">
-                        Excedido em R$ {(item.gastoAtual - item.limiteValor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {/* Categories Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold" data-testid="title-categorias">
+            Categorias de Orçamento
+          </h2>
+          <Button variant="ghost" size="icon" data-testid="button-filter">
+            <Filter className="h-5 w-5" />
+          </Button>
         </div>
-      ) : (
-        <Card className="p-12">
-          <div className="text-center">
-            <Wallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum orçamento configurado</h3>
-            <p className="text-muted-foreground mb-6">
-              Comece definindo limites de gastos para suas categorias
-            </p>
-            <Button data-testid="button-add-first-limit">
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Primeiro Orçamento
-            </Button>
+
+        {categoryBudgets.length > 0 ? (
+          <div className="space-y-3">
+            {categoryBudgets.map((category, index) => {
+              const Icon = categoryIcons[category.categoria || ''] || Home;
+              const progressColor = getProgressColor(category.percentualUsado);
+              
+              return (
+                <Card key={category.id} className="hover-elevate" data-testid={`category-card-${index}`}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold" data-testid={`text-category-name-${index}`}>
+                          {category.categoria}
+                        </h3>
+                      </div>
+                      <span 
+                        className={`text-sm font-medium ${
+                          category.percentualUsado >= 100 
+                            ? 'text-red-600 dark:text-red-400' 
+                            : category.percentualUsado >= 75 
+                            ? 'text-orange-600 dark:text-orange-400' 
+                            : 'text-emerald-600 dark:text-emerald-400'
+                        }`}
+                        data-testid={`text-percentage-${index}`}
+                      >
+                        {category.percentualUsado.toFixed(1)}% usado
+                      </span>
+                    </div>
+
+                    <Progress 
+                      value={Math.min(category.percentualUsado, 100)} 
+                      className="h-2 mb-3"
+                      data-testid={`progress-${index}`}
+                    />
+
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-mono text-muted-foreground" data-testid={`text-spent-${index}`}>
+                        R$ {category.gastoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                      </span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="font-mono font-semibold" data-testid={`text-limit-${index}`}>
+                        R$ {category.limiteValor.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </Card>
-      )}
+        ) : (
+          <Card className="p-12">
+            <div className="text-center">
+              <Filter className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum orçamento configurado</h3>
+              <p className="text-muted-foreground mb-6">
+                Comece definindo limites de gastos para suas categorias
+              </p>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

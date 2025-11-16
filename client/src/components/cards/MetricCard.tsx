@@ -10,6 +10,7 @@ interface MetricCardProps {
   iconBg?: string;
   valueColor?: string;
   className?: string;
+  "data-testid"?: string;
 }
 
 export function MetricCard({
@@ -21,9 +22,10 @@ export function MetricCard({
   iconBg = "bg-primary/10",
   valueColor = "text-foreground",
   className = "",
+  "data-testid": dataTestId,
 }: MetricCardProps) {
   return (
-    <Card className={`hover-elevate ${className}`}>
+    <Card className={`hover-elevate ${className}`} data-testid={dataTestId}>
       <CardContent className="p-5">
         <div className={`${iconBg} p-3 rounded-lg w-fit mb-3`}>
           <Icon className={`h-6 w-6 ${iconColor}`} />
