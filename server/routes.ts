@@ -157,41 +157,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/auth/whatsapp-login', async (req, res) => {
+  app.post('/api/auth/setup-password', async (req, res) => {
     try {
-      const telefoneSchema = z.object({
-        telefone: z.string()
-          .min(11, "Telefone deve ter no mínimo 11 dígitos")
-          .max(16, "Telefone inválido")
-          .regex(/^\+?\d{11,15}$/, "Use apenas números com DDD (ex: 91983139299 ou +5591983139299)")
+      const setupSchema = z.object({
+        token: z.string(),
+        password: z.string().min(8, "Senha deve ter no mínimo 8 caracteres"),
       });
 
-      const { telefone } = telefoneSchema.parse(req.body);
+      const { token, password } = setupSchema.parse(req.body);
 
-      const normalizedPhone = normalizePhoneNumber(telefone);
+      const result = validateMagicToken(token);
       
-      if (!normalizedPhone) {
-        return res.status(400).json({ 
-          message: "Formato de telefone inválido. Use apenas números com DDD (ex: 91983139299)" 
-        });
+      if (!result) {
+        return res.status(401).json({ message: "Link inválido ou expirado. Solicite um novo via WhatsApp." });
       }
 
-      const user = await storage.getUserByTelefone(normalizedPhone);
+      const user = await storage.getUser(result.userId);
       
       if (!user) {
-        return res.status(404).json({ 
-          message: "Telefone não cadastrado. Primeiro, envie uma mensagem para o WhatsApp e informe seu email de compra." 
-        });
+        return res.status(404).json({ message: "Usuário não encontrado" });
       }
 
-      if (user.status !== 'authenticated') {
-        return res.status(403).json({ 
-          message: "Telefone ainda não autenticado. Verifique seu WhatsApp e envie o email usado na compra para completar a autenticação." 
-        });
-      }
+      const passwordHash = await hashPassword(password);
+      await storage.updateUserPassword(user.id, passwordHash);
 
       req.session.userId = user.id;
-      console.log(`[WhatsAppLogin] ✅ Sessão web criada para user ${user.id} (${user.email}) via telefone ${normalizedPhone}`);
+      console.log(`[SetupPassword] ✅ Senha definida e sessão criada para user ${user.id} (${user.email})`);
 
       res.json({
         id: user.id,
@@ -202,16 +193,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plano: user.plano,
       });
     } catch (error: any) {
-      console.error("[WhatsAppLogin] Erro ao fazer login por telefone:", error);
+      console.error("[SetupPassword] Erro ao definir senha:", error);
       
       if (error.name === 'ZodError') {
         const firstError = error.errors[0];
         return res.status(400).json({ message: firstError.message });
       }
       
-      res.status(500).json({ message: "Erro ao processar login. Tente novamente." });
+      res.status(500).json({ message: "Erro ao processar solicitação" });
     }
   });
+
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -508,32 +500,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Usuário web já existe - vincular telefone e mesclar transações
           await storage.updateUserTelefone(existingWebUser.id, phoneNumber);
           await storage.transferTransactions(user.id, existingWebUser.id);
-          
-          // Atualizar telefone na tabela de compras
           await storage.updatePurchasePhone(email, phoneNumber);
-
-          // Gerar magic-link para acesso automático ao dashboard
-          const token = createMagicToken(existingWebUser.id, email);
-          const magicLink = `https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}/login?token=${token}`;
 
           await sendWhatsAppReply(
             phoneNumber,
-            `Telefone vinculado com sucesso!\n\nAcesse seu dashboard (link válido por 15 minutos):\n${magicLink}\n\nOu envie transações aqui:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000`
+            `Telefone vinculado com sucesso!\n\nSuas transações agora aparecem automaticamente no dashboard.\n\nAcesse: https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\nLogin: ${email}\nSenha: A que você criou\n\nEnvie transações aqui:\n• Almoço R$ 45\n• Gasolina 200 reais`
           );
         } else {
-          // Nenhum usuário web - atualizar email do usuário atual
+          // Nenhum usuário web - atualizar email e marcar como autenticado
           await storage.updateUserEmail(user.id, email);
           await storage.updateUserStatus(user.id, 'authenticated');
           await storage.updatePurchasePhone(email, phoneNumber);
 
-          // Gerar magic-link para acesso automático ao dashboard
-          const token = createMagicToken(user.id, email);
-          const magicLink = `https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}/login?token=${token}`;
+          // Verificar se usuário já tem senha (conta criada via web)
+          const userWithEmail = await storage.getUserByEmail(email);
+          
+          if (!userWithEmail || !userWithEmail.passwordHash) {
+            // Gerar magic-link para definir senha
+            const token = createMagicToken(user.id, email);
+            const setupLink = `https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}/setup-password?token=${token}`;
 
-          await sendWhatsAppReply(
-            phoneNumber,
-            `Autenticação concluída!\n\nAcesse seu dashboard (link válido por 15 minutos):\n${magicLink}\n\nOu envie transações aqui:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000`
-          );
+            await sendWhatsAppReply(
+              phoneNumber,
+              `Autenticação concluída!\n\nDefina sua senha de acesso (link válido por 15 minutos):\n${setupLink}\n\nDepois, faça login em:\nhttps://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\nEnvie transações:\n• Almoço R$ 45\n• Gasolina 200 reais`
+            );
+          } else {
+            // Usuário já tem senha
+            await sendWhatsAppReply(
+              phoneNumber,
+              `Autenticação concluída!\n\nSuas transações já aparecem no dashboard.\n\nAcesse: https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\nLogin: ${email}\nSenha: A que você criou\n\nEnvie transações:\n• Almoço R$ 45\n• Gasolina 200 reais`
+            );
+          }
         }
 
         res.status(200).json({ success: true });
