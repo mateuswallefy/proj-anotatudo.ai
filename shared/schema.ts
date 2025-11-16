@@ -207,6 +207,7 @@ export const goals = pgTable("goals", {
   valorAtual: decimal("valor_atual", { precision: 10, scale: 2 }).default('0').notNull(),
   dataInicio: date("data_inicio").notNull(),
   dataFim: date("data_fim"),
+  prioridade: varchar("prioridade", { enum: ['baixa', 'media', 'alta'] }).default('media').notNull(),
   status: varchar("status", { enum: ['ativa', 'concluida', 'cancelada'] }).default('ativa').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

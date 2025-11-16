@@ -1253,6 +1253,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contas routes
+  app.get("/api/contas", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const contas = await storage.getContas(userId);
+      res.json(contas);
+    } catch (error) {
+      console.error("Error fetching contas:", error);
+      res.status(500).json({ message: "Failed to fetch contas" });
+    }
+  });
+
+  // Investimentos routes
+  app.get("/api/investimentos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const investimentos = await storage.getInvestimentos(userId);
+      res.json(investimentos);
+    } catch (error) {
+      console.error("Error fetching investimentos:", error);
+      res.status(500).json({ message: "Failed to fetch investimentos" });
+    }
+  });
+
+  // Alertas routes
+  app.get("/api/alertas", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const incluirLidos = req.query.incluirLidos === 'true';
+      const alertas = await storage.getAlertas(userId, incluirLidos);
+      res.json(alertas);
+    } catch (error) {
+      console.error("Error fetching alertas:", error);
+      res.status(500).json({ message: "Failed to fetch alertas" });
+    }
+  });
+
+  app.patch("/api/alertas/:id/ler", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      await storage.marcarAlertaComoLido(id, userId);
+      res.json({ message: "Alert marked as read" });
+    } catch (error) {
+      console.error("Error marking alert as read:", error);
+      res.status(500).json({ message: "Failed to mark alert as read" });
+    }
+  });
+
+  // Insights routes
+  app.get("/api/insights-ai", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      const insights = await storage.getInsights(userId, limit);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching insights:", error);
+      res.status(500).json({ message: "Failed to fetch insights" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

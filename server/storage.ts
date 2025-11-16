@@ -9,6 +9,10 @@ import {
   accountMembers,
   purchases,
   categoriasCustomizadas,
+  contas,
+  investimentos,
+  alertas,
+  insights,
   type User,
   type UpsertUser,
   type Transacao,
@@ -29,6 +33,14 @@ import {
   type InsertPurchase,
   type CategoriaCustomizada,
   type InsertCategoriaCustomizada,
+  type Conta,
+  type InsertConta,
+  type Investimento,
+  type InsertInvestimento,
+  type Alerta,
+  type InsertAlerta,
+  type Insight,
+  type InsertInsight,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, or, sql as sqlOp } from "drizzle-orm";
@@ -98,6 +110,29 @@ export interface IStorage {
   getCategoriasCustomizadas(userId: string): Promise<CategoriaCustomizada[]>;
   createCategoriaCustomizada(categoria: InsertCategoriaCustomizada): Promise<CategoriaCustomizada>;
   deleteCategoriaCustomizada(id: string, userId: string): Promise<void>;
+
+  // Contas operations
+  getContas(userId: string): Promise<Conta[]>;
+  createConta(conta: InsertConta): Promise<Conta>;
+  updateContaSaldo(id: string, userId: string, saldoAtual: string): Promise<void>;
+  deleteConta(id: string, userId: string): Promise<void>;
+
+  // Investimentos operations
+  getInvestimentos(userId: string): Promise<Investimento[]>;
+  createInvestimento(investimento: InsertInvestimento): Promise<Investimento>;
+  updateInvestimento(id: string, userId: string, updates: Partial<InsertInvestimento>): Promise<void>;
+  deleteInvestimento(id: string, userId: string): Promise<void>;
+
+  // Alertas operations
+  getAlertas(userId: string, incluirLidos?: boolean): Promise<Alerta[]>;
+  createAlerta(alerta: InsertAlerta): Promise<Alerta>;
+  marcarAlertaComoLido(id: string, userId: string): Promise<void>;
+  deleteAlerta(id: string, userId: string): Promise<void>;
+
+  // Insights operations
+  getInsights(userId: string, limit?: number): Promise<Insight[]>;
+  createInsight(insight: InsertInsight): Promise<Insight>;
+  deleteInsight(id: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -479,6 +514,163 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(categoriasCustomizadas.id, id),
           eq(categoriasCustomizadas.userId, userId)
+        )
+      );
+  }
+
+  // Contas operations
+  async getContas(userId: string): Promise<Conta[]> {
+    return await db
+      .select()
+      .from(contas)
+      .where(eq(contas.userId, userId))
+      .orderBy(desc(contas.saldoAtual));
+  }
+
+  async createConta(conta: InsertConta): Promise<Conta> {
+    const [novaConta] = await db
+      .insert(contas)
+      .values(conta)
+      .returning();
+    return novaConta;
+  }
+
+  async updateContaSaldo(id: string, userId: string, saldoAtual: string): Promise<void> {
+    await db
+      .update(contas)
+      .set({ saldoAtual })
+      .where(
+        and(
+          eq(contas.id, id),
+          eq(contas.userId, userId)
+        )
+      );
+  }
+
+  async deleteConta(id: string, userId: string): Promise<void> {
+    await db
+      .delete(contas)
+      .where(
+        and(
+          eq(contas.id, id),
+          eq(contas.userId, userId)
+        )
+      );
+  }
+
+  // Investimentos operations
+  async getInvestimentos(userId: string): Promise<Investimento[]> {
+    return await db
+      .select()
+      .from(investimentos)
+      .where(eq(investimentos.userId, userId))
+      .orderBy(desc(investimentos.valorAtual));
+  }
+
+  async createInvestimento(investimento: InsertInvestimento): Promise<Investimento> {
+    const [novoInvestimento] = await db
+      .insert(investimentos)
+      .values(investimento)
+      .returning();
+    return novoInvestimento;
+  }
+
+  async updateInvestimento(id: string, userId: string, updates: Partial<InsertInvestimento>): Promise<void> {
+    await db
+      .update(investimentos)
+      .set(updates)
+      .where(
+        and(
+          eq(investimentos.id, id),
+          eq(investimentos.userId, userId)
+        )
+      );
+  }
+
+  async deleteInvestimento(id: string, userId: string): Promise<void> {
+    await db
+      .delete(investimentos)
+      .where(
+        and(
+          eq(investimentos.id, id),
+          eq(investimentos.userId, userId)
+        )
+      );
+  }
+
+  // Alertas operations
+  async getAlertas(userId: string, incluirLidos: boolean = false): Promise<Alerta[]> {
+    const whereConditions = incluirLidos
+      ? eq(alertas.userId, userId)
+      : and(
+          eq(alertas.userId, userId),
+          eq(alertas.lido, 'nao')
+        );
+
+    return await db
+      .select()
+      .from(alertas)
+      .where(whereConditions)
+      .orderBy(desc(alertas.createdAt))
+      .limit(10);
+  }
+
+  async createAlerta(alerta: InsertAlerta): Promise<Alerta> {
+    const [novoAlerta] = await db
+      .insert(alertas)
+      .values(alerta)
+      .returning();
+    return novoAlerta;
+  }
+
+  async marcarAlertaComoLido(id: string, userId: string): Promise<void> {
+    await db
+      .update(alertas)
+      .set({ lido: 'sim' })
+      .where(
+        and(
+          eq(alertas.id, id),
+          eq(alertas.userId, userId)
+        )
+      );
+  }
+
+  async deleteAlerta(id: string, userId: string): Promise<void> {
+    await db
+      .delete(alertas)
+      .where(
+        and(
+          eq(alertas.id, id),
+          eq(alertas.userId, userId)
+        )
+      );
+  }
+
+  // Insights operations
+  async getInsights(userId: string, limit: number = 3): Promise<Insight[]> {
+    return await db
+      .select()
+      .from(insights)
+      .where(eq(insights.userId, userId))
+      .orderBy(desc(insights.relevancia), desc(insights.createdAt))
+      .limit(limit);
+  }
+
+  async createInsight(insight: InsertInsight): Promise<Insight> {
+    const [novoInsight] = await db
+      .insert(insights)
+      .values(insight)
+      .returning();
+    return novoInsight;
+  }
+
+  async deleteInsight(id: string, userId: string): Promise<void> {
+    await db
+      .delete(insights)
+      .where(
+        and(
+          eq(insights.id, id),
+          eq(insights.userId, userId)
         )
       );
   }
