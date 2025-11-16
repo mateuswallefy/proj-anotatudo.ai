@@ -16,6 +16,7 @@ import { processWhatsAppMessage } from "./ai";
 import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
 import { z } from "zod";
 import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp";
+import { validateMagicToken, createMagicToken } from "./magic-link";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -117,6 +118,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.clearCookie('connect.sid');
       res.json({ message: "Logout realizado com sucesso" });
     });
+  });
+
+  app.post('/api/auth/magic-link', async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token não fornecido" });
+      }
+
+      const result = validateMagicToken(token);
+      
+      if (!result) {
+        return res.status(401).json({ message: "Token inválido ou expirado" });
+      }
+
+      const user = await storage.getUser(result.userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      req.session.userId = user.id;
+      console.log(`[MagicLink] Sessão web criada para user ${user.id} (${user.email})`);
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telefone: user.telefone,
+        plano: user.plano,
+      });
+    } catch (error: any) {
+      console.error("[MagicLink] Erro ao processar token:", error);
+      res.status(500).json({ message: "Erro ao processar token" });
+    }
   });
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -418,9 +456,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Atualizar telefone na tabela de compras
           await storage.updatePurchasePhone(email, phoneNumber);
 
+          // Gerar magic-link para acesso automático ao dashboard
+          const token = createMagicToken(existingWebUser.id, email);
+          const magicLink = `https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}/login?token=${token}`;
+
           await sendWhatsAppReply(
             phoneNumber,
-            "Telefone vinculado com sucesso!\n\nAgora você pode enviar suas transações via WhatsApp e elas aparecerão automaticamente no seu dashboard.\n\nExemplos:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000"
+            `Telefone vinculado com sucesso!\n\nAcesse seu dashboard (link válido por 15 minutos):\n${magicLink}\n\nOu envie transações aqui:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000`
           );
         } else {
           // Nenhum usuário web - atualizar email do usuário atual
@@ -428,9 +470,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateUserStatus(user.id, 'authenticated');
           await storage.updatePurchasePhone(email, phoneNumber);
 
+          // Gerar magic-link para acesso automático ao dashboard
+          const token = createMagicToken(user.id, email);
+          const magicLink = `https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}/login?token=${token}`;
+
           await sendWhatsAppReply(
             phoneNumber,
-            "Autenticação concluída!\n\nAgora você pode enviar suas transações via WhatsApp.\n\nExemplos:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000"
+            `Autenticação concluída!\n\nAcesse seu dashboard (link válido por 15 minutos):\n${magicLink}\n\nOu envie transações aqui:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000`
           );
         }
 
