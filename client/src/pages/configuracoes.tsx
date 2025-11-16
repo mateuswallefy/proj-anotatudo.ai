@@ -214,15 +214,10 @@ export default function Configuracoes() {
   };
 
   const handleNotificationToggle = (key: keyof NotificationPreferences) => {
-    if (!notificationPreferences) {
-      console.log('notificationPreferences não carregadas ainda');
-      return;
-    }
+    if (!notificationPreferences) return;
     
     const currentValue = notificationPreferences[key];
     const newValue = currentValue === 'ativo' ? 'inativo' : 'ativo';
-    
-    console.log('Toggle notificação:', key, 'de', currentValue, 'para', newValue);
     
     updateNotificationMutation.mutate({
       [key]: newValue,
