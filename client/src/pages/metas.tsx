@@ -9,9 +9,11 @@ import { MetricCard } from "@/components/cards/MetricCard";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePeriod } from "@/contexts/PeriodContext";
 import type { Goal } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Metas() {
   const { period } = usePeriod();
+  const { toast } = useToast();
   
   const { data: goals, isLoading } = useQuery<Goal[]>({
     queryKey: ["/api/goals", period],
@@ -72,6 +74,12 @@ export default function Metas() {
           variant="default"
           size="lg"
           data-testid="button-add-goal"
+          onClick={() => {
+            toast({
+              title: "Em breve",
+              description: "Esta funcionalidade será implementada em breve.",
+            });
+          }}
         >
           <Plus className="h-4 w-4 mr-2" />
           Nova Meta
@@ -234,7 +242,15 @@ export default function Metas() {
               <p className="text-muted-foreground mb-6" data-testid="empty-description">
                 Comece definindo suas metas financeiras para acompanhar seu progresso
               </p>
-              <Button data-testid="button-add-first-goal">
+              <Button 
+                data-testid="button-add-first-goal"
+                onClick={() => {
+                  toast({
+                    title: "Em breve",
+                    description: "Esta funcionalidade será implementada em breve.",
+                  });
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Primeira Meta
               </Button>

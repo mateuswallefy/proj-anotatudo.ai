@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { StatCard } from "@/components/cards/StatCard";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface PeriodSummary {
   totalReceitas: number;
@@ -39,6 +40,7 @@ interface PeriodSummary {
 
 export default function Transacoes() {
   const { period } = usePeriod();
+  const { toast } = useToast();
   
   const { data: transacoes, isLoading: transacoesLoading } = useQuery<Transacao[]>({
     queryKey: ["/api/transacoes", { period }],
@@ -168,6 +170,12 @@ export default function Transacoes() {
         variant="default"
         size="lg"
         data-testid="button-new-transaction"
+        onClick={() => {
+          toast({
+            title: "Em breve",
+            description: "Esta funcionalidade será implementada em breve.",
+          });
+        }}
       >
         <Plus className="w-5 h-5 mr-2" />
         Nova Transação

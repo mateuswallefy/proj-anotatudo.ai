@@ -5,6 +5,7 @@ import { PiggyBank, TrendingUp, Percent, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { MetricCard } from "@/components/cards/MetricCard";
+import { useToast } from "@/hooks/use-toast";
 
 type CategoryData = {
   categoria: string;
@@ -22,6 +23,7 @@ type PeriodSummary = {
 
 export default function Economias() {
   const { period } = usePeriod();
+  const { toast } = useToast();
 
   const { data: periodSummary, isLoading: loadingSummary } = useQuery<PeriodSummary>({
     queryKey: ["/api/analytics/period-summary", { period }],
@@ -73,6 +75,12 @@ export default function Economias() {
         variant="default"
         size="lg"
         data-testid="button-registrar-economia"
+        onClick={() => {
+          toast({
+            title: "Em breve",
+            description: "Esta funcionalidade será implementada em breve.",
+          });
+        }}
       >
         <Plus className="h-4 w-4" />
         Registrar Economia
