@@ -13,6 +13,10 @@ import { MonthlyComparisonChart } from "@/components/MonthlyComparisonChart";
 import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoryChart";
 import { IncomeByCategoryChart } from "@/components/IncomeByCategoryChart";
 import { YearlyEvolutionChart } from "@/components/YearlyEvolutionChart";
+import { AlertasImportantes } from "@/components/AlertasImportantes";
+import { ResumoPatrimonial } from "@/components/ResumoPatrimonial";
+import { PortfolioInvestimentos } from "@/components/PortfolioInvestimentos";
+import { InsightsInteligentes } from "@/components/InsightsInteligentes";
 import { LightbulbIcon } from "lucide-react";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { PeriodSelector } from "@/components/PeriodSelector";
@@ -151,7 +155,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard Financeiro</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard Financeiro Premium</h1>
           <p className="text-muted-foreground">
             Visão completa e inteligente das suas finanças
           </p>
@@ -159,20 +163,29 @@ export default function Dashboard() {
         <PeriodSelector />
       </div>
 
-      {/* Premium Summary Cards - New! */}
-      <PeriodSummaryCards />
+      {/* Alertas Importantes - NOVO! */}
+      <AlertasImportantes />
 
-      {/* Monthly Comparison Chart - New! */}
+      {/* Resumo Patrimonial - 4 Cards Principais - NOVO! */}
+      <ResumoPatrimonial />
+
+      {/* Monthly Comparison Chart */}
       <MonthlyComparisonChart />
 
-      {/* Category Charts Row - New! */}
+      {/* Category Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ExpensesByCategoryChart />
         <IncomeByCategoryChart />
       </div>
 
-      {/* Yearly Evolution - New! */}
+      {/* Yearly Evolution */}
       <YearlyEvolutionChart />
+
+      {/* Portfólio e Insights - NOVO! */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PortfolioInvestimentos />
+        <InsightsInteligentes />
+      </div>
 
       {/* Insights Cards */}
       {insights && (
