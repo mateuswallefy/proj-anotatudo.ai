@@ -58,7 +58,8 @@ export function AppSidebar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       queryClient.clear();
-      setLocation("/");
+      // Force full page reload to ensure clean state
+      window.location.href = "/auth";
     },
     onError: (error: any) => {
       toast({

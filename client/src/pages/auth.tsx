@@ -66,19 +66,25 @@ export default function Auth() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      await apiRequest("POST", "/api/auth/login", data);
+      console.log('[Frontend] Sending login request:', { email: data.email });
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      console.log('[Frontend] Login response received');
+      return response;
     },
     onSuccess: () => {
+      console.log('[Frontend] Login success, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Login realizado!",
         description: "Redirecionando para o dashboard...",
       });
       setTimeout(() => {
+        console.log('[Frontend] Redirecting to dashboard');
         setLocation("/");
       }, 100);
     },
     onError: (error: any) => {
+      console.error('[Frontend] Login error:', error);
       toast({
         title: "Erro ao fazer login",
         description: error.message || "Email ou senha incorretos",
