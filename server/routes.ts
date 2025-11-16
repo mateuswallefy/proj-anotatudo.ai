@@ -16,7 +16,6 @@ import { processWhatsAppMessage } from "./ai";
 import { calculateFinancialInsights, calculateSpendingProgress } from "./analytics";
 import { z } from "zod";
 import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp";
-import { validateMagicToken, createMagicToken } from "./magic-link";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -29,7 +28,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (data.email) {
         const existingUser = await storage.getUserByEmail(data.email);
         if (existingUser) {
-          return res.status(409).json({ message: "Email já está em uso" });
+          return res.status(409).json({ 
+            message: "Email já está em uso. Se esqueceu sua senha, envie uma mensagem no WhatsApp para receber uma nova senha temporária." 
+          });
         }
       }
 
@@ -120,90 +121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.post('/api/auth/magic-link', async (req, res) => {
-    try {
-      const { token } = req.body;
-      
-      if (!token) {
-        return res.status(400).json({ message: "Token não fornecido" });
-      }
-
-      const result = validateMagicToken(token);
-      
-      if (!result) {
-        return res.status(401).json({ message: "Token inválido ou expirado" });
-      }
-
-      const user = await storage.getUser(result.userId);
-      
-      if (!user) {
-        return res.status(404).json({ message: "Usuário não encontrado" });
-      }
-
-      req.session.userId = user.id;
-      console.log(`[MagicLink] Sessão web criada para user ${user.id} (${user.email})`);
-
-      res.json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        telefone: user.telefone,
-        plano: user.plano,
-      });
-    } catch (error: any) {
-      console.error("[MagicLink] Erro ao processar token:", error);
-      res.status(500).json({ message: "Erro ao processar token" });
-    }
-  });
-
-  app.post('/api/auth/setup-password', async (req, res) => {
-    try {
-      const setupSchema = z.object({
-        token: z.string(),
-        password: z.string().min(8, "Senha deve ter no mínimo 8 caracteres"),
-      });
-
-      const { token, password } = setupSchema.parse(req.body);
-
-      const result = validateMagicToken(token);
-      
-      if (!result) {
-        return res.status(401).json({ message: "Link inválido ou expirado. Solicite um novo via WhatsApp." });
-      }
-
-      const user = await storage.getUser(result.userId);
-      
-      if (!user) {
-        return res.status(404).json({ message: "Usuário não encontrado" });
-      }
-
-      const passwordHash = await hashPassword(password);
-      await storage.updateUserPassword(user.id, passwordHash);
-
-      req.session.userId = user.id;
-      console.log(`[SetupPassword] ✅ Senha definida e sessão criada para user ${user.id} (${user.email})`);
-
-      res.json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        telefone: user.telefone,
-        plano: user.plano,
-      });
-    } catch (error: any) {
-      console.error("[SetupPassword] Erro ao definir senha:", error);
-      
-      if (error.name === 'ZodError') {
-        const firstError = error.errors[0];
-        return res.status(400).json({ message: firstError.message });
-      }
-      
-      res.status(500).json({ message: "Erro ao processar solicitação" });
-    }
-  });
-
+  // TODO: Implement secure password reset with email verification
+  // For now, users can use "Criar Conta" with their purchase email to set a new password
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -229,23 +148,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("[Caktos Webhook] Received:", JSON.stringify(req.body, null, 2));
       
-      const { email, phone, status, purchase_id, product_name, amount } = req.body;
+      const { email, phone, status, purchase_id, product_name, amount, name } = req.body;
       
       if (!email || !status) {
         return res.status(400).json({ error: "Email e status são obrigatórios" });
       }
 
+      const normalizedEmail = email.toLowerCase();
+      const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+
       // Criar registro de compra
       await storage.createPurchase({
-        email: email.toLowerCase(),
-        telefone: phone ? normalizePhoneNumber(phone) : null,
+        email: normalizedEmail,
+        telefone: normalizedPhone,
         status,
         purchaseId: purchase_id,
         productName: product_name,
         amount: amount ? String(amount) : null,
       });
 
-      console.log(`[Caktos] Purchase registered: ${email} - ${status}`);
+      // Se compra aprovada, criar usuário SEM senha (será definida via WhatsApp)
+      if (status === 'approved') {
+        const existingUser = await storage.getUserByEmail(normalizedEmail);
+        
+        if (!existingUser) {
+          // Extrair nome do campo "name" se disponível
+          let firstName = null;
+          let lastName = null;
+          if (name) {
+            const nameParts = name.trim().split(' ');
+            firstName = nameParts[0];
+            lastName = nameParts.slice(1).join(' ') || null;
+          }
+
+          await storage.createUser({
+            email: normalizedEmail,
+            passwordHash: null,
+            firstName,
+            lastName,
+            telefone: normalizedPhone,
+            plano: 'free',
+          });
+
+          console.log(`[Caktos] ✅ User created (pending password) for ${normalizedEmail}`);
+        } else {
+          console.log(`[Caktos] User already exists: ${normalizedEmail}`);
+        }
+      }
+
+      console.log(`[Caktos] Purchase registered: ${normalizedEmail} - ${status}`);
       res.json({ success: true, message: "Purchase registered" });
     } catch (error: any) {
       console.error("[Caktos Webhook] Error:", error);
@@ -493,44 +444,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
 
-        // Verificar se já existe usuário web com esse email
+        // Verificar se já existe usuário web com esse email (criado via webhook Caktos)
         const existingWebUser = await storage.getUserByEmail(email);
 
         if (existingWebUser) {
-          // Usuário web já existe - vincular telefone e mesclar transações
+          // Usuário web já existe - vincular telefone
           await storage.updateUserTelefone(existingWebUser.id, phoneNumber);
-          await storage.transferTransactions(user.id, existingWebUser.id);
+          await storage.updateUserStatus(existingWebUser.id, 'authenticated');
           await storage.updatePurchasePhone(email, phoneNumber);
+
+          // Se havia usuário temporário, transferir transações
+          if (user.id !== existingWebUser.id) {
+            await storage.transferTransactions(user.id, existingWebUser.id);
+          }
+
+          // Gerar senha temporária segura usando crypto.randomBytes
+          const crypto = await import('crypto');
+          const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
+          const passwordHash = await hashPassword(tempPassword);
+          await storage.updateUserPassword(existingWebUser.id, passwordHash);
+
+          console.log(`[WhatsApp] ✅ Temporary password generated for ${email}`);
 
           await sendWhatsAppReply(
             phoneNumber,
-            `Telefone vinculado com sucesso!\n\nSuas transações agora aparecem automaticamente no dashboard.\n\nAcesse: https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\nLogin: ${email}\nSenha: A que você criou\n\nEnvie transações aqui:\n• Almoço R$ 45\n• Gasolina 200 reais`
+            `✅ *Acesso liberado!*\n\n` +
+            `📱 Suas transações via WhatsApp já aparecem no dashboard automaticamente.\n\n` +
+            `🌐 *Acesse:*\n${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\n` +
+            `📧 *Email:* ${email}\n` +
+            `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
+            `⚠️ *IMPORTANTE:* Troque sua senha após o primeiro login!\n\n` +
+            `💡 *Comece a enviar:*\n` +
+            `• Almoço R$ 45\n` +
+            `• Gasolina 200 reais\n` +
+            `• Foto de recibo\n` +
+            `• Áudio descrevendo compra`
           );
         } else {
-          // Nenhum usuário web - atualizar email e marcar como autenticado
+          // Usuário não existe - atualizar dados do usuário temporário
           await storage.updateUserEmail(user.id, email);
           await storage.updateUserStatus(user.id, 'authenticated');
           await storage.updatePurchasePhone(email, phoneNumber);
 
-          // Verificar se usuário já tem senha (conta criada via web)
-          const userWithEmail = await storage.getUserByEmail(email);
-          
-          if (!userWithEmail || !userWithEmail.passwordHash) {
-            // Gerar magic-link para definir senha
-            const token = createMagicToken(user.id, email);
-            const setupLink = `https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}/setup-password?token=${token}`;
+          // Gerar senha temporária segura usando crypto.randomBytes
+          const crypto = await import('crypto');
+          const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
+          const passwordHash = await hashPassword(tempPassword);
+          await storage.updateUserPassword(user.id, passwordHash);
 
-            await sendWhatsAppReply(
-              phoneNumber,
-              `Autenticação concluída!\n\nDefina sua senha de acesso (link válido por 15 minutos):\n${setupLink}\n\nDepois, faça login em:\nhttps://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\nEnvie transações:\n• Almoço R$ 45\n• Gasolina 200 reais`
-            );
-          } else {
-            // Usuário já tem senha
-            await sendWhatsAppReply(
-              phoneNumber,
-              `Autenticação concluída!\n\nSuas transações já aparecem no dashboard.\n\nAcesse: https://${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\nLogin: ${email}\nSenha: A que você criou\n\nEnvie transações:\n• Almoço R$ 45\n• Gasolina 200 reais`
-            );
-          }
+          console.log(`[WhatsApp] ✅ Temporary password generated for ${email}`);
+
+          await sendWhatsAppReply(
+            phoneNumber,
+            `✅ *Acesso liberado!*\n\n` +
+            `📱 Suas transações via WhatsApp já aparecem no dashboard automaticamente.\n\n` +
+            `🌐 *Acesse:*\n${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\n` +
+            `📧 *Email:* ${email}\n` +
+            `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
+            `⚠️ *IMPORTANTE:* Troque sua senha após o primeiro login!\n\n` +
+            `💡 *Comece a enviar:*\n` +
+            `• Almoço R$ 45\n` +
+            `• Gasolina 200 reais\n` +
+            `• Foto de recibo\n` +
+            `• Áudio descrevendo compra`
+          );
         }
 
         res.status(200).json({ success: true });
@@ -539,6 +516,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Se usuário está autenticado, processar transação
       if (user.status === 'authenticated') {
+        // Comando para recuperar senha
+        if (messageType === 'text' && content) {
+          const lowerContent = content.toLowerCase().trim();
+          if (lowerContent === 'senha' || lowerContent === 'recuperar senha' || lowerContent === 'esqueci senha' || lowerContent === 'nova senha') {
+            // Gerar nova senha temporária segura
+            const crypto = await import('crypto');
+            const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
+            const passwordHash = await hashPassword(tempPassword);
+            await storage.updateUserPassword(user.id, passwordHash);
+
+            console.log(`[WhatsApp] 🔑 Password reset for user ${user.id}`);
+
+            await sendWhatsAppReply(
+              phoneNumber,
+              `🔑 *Nova senha gerada!*\n\n` +
+              `📧 *Email:* ${user.email}\n` +
+              `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
+              `🌐 *Acesse:* ${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\n` +
+              `⚠️ *IMPORTANTE:* Esta é uma senha temporária. Recomendamos que você a troque após o login!`
+            );
+
+            res.status(200).json({ success: true });
+            return;
+          }
+        }
+
         try {
           let processedContent = content;
           let mediaUrl = "";

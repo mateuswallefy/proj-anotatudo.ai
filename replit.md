@@ -22,28 +22,37 @@ AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp me
 
 ## Recent Changes (November 16, 2025)
 
-### Email+Password Authentication System (Security-First)
-- **Security Decision:** Removed phone-based login due to security concerns - web dashboard access now **requires email+password only**
+### Simplified Authentication System (No Magic Links)
+- **Security Decision:** Removed phone-based login AND magic-links - web dashboard access now **requires email+password only**
 - **Caktos Integration:** Webhook (`/api/webhook-caktos`) receives purchase notifications from Caktos payment platform
   - **UPSERT Logic:** Uses Postgres `onConflictDoUpdate` on `purchases.purchaseId` (UNIQUE constraint)
   - **Status Updates:** When Caktos sends approved→refunded, existing record is atomically updated
   - **Thread-Safe:** Concurrent webhook deliveries collapse into single row per purchase
+  - **User Creation:** Creates user record WITHOUT password (password set via WhatsApp)
+  
 - **WhatsApp-to-Database Pipeline:** WhatsApp messages automatically create transactions in database (no web login required)
   1. User sends first WhatsApp message → system creates user with `status='awaiting_email'`
   2. System prompts: "Para liberar seu acesso, envie o e-mail usado na compra."
   3. User sends email → system validates against `purchases` table
-  4. If purchase approved → user receives magic-link to define password (`/setup-password?token=...`)
-  5. User clicks link, creates secure password (min 8 chars, uppercase, lowercase, number)
-  6. Transactions sent via WhatsApp automatically appear in database
+  4. If purchase approved → **system generates secure temporary password using crypto.randomBytes**
+  5. **Password sent via WhatsApp message** (12 characters, cryptographically secure)
+  6. User can login immediately with email + temporary password
+  7. Transactions sent via WhatsApp automatically appear in database
+  
 - **Web Dashboard Access:** Users login with email+password (traditional authentication)
   - Session duration: 30 days for convenience
   - bcrypt password hashing for security
   - No phone-based login available
-- **Password Setup Flow:**
-  - Magic-link token: HMAC-signed, 15-minute expiry, single-use
-  - Endpoint: `POST /api/auth/setup-password` with token + password
-  - Password requirements: ≥8 chars, uppercase, lowercase, number
-  - Auto-login after password creation
+  - Cookie security: `secure: process.env.NODE_ENV === 'production'` allows HTTP in dev, HTTPS in prod
+  - SameSite: 'lax' for CSRF protection
+  
+- **Password Management:**
+  - **Initial Password:** Generated via WhatsApp authentication (crypto.randomBytes - CSPRNG)
+  - **Password Reset:** Send WhatsApp message with commands: "senha", "recuperar senha", "esqueci senha", or "nova senha"
+  - **Reset Security:** Only authenticated WhatsApp users can request new password (validated via phone number)
+  - **Process:** User sends command → System generates new secure temporary password → Sends via WhatsApp
+  - **Web Registration:** `/api/auth/register` rejects existing emails (no web-based password reset to prevent account hijacking)
+  
 - **Rate Limiting:** 10 messages per minute per phone number to prevent WhatsApp abuse
   - In-memory token bucket implementation
   - Normalized phone numbers to prevent bypass via different formats
