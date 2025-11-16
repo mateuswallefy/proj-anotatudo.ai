@@ -96,25 +96,37 @@
 
 ### Navigation
 
-**Top App Bar**:
-- Fixed position with shadow/border-bottom
+**Horizontal NavBar** (Lasy.AI style):
+- Fixed position at top with subtle shadow/border-bottom
 - Height: h-16
-- Contains: Logo (left), Navigation links (center), User profile + notifications (right)
-- Mobile: Hamburger menu with slide-out drawer
-
-**Sidebar** (Desktop only):
-- Width: w-64 fixed
-- Sections: Dashboard, Transações, Cartões, Adicionar, Configurações
-- Active state: filled background with left border accent
-- Collapsed state (optional): w-20 with icons only
+- Structure:
+  - Logo (left): AnotaTudo.AI wordmark
+  - Horizontal tabs (center): Dashboard, Transações, Economias, Orçamento, Metas, Cartões, Insights, Configurações
+  - Controls (right): Period selector (month dropdown) + Theme toggle
+- Tab Behavior:
+  - Active state: border-b-2 border-primary + text-primary
+  - Inactive state: text-muted-foreground + hover:text-foreground
+  - Zero page reload (all pages mounted, display toggled via TabContext)
+  - Smooth instant switching between tabs
+- Mobile: Scrollable horizontal tabs or hamburger menu with drawer
 
 ### Dashboard Cards
 
-**Stat Cards** (4-column grid on desktop):
-- Elevated surface (shadow-md)
+**Monthly Summary Cards (CardsMensais)** (4-column grid on desktop):
+- Glassmorphism design with subtle gradients
 - Padding: p-6
-- Structure: Icon (top-left) + Label (text-sm) + Value (text-2xl font-bold JetBrains Mono) + Change indicator
+- Structure: 
+  - Header: Icon (lucide-react) + Label (text-xs uppercase tracking-wide)
+  - Value: text-3xl font-bold JetBrains Mono tabular-nums
+  - Footer: Badge showing % change vs previous month
+- Cards: ENTRADAS, DESPESAS, ECONOMIAS, SALDO DO MÊS
+- Data source: /api/analytics/period-summary
 - Height: h-32
+- Colors:
+  - ENTRADAS: Success/green tones
+  - DESPESAS: Warning/orange tones
+  - ECONOMIAS: Info/blue tones
+  - SALDO DO MÊS: Primary/emerald tones
 
 **Chart Cards**:
 - Padding: p-8
@@ -344,10 +356,11 @@ cursor={{ fill: 'hsl(var(--accent) / 0.1)' }}
 - Desktop: > 1024px (full layout with sidebar)
 
 **Mobile Adaptations**:
-- Bottom navigation bar (fixed) replacing sidebar
-- Cards stack vertically
+- Horizontal tabs become scrollable or hamburger menu
+- Cards stack vertically (1 column)
 - Table becomes card list
 - Charts: Reduce height, simplify legends
+- Period selector moves to top of page on mobile
 
 ---
 
