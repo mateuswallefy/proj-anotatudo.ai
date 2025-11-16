@@ -9,7 +9,8 @@ import {
   Target, 
   CreditCard, 
   Lightbulb, 
-  Settings 
+  Settings,
+  Bell
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -47,18 +48,19 @@ export function NavBar() {
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="flex items-center justify-between px-6 py-3">
+      {/* Desktop Header */}
+      <div className="hidden lg:flex items-center justify-between px-6 py-3">
         {/* Logo */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">A</span>
             </div>
-            <span className="font-semibold text-lg hidden sm:inline">anotatudo.ai</span>
+            <span className="font-semibold text-lg">anotatudo.ai</span>
           </div>
 
           {/* Tabs */}
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="flex items-center gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -82,7 +84,6 @@ export function NavBar() {
 
         {/* Right side controls */}
         <div className="flex items-center gap-3">
-          {/* Period Selector */}
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[140px]" data-testid="period-selector">
               <SelectValue placeholder="Período" />
@@ -96,31 +97,42 @@ export function NavBar() {
             </SelectContent>
           </Select>
 
-          {/* Theme Toggle */}
           <ThemeToggle />
         </div>
       </div>
 
-      {/* Mobile tabs */}
-      <div className="lg:hidden flex items-center gap-1 px-6 pb-3 overflow-x-auto">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+      {/* Mobile Header */}
+      <div className="lg:hidden flex items-center justify-between px-4 py-3">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+            <span className="text-white font-bold text-sm">$</span>
+          </div>
+          <span className="font-semibold text-base">anotatudo.ai</span>
+        </div>
+
+        {/* Mobile Controls */}
+        <div className="flex items-center gap-2">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[100px] h-9" data-testid="period-selector-mobile">
+              <SelectValue placeholder="30 dias" />
+            </SelectTrigger>
+            <SelectContent>
+              {periodOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <ThemeToggle />
           
-          return (
-            <Button
-              key={tab.id}
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveTab(tab.id)}
-              className={`gap-2 whitespace-nowrap ${isActive ? 'bg-accent' : ''}`}
-              data-testid={`tab-mobile-${tab.id}`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </Button>
-          );
-        })}
+          <Button variant="ghost" size="icon" className="h-9 w-9 relative" data-testid="button-notifications">
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
+          </Button>
+        </div>
       </div>
     </nav>
   );
