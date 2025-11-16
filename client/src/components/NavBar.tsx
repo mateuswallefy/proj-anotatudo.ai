@@ -1,7 +1,7 @@
 import { useTab, TabType } from "@/contexts/TabContext";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { Button } from "@/components/ui/button";
-import logoUrl from "@assets/logo-anotatudo.png";
+import logoUrl from "@assets/generated_images/AnotaTudo.AI_Transparent_Logo_7f9130d6.png";
 import { 
   LayoutDashboard, 
   Receipt, 
@@ -124,7 +124,7 @@ export function NavBar() {
         {/* Logo */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
-            <img src={logoUrl} alt="AnotaTudo.AI" className="h-8" />
+            <img src={logoUrl} alt="AnotaTudo.AI" className="h-10" />
           </div>
 
           {/* Tabs */}
@@ -153,7 +153,7 @@ export function NavBar() {
         {/* Right side controls */}
         <div className="flex items-center gap-3">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[140px]" data-testid="period-selector">
+            <SelectTrigger className="w-[180px] [&>span]:line-clamp-none" data-testid="period-selector">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
@@ -173,13 +173,13 @@ export function NavBar() {
       <div className="lg:hidden flex items-center justify-between px-4 py-3">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <img src={logoUrl} alt="AnotaTudo.AI" className="h-7" />
+          <img src={logoUrl} alt="AnotaTudo.AI" className="h-8" />
         </div>
 
         {/* Mobile Controls */}
         <div className="flex items-center gap-2">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[130px] h-9" data-testid="period-selector-mobile">
+            <SelectTrigger className="w-[160px] h-9 [&>span]:line-clamp-none [&>span]:whitespace-nowrap" data-testid="period-selector-mobile">
               <SelectValue placeholder="30 dias" />
             </SelectTrigger>
             <SelectContent>
