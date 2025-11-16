@@ -157,6 +157,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/auth/whatsapp-login', async (req, res) => {
+    try {
+      const telefoneSchema = z.object({
+        telefone: z.string()
+          .min(11, "Telefone deve ter no mínimo 11 dígitos")
+          .max(16, "Telefone inválido")
+          .regex(/^\+?\d{11,15}$/, "Use apenas números com DDD (ex: 91983139299 ou +5591983139299)")
+      });
+
+      const { telefone } = telefoneSchema.parse(req.body);
+
+      const normalizedPhone = normalizePhoneNumber(telefone);
+      
+      if (!normalizedPhone) {
+        return res.status(400).json({ 
+          message: "Formato de telefone inválido. Use apenas números com DDD (ex: 91983139299)" 
+        });
+      }
+
+      const user = await storage.getUserByTelefone(normalizedPhone);
+      
+      if (!user) {
+        return res.status(404).json({ 
+          message: "Telefone não cadastrado. Primeiro, envie uma mensagem para o WhatsApp e informe seu email de compra." 
+        });
+      }
+
+      if (user.status !== 'authenticated') {
+        return res.status(403).json({ 
+          message: "Telefone ainda não autenticado. Verifique seu WhatsApp e envie o email usado na compra para completar a autenticação." 
+        });
+      }
+
+      req.session.userId = user.id;
+      console.log(`[WhatsAppLogin] ✅ Sessão web criada para user ${user.id} (${user.email}) via telefone ${normalizedPhone}`);
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telefone: user.telefone,
+        plano: user.plano,
+      });
+    } catch (error: any) {
+      console.error("[WhatsAppLogin] Erro ao fazer login por telefone:", error);
+      
+      if (error.name === 'ZodError') {
+        const firstError = error.errors[0];
+        return res.status(400).json({ message: firstError.message });
+      }
+      
+      res.status(500).json({ message: "Erro ao processar login. Tente novamente." });
+    }
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;

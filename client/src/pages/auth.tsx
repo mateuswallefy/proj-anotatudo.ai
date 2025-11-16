@@ -11,16 +11,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { MessageSquare, Mail, Lock, User, ArrowRight, Sparkles } from "lucide-react";
+import { MessageSquare, Mail, Lock, User, ArrowRight, Sparkles, Phone } from "lucide-react";
 import { insertUserSchema, loginSchema } from "@shared/schema";
 
 type RegisterFormData = z.infer<typeof insertUserSchema>;
 type LoginFormData = z.infer<typeof loginSchema>;
 
+const whatsappLoginSchema = z.object({
+  telefone: z.string()
+    .min(11, "Telefone deve ter no mínimo 11 dígitos (DDD + número)")
+    .max(16, "Telefone inválido")
+    .regex(/^\+?\d{11,15}$/, "Use apenas números com DDD (ex: 91983139299 ou +5591983139299)"),
+});
+
+type WhatsAppLoginFormData = z.infer<typeof whatsappLoginSchema>;
+
 export default function Auth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [activeTab, setActiveTab] = useState<"whatsapp" | "login" | "register">("whatsapp");
 
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(insertUserSchema),
@@ -37,6 +46,13 @@ export default function Auth() {
     defaultValues: {
       email: "",
       password: "",
+    },
+  });
+
+  const whatsappForm = useForm<WhatsAppLoginFormData>({
+    resolver: zodResolver(whatsappLoginSchema),
+    defaultValues: {
+      telefone: "",
     },
   });
 
@@ -86,12 +102,40 @@ export default function Auth() {
     },
   });
 
+  const whatsappLoginMutation = useMutation({
+    mutationFn: async (data: WhatsAppLoginFormData) => {
+      await apiRequest("POST", "/api/auth/whatsapp-login", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Acesso liberado!",
+        description: "Bem-vindo ao seu dashboard financeiro.",
+      });
+      setTimeout(() => {
+        setLocation("/");
+      }, 100);
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || "Telefone não encontrado ou não autenticado. Verifique se você já enviou seu email via WhatsApp.";
+      toast({
+        title: "Não foi possível acessar",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onRegisterSubmit = (data: RegisterFormData) => {
     registerMutation.mutate(data);
   };
 
   const onLoginSubmit = (data: LoginFormData) => {
     loginMutation.mutate(data);
+  };
+
+  const onWhatsAppSubmit = (data: WhatsAppLoginFormData) => {
+    whatsappLoginMutation.mutate(data);
   };
 
   return (
@@ -171,20 +215,66 @@ export default function Auth() {
               <CardTitle className="text-2xl">AnotaTudo.AI</CardTitle>
             </div>
             <CardTitle className="text-2xl">
-              {activeTab === "login" ? "Bem-vindo de volta" : "Criar conta"}
+              {activeTab === "whatsapp" ? "Acesso via WhatsApp" : activeTab === "login" ? "Bem-vindo de volta" : "Criar conta"}
             </CardTitle>
             <CardDescription>
-              {activeTab === "login"
+              {activeTab === "whatsapp"
+                ? "Entre com o telefone autenticado no WhatsApp"
+                : activeTab === "login"
                 ? "Entre com sua conta para acessar o dashboard"
                 : "Comece a gerenciar suas finanças com IA"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "whatsapp" | "login" | "register")}>
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="whatsapp" data-testid="tab-whatsapp">WhatsApp</TabsTrigger>
                 <TabsTrigger value="login" data-testid="tab-login">Entrar</TabsTrigger>
                 <TabsTrigger value="register" data-testid="tab-register">Criar Conta</TabsTrigger>
               </TabsList>
+
+              {/* WhatsApp Login Tab */}
+              <TabsContent value="whatsapp">
+                <form onSubmit={whatsappForm.handleSubmit(onWhatsAppSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp-phone">Telefone</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="whatsapp-phone"
+                        type="tel"
+                        placeholder="91983139299"
+                        className="pl-9"
+                        {...whatsappForm.register("telefone")}
+                        data-testid="input-whatsapp-phone"
+                      />
+                    </div>
+                    {whatsappForm.formState.errors.telefone && (
+                      <p className="text-sm text-destructive">
+                        {whatsappForm.formState.errors.telefone.message}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Com DDD: 91983139299 ou +5591983139299
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={whatsappLoginMutation.isPending}
+                    data-testid="button-whatsapp-submit"
+                  >
+                    {whatsappLoginMutation.isPending ? "Verificando..." : "Acessar Dashboard"}
+                  </Button>
+
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-center text-muted-foreground">
+                      Ainda não autenticou? Envie uma mensagem para nosso WhatsApp e informe seu email.
+                    </p>
+                  </div>
+                </form>
+              </TabsContent>
 
               {/* Login Tab */}
               <TabsContent value="login">
