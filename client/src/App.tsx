@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect, startTransition, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import Auth from "@/pages/auth";
+import SetupPassword from "@/pages/setup-password";
 import Dashboard from "@/pages/dashboard";
 import Transacoes from "@/pages/transacoes";
 import Cartoes from "@/pages/cartoes";
@@ -129,6 +130,7 @@ function AppContent() {
     return (
       <>
         <Route path="/" component={Auth} />
+        <Route path="/setup-password" component={SetupPassword} />
         <Toaster />
       </>
     );
