@@ -32,7 +32,12 @@ Preferred communication style: Simple, everyday language.
 - **Authentication Flow**: Email+password for web dashboard, with initial user creation and password management handled via WhatsApp interaction.
 - **AI Processing Pipeline**: Processes WhatsApp messages (transcription, OCR), extracts financial data using GPT-5, and records transactions with confidence scores.
 - **Rate Limiting**: Implemented for WhatsApp messages (10 messages/minute per phone number).
-- **Analytics Functions**: Provides endpoints for `period-summary`, `monthly-comparison`, `expenses-by-category`, `income-by-category`, and `yearly-evolution`, all user-scoped and returning calculated financial insights.
+- **Financial Logic**: 
+  - **Three transaction types**: 'entrada' (income), 'saida' (expenses), 'economia' (savings)
+  - **Balance formula**: Saldo = Receitas - Despesas - Economias (savings reduce available balance, not counted as income)
+  - **Auto-update goals**: When creating tipo='economia' with goalId, automatically updates metas.valorAtual and marks concluida=true when target reached
+  - **Variation calculations**: Handles edge cases like zero previous values (returns ±100% for clear growth/decline indication)
+- **Analytics Functions**: Provides endpoints for `period-summary` (includes totalEconomias, variacaoSaldo), `monthly-comparison`, `expenses-by-category`, `income-by-category`, and `yearly-evolution`, all user-scoped and returning calculated financial insights.
 
 ### Data Storage
 - **Database**: PostgreSQL via Neon (serverless) with Drizzle ORM.
