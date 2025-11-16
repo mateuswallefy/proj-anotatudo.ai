@@ -377,11 +377,10 @@ export default function Economias() {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-goal">
-                          <SelectValue placeholder="Selecione uma meta" />
+                          <SelectValue placeholder="Nenhuma meta" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Nenhuma meta</SelectItem>
                         {activeGoals.map((goal) => (
                           <SelectItem key={goal.id} value={goal.id}>
                             {goal.nome} - R$ {parseFloat(goal.valorAtual || '0').toFixed(2)} / {parseFloat(goal.valorAlvo).toFixed(2)}
