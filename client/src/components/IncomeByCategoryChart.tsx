@@ -29,7 +29,7 @@ export function IncomeByCategoryChart() {
 
   if (!data || data.length === 0) {
     return (
-      <Card className="p-8 text-center text-muted-foreground">
+      <Card className="p-8 text-center text-muted-foreground" data-testid="income-by-category-chart">
         Nenhuma receita registrada no período
       </Card>
     );

@@ -29,7 +29,7 @@ export function ExpensesByCategoryChart() {
 
   if (!data || data.length === 0) {
     return (
-      <Card className="p-8 text-center text-muted-foreground">
+      <Card className="p-8 text-center text-muted-foreground" data-testid="expenses-by-category-chart">
         Nenhuma despesa registrada no período
       </Card>
     );
