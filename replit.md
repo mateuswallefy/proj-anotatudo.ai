@@ -20,27 +20,33 @@ AnotaTudo.AI is a SaaS financial management platform that transforms WhatsApp me
 - AI: OpenAI API (GPT-5)
 - Authentication: Replit Auth (OpenID Connect)
 
-## Recent Changes (November 15, 2025)
+## Recent Changes (November 16, 2025)
 
-### Purchase-Based WhatsApp Authentication System
+### Email+Password Authentication System (Security-First)
+- **Security Decision:** Removed phone-based login due to security concerns - web dashboard access now **requires email+password only**
 - **Caktos Integration:** Webhook (`/api/webhook-caktos`) receives purchase notifications from Caktos payment platform
   - **UPSERT Logic:** Uses Postgres `onConflictDoUpdate` on `purchases.purchaseId` (UNIQUE constraint)
   - **Status Updates:** When Caktos sends approved→refunded, existing record is atomically updated
-  - **Deduplication:** One-off migration removed duplicate purchaseId records, keeping most recent
   - **Thread-Safe:** Concurrent webhook deliveries collapse into single row per purchase
-- **Purchase Verification:** Only users with approved purchases can access the system
-- **WhatsApp Authentication Flow:**
-  1. User sends first message to WhatsApp → system creates user with `status='awaiting_email'`
+- **WhatsApp-to-Database Pipeline:** WhatsApp messages automatically create transactions in database (no web login required)
+  1. User sends first WhatsApp message → system creates user with `status='awaiting_email'`
   2. System prompts: "Para liberar seu acesso, envie o e-mail usado na compra."
   3. User sends email → system validates against `purchases` table
-  4. If purchase exists and is approved → user status updated to `authenticated`
-  5. Authenticated users can send transactions via text, audio, photo, or video
-  6. **Refund Handling:** If purchase is refunded, user loses access (no stale approved records)
-- **Rate Limiting:** 10 messages per minute per phone number to prevent abuse
+  4. If purchase approved → user receives magic-link to define password (`/setup-password?token=...`)
+  5. User clicks link, creates secure password (min 8 chars, uppercase, lowercase, number)
+  6. Transactions sent via WhatsApp automatically appear in database
+- **Web Dashboard Access:** Users login with email+password (traditional authentication)
+  - Session duration: 30 days for convenience
+  - bcrypt password hashing for security
+  - No phone-based login available
+- **Password Setup Flow:**
+  - Magic-link token: HMAC-signed, 15-minute expiry, single-use
+  - Endpoint: `POST /api/auth/setup-password` with token + password
+  - Password requirements: ≥8 chars, uppercase, lowercase, number
+  - Auto-login after password creation
+- **Rate Limiting:** 10 messages per minute per phone number to prevent WhatsApp abuse
   - In-memory token bucket implementation
   - Normalized phone numbers to prevent bypass via different formats
-- **Email Extraction:** Automatic email detection from user messages using regex validation
-- **Status-Based Processing:** Transactions only processed for authenticated users
 
 ### Instant Tab Navigation System
 - **TabShell Component:** All pages (Dashboard, Transações, Cartões, Adicionar, Configurações) remain mounted simultaneously
@@ -113,10 +119,18 @@ Preferred communication style: Simple, everyday language.
 - `/api/whatsapp/webhook` - WhatsApp message reception (planned)
 
 **Authentication Flow:**
-- Replit Auth via OpenID Connect (OIDC)
-- Session storage in PostgreSQL
-- User session includes claims, access_token, refresh_token
+- **Email+Password Only:** Traditional login for security (no phone-based access)
+- Session storage in PostgreSQL using connect-pg-simple
+- bcrypt password hashing (10 rounds)
 - Protected routes require `isAuthenticated` middleware
+- Session duration: 30 days
+
+**Password Setup (First-Time Users):**
+- WhatsApp authentication triggers magic-link generation
+- Link format: `/setup-password?token=HMAC_SIGNED_TOKEN`
+- Token validation: userId + email verification
+- Password requirements enforced via Zod schema
+- Auto-login after successful password creation
 
 **AI Processing Pipeline:**
 1. Receive message from WhatsApp webhook
