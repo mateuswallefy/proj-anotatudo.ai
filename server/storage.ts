@@ -88,6 +88,8 @@ export interface IStorage {
   createUserFromPhone(telefone: string): Promise<User>;
   updateUserEmail(id: string, email: string): Promise<void>;
   updateUserStatus(id: string, status: 'awaiting_email' | 'authenticated'): Promise<void>;
+  updateUserTelefone(id: string, telefone: string): Promise<void>;
+  transferTransactions(fromUserId: string, toUserId: string): Promise<void>;
 
   // Custom categories operations
   getCategoriasCustomizadas(userId: string): Promise<CategoriaCustomizada[]>;
@@ -403,6 +405,20 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ status })
       .where(eq(users.id, id));
+  }
+
+  async updateUserTelefone(id: string, telefone: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ telefone })
+      .where(eq(users.id, id));
+  }
+
+  async transferTransactions(fromUserId: string, toUserId: string): Promise<void> {
+    await db
+      .update(transacoes)
+      .set({ userId: toUserId })
+      .where(eq(transacoes.userId, fromUserId));
   }
 
   // Custom categories operations

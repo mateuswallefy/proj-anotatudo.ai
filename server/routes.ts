@@ -593,6 +593,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Vincular telefone do WhatsApp
+  const vincularTelefoneSchema = z.object({
+    telefone: z.string().min(10, "Telefone inválido").max(20, "Telefone inválido"),
+  });
+
+  app.post("/api/user/vincular-telefone", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const { telefone } = vincularTelefoneSchema.parse(req.body);
+      
+      // Normalize phone number
+      const normalizedPhone = normalizePhoneNumber(telefone);
+      console.log(`[Vincular Telefone] User ${userId} vinculando telefone: ${normalizedPhone}`);
+      
+      // Get current user
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      // Check if phone is already linked to current user
+      if (currentUser.telefone === normalizedPhone) {
+        return res.json({ 
+          message: "Este telefone já está vinculado à sua conta",
+          telefone: normalizedPhone 
+        });
+      }
+      
+      // Check if another user exists with this phone
+      const existingUserWithPhone = await storage.getUserByPhone(normalizedPhone);
+      
+      if (existingUserWithPhone && existingUserWithPhone.id !== userId) {
+        console.log(`[Vincular Telefone] Found existing user with phone: ${existingUserWithPhone.id}`);
+        
+        // Merge transactions from old user to current user
+        const oldUserTransactions = await storage.getTransacoes(existingUserWithPhone.id);
+        console.log(`[Vincular Telefone] Merging ${oldUserTransactions.length} transactions`);
+        
+        // Transfer all transactions to current user
+        await storage.transferTransactions(existingUserWithPhone.id, userId);
+        
+        // Delete old user (optional - or just mark as inactive)
+        // await storage.deleteUser(existingUserWithPhone.id);
+        console.log(`[Vincular Telefone] ✅ Merged ${oldUserTransactions.length} transactions from old user`);
+      }
+      
+      // Update current user's phone
+      await storage.updateUserTelefone(userId, normalizedPhone);
+      
+      res.json({ 
+        message: "Telefone vinculado com sucesso!",
+        telefone: normalizedPhone,
+        transacoesMescladas: existingUserWithPhone ? true : false
+      });
+    } catch (error: any) {
+      console.error("Error linking phone:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Telefone inválido", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Erro ao vincular telefone" });
+      }
+    }
+  });
+
   // ============================================================================
   // WHATSAPP WEBHOOK ROUTES (Meta WhatsApp Cloud API)
   // ============================================================================
