@@ -14,15 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Trash2, UserPlus, KeyRound, Camera, Crown, Sparkles, Plus, MessageSquare, Bell, DollarSign, CreditCard, TrendingUp, Target } from "lucide-react";
+import { Trash2, UserPlus, KeyRound, Camera, Crown, Plus, Bell, DollarSign, CreditCard, TrendingUp, Target } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-
-// Emojis comuns para categorias financeiras
-const EMOJIS_SUGERIDOS = [
-  "🍔", "🍕", "☕", "🛒", "🏠", "🚗", "✈️", "🎮", "🎬", "📚",
-  "💊", "🏥", "👕", "👟", "💰", "💳", "📱", "💻", "🎁", "🎉",
-  "🏋️", "🎨", "🎵", "🌟", "⭐", "❤️", "🔥", "💎", "🎯", "📊",
-];
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Senha atual obrigatória"),
@@ -42,27 +35,12 @@ const addMemberSchema = z.object({
 
 type AddMemberFormData = z.infer<typeof addMemberSchema>;
 
-const customCategorySchema = z.object({
-  nome: z.string().min(1, "Nome da categoria obrigatório").max(50, "Nome muito longo"),
-  emoji: z.string().min(1, "Escolha um emoji"),
-});
-
-type CustomCategoryFormData = z.infer<typeof customCategorySchema>;
-
 interface AccountMember {
   id: string;
   accountOwnerId: string;
   memberId: string;
   role: string;
   status: string;
-  createdAt: string;
-}
-
-interface CategoriaCustomizada {
-  id: string;
-  userId: string;
-  nome: string;
-  emoji: string;
   createdAt: string;
 }
 
@@ -77,16 +55,10 @@ export default function Configuracoes() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || "");
-  const [selectedEmoji, setSelectedEmoji] = useState("");
 
   // Fetch account members
   const { data: members } = useQuery<AccountMember[]>({
     queryKey: ["/api/account-members"],
-  });
-
-  // Fetch custom categories
-  const { data: categoriasCustomizadas } = useQuery<CategoriaCustomizada[]>({
-    queryKey: ["/api/categorias-customizadas"],
   });
 
   // Fetch notification preferences
@@ -182,50 +154,6 @@ export default function Configuracoes() {
     },
   });
 
-  // Create custom category mutation
-  const createCategoryMutation = useMutation({
-    mutationFn: async (data: CustomCategoryFormData) => {
-      await apiRequest("POST", "/api/categorias-customizadas", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categorias-customizadas"] });
-      toast({
-        title: "Categoria criada!",
-        description: "Sua categoria personalizada foi criada com sucesso.",
-      });
-      categoryForm.reset();
-      setSelectedEmoji("");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao criar categoria",
-        description: error.message || "Tente novamente",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete custom category mutation
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (categoryId: string) => {
-      await apiRequest("DELETE", `/api/categorias-customizadas/${categoryId}`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categorias-customizadas"] });
-      toast({
-        title: "Categoria removida",
-        description: "A categoria foi removida.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao remover categoria",
-        description: error.message || "Tente novamente",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Update notification preferences mutation
   const updateNotificationMutation = useMutation({
     mutationFn: async (preferences: Partial<NotificationPreferences>) => {
@@ -264,29 +192,12 @@ export default function Configuracoes() {
     },
   });
 
-  const categoryForm = useForm<CustomCategoryFormData>({
-    resolver: zodResolver(customCategorySchema),
-    defaultValues: {
-      nome: "",
-      emoji: "",
-    },
-  });
-
   const handlePasswordSubmit = (data: ChangePasswordFormData) => {
     changePasswordMutation.mutate(data);
   };
 
   const handleMemberSubmit = (data: AddMemberFormData) => {
     addMemberMutation.mutate(data);
-  };
-
-  const handleCategorySubmit = (data: CustomCategoryFormData) => {
-    createCategoryMutation.mutate(data);
-  };
-
-  const handleEmojiSelect = (emoji: string) => {
-    setSelectedEmoji(emoji);
-    categoryForm.setValue("emoji", emoji);
   };
 
   const handleProfileImageUpdate = () => {
@@ -316,8 +227,8 @@ export default function Configuracoes() {
   return (
     <div className="space-y-6 p-6 max-w-5xl">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie suas preferências e configurações da conta</p>
+        <h1 className="text-3xl font-bold mb-2" data-testid="title-page">Configurações</h1>
+        <p className="text-muted-foreground" data-testid="subtitle-page">Gerencie suas preferências e configurações da conta</p>
       </div>
 
       {/* Notifications Section */}
@@ -529,12 +440,12 @@ export default function Configuracoes() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold capitalize">
+                <h3 className="text-lg font-semibold capitalize" data-testid="text-plan-name">
                   {user?.plano || "Free"}
                 </h3>
-                <Badge variant="secondary">Ativo</Badge>
+                <Badge variant="secondary" data-testid="badge-plan-status">Ativo</Badge>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1" data-testid="text-plan-description">
                 Acesso completo aos recursos do AnotaTudo.AI
               </p>
             </div>
@@ -639,7 +550,7 @@ export default function Configuracoes() {
           </form>
 
           {memberForm.formState.errors.memberEmail && (
-            <p className="text-sm text-destructive">
+            <p className="text-sm text-destructive" data-testid="error-member-email">
               {memberForm.formState.errors.memberEmail.message}
             </p>
           )}
@@ -647,7 +558,7 @@ export default function Configuracoes() {
           <Separator />
 
           <div className="space-y-3">
-            <h4 className="font-semibold">Membros Ativos</h4>
+            <h4 className="font-semibold" data-testid="title-active-members">Membros Ativos</h4>
             {members && members.length > 0 ? (
               <div className="space-y-2">
                 {members.filter(m => m.status === 'ativo').map((member) => (
@@ -661,10 +572,10 @@ export default function Configuracoes() {
                         <AvatarFallback>M</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">Membro</p>
+                        <p className="font-medium" data-testid={`member-name-${member.id}`}>Membro</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline">{member.role}</Badge>
-                          <span className="text-xs text-muted-foreground">
+                          <Badge variant="outline" data-testid={`member-role-${member.id}`}>{member.role}</Badge>
+                          <span className="text-xs text-muted-foreground" data-testid={`member-date-${member.id}`}>
                             Adicionado {new Date(member.createdAt).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
@@ -683,125 +594,8 @@ export default function Configuracoes() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" data-testid="text-no-members">
                 Nenhum membro compartilhado ainda. Adicione outras pessoas para gerenciar as finanças juntos!
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Custom Categories Section */}
-      <Card data-testid="card-custom-categories">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Categorias Personalizadas
-          </CardTitle>
-          <CardDescription>
-            Crie suas próprias categorias com emojis divertidos para organizar suas transações do seu jeito! ✨
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <form onSubmit={categoryForm.handleSubmit(handleCategorySubmit)} className="space-y-4">
-            <div>
-              <Label htmlFor="category-name">Nome da Categoria</Label>
-              <Input
-                id="category-name"
-                placeholder="Ex: Pets, Games, Viagens..."
-                {...categoryForm.register("nome")}
-                data-testid="input-category-name"
-                className="mt-1"
-              />
-              {categoryForm.formState.errors.nome && (
-                <p className="text-sm text-destructive mt-1">
-                  {categoryForm.formState.errors.nome.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Escolha um Emoji</Label>
-              <div className="mt-2 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {EMOJIS_SUGERIDOS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => handleEmojiSelect(emoji)}
-                      className={`text-2xl p-2 rounded-lg border-2 transition-all hover-elevate ${
-                        selectedEmoji === emoji
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-background"
-                      }`}
-                      data-testid={`button-emoji-${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="Ou digite seu emoji favorito"
-                    value={selectedEmoji}
-                    onChange={(e) => handleEmojiSelect(e.target.value)}
-                    className="max-w-xs"
-                    data-testid="input-custom-emoji"
-                  />
-                  {selectedEmoji && (
-                    <div className="text-3xl">{selectedEmoji}</div>
-                  )}
-                </div>
-              </div>
-              {categoryForm.formState.errors.emoji && (
-                <p className="text-sm text-destructive mt-1">
-                  {categoryForm.formState.errors.emoji.message}
-                </p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              disabled={createCategoryMutation.isPending}
-              data-testid="button-create-category"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {createCategoryMutation.isPending ? "Criando..." : "Criar Categoria"}
-            </Button>
-          </form>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <h4 className="font-semibold">Minhas Categorias</h4>
-            {categoriasCustomizadas && categoriasCustomizadas.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {categoriasCustomizadas.map((categoria) => (
-                  <div
-                    key={categoria.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover-elevate gap-2"
-                    data-testid={`categoria-${categoria.id}`}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-2xl flex-shrink-0">{categoria.emoji}</span>
-                      <span className="font-medium truncate">{categoria.nome}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteCategoryMutation.mutate(categoria.id)}
-                      disabled={deleteCategoryMutation.isPending}
-                      data-testid={`button-delete-category-${categoria.id}`}
-                      className="flex-shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Nenhuma categoria personalizada ainda. Crie a primeira para deixar seu AnotaTudo.AI com a sua cara! 🎨
               </p>
             )}
           </div>

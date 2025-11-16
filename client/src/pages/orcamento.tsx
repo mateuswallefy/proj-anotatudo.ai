@@ -38,7 +38,7 @@ export default function Orcamento() {
   const { period } = usePeriod();
 
   const { data: limits, isLoading: loadingLimits } = useQuery<SpendingLimit[]>({
-    queryKey: ["/api/spending-limits"],
+    queryKey: ["/api/spending-limits", { period }],
   });
 
   const { data: despesas, isLoading: loadingDespesas } = useQuery<CategoryData[]>({

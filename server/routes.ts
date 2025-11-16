@@ -887,7 +887,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/spending-limits", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const limits = await storage.getSpendingLimits(userId);
+      const { period } = req.query;
+      
+      let limits = await storage.getSpendingLimits(userId);
+      
+      // Filter by period if provided (format: "YYYY-MM")
+      if (period && typeof period === 'string') {
+        const [ano, mes] = period.split('-').map(Number);
+        if (ano && mes) {
+          limits = limits.filter(limit => {
+            // Include limits that match the period or are not period-specific
+            return (
+              (limit.mes === null && limit.ano === null) ||
+              (limit.mes === mes && limit.ano === ano)
+            );
+          });
+        }
+      }
+      
       res.json(limits);
     } catch (error) {
       console.error("Error fetching spending limits:", error);

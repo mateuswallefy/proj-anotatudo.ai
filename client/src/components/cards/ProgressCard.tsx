@@ -54,6 +54,7 @@ export function ProgressCard({
         <Progress 
           value={Math.min(percentage, 100)} 
           className="h-2 mb-3"
+          indicatorClassName={getProgressColor()}
           data-testid="progress-bar"
         />
         
