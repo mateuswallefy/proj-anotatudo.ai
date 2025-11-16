@@ -85,6 +85,58 @@ ComposedChart with dual areas and trend line.
 5. Legacy insights and analysis components below
 6. Responsive: mobile (1 col), tablet (2 col), desktop (3 col)
 
+## Mobile UX Enhancements (November 16, 2025)
+
+### Navigation Improvements
+- **SidebarTrigger**: Enlarged to 44x44px on mobile (h-11 w-11) vs 36x36px desktop for better tap targets
+- **Header Logo**: "AnotaTudo.AI" text visible in header when sidebar is closed (md:hidden)
+- **Menu Items**: Increased to 48px height (h-12), icons 20px (w-5 h-5), text-base font
+- **Avatar**: Sized at 48px (h-12 w-12)
+- **Logout Button**: Sized at 44px (h-11 w-11) for adequate tap target
+
+### Transaction List Responsive Design
+- **Desktop (≥md)**: Table layout maintained with 7 columns including new "Ações" column
+- **Mobile (<md)**: Card layout with optimized spacing:
+  - Icon + badge at top left
+  - Value prominently displayed at top right
+  - Description truncated with line-clamp-2
+  - Date + origin badge at bottom
+  - Edit button positioned absolute (top-2 right-2, h-8 w-8)
+  - Cards separated with space-y-3
+- **Badges**: Reduced to text-xs px-2 py-0.5 for mobile compactness
+
+### Floating Action Button (FAB)
+- **Component**: fab.tsx with wouter navigation
+- **Position**: Rendered once in App.tsx (outside route display:none wrappers) to ensure consistent visibility
+- **Size**: 56x56px (h-14 w-14) exceeding WCAG 44px minimum
+- **Styling**: Inline styles (position: fixed, bottom: 24px, right: 24px, zIndex: 50, pointerEvents: 'auto') to prevent Shadcn Button overrides
+- **Visibility**: Visible on all screen sizes (mobile and desktop) for quick transaction creation
+- **Target**: Routes to /adicionar
+- **Data-testid**: button-fab
+- **Accessibility**: Always clickable even with sidebar/dialogs open (pointerEvents: 'auto')
+
+### Transaction CRUD System
+**Storage Layer (server/storage.ts):**
+- `updateTransacao(id, userId, updates)`: User-scoped update with AND clause
+- `deleteTransacao(id, userId)`: User-scoped delete with AND clause
+
+**Backend Routes (server/routes.ts):**
+- `PATCH /api/transacoes/:id`: Validates Zod schema, enforces userId ownership
+- `DELETE /api/transacoes/:id`: User-scoped deletion with 404 for non-existent/unauthorized
+
+**Frontend Component (edit-transaction-dialog.tsx):**
+- Full form with tipo, categoria, valor, descrição, dataReal
+- Update mutation invalidates: /api/transacoes, /api/insights, and all 5 analytics endpoints
+- Delete confirmation via AlertDialog
+- Data-testids: form-edit-transaction, button-update-transaction, button-delete-transaction, button-confirm-delete
+
+**UI Integration:**
+- Desktop: Edit button in "Ações" column (data-testid="button-edit-transaction-{id}")
+- Mobile: Edit button absolute positioned in cards (data-testid="button-edit-transaction-mobile-{id}")
+
+### Layout Fixes
+- Added `w-full` to `<main>` and route wrapper divs in App.tsx to fix mobile rendering issues with instant tab navigation
+
 ### Backend Analytics Functions (server/analytics.ts)
 - **`getPeriodSummary(userId)`**: Aggregates transactions from current month and previous month. Calculates totals and percentage variations with zero-safe guards.
 - **`getMonthlyComparison(userId)`**: Fetches last 12 months of transactions, groups by month, formats with Portuguese names.

@@ -8,9 +8,10 @@ export function FAB() {
   return (
     <Button
       onClick={() => setLocation("/adicionar")}
-      className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:hidden z-50"
+      className="h-14 w-14 rounded-full shadow-lg"
+      style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 50, pointerEvents: 'auto' }}
       size="icon"
-      data-testid="fab-add-transaction"
+      data-testid="button-fab"
       aria-label="Adicionar transação"
     >
       <Plus className="w-6 h-6" />

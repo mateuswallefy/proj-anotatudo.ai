@@ -10,7 +10,6 @@ import type { Transacao } from "@shared/schema";
 import { categorias } from "@shared/schema";
 import { useState, useMemo } from "react";
 import { TrendingUp, TrendingDown, Search, Edit } from "lucide-react";
-import { FAB } from "@/components/fab";
 import { EditTransactionDialog } from "@/components/edit-transaction-dialog";
 
 export default function Transacoes() {
@@ -270,8 +269,6 @@ export default function Transacoes() {
           )}
         </CardContent>
       </Card>
-      
-      <FAB />
       
       {editingTransaction && (
         <EditTransactionDialog

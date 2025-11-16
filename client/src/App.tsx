@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { FAB } from "@/components/fab";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, startTransition } from "react";
 import Auth from "@/pages/auth";
@@ -51,25 +52,26 @@ function AuthenticatedShell() {
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-auto">
-            <div style={{ display: location === "/" ? "block" : "none" }}>
+          <main className="flex-1 overflow-auto w-full">
+            <div className="w-full" style={{ display: location === "/" ? "block" : "none" }}>
               <Dashboard />
             </div>
-            <div style={{ display: location === "/transacoes" ? "block" : "none" }}>
+            <div className="w-full" style={{ display: location === "/transacoes" ? "block" : "none" }}>
               <Transacoes />
             </div>
-            <div style={{ display: location === "/cartoes" ? "block" : "none" }}>
+            <div className="w-full" style={{ display: location === "/cartoes" ? "block" : "none" }}>
               <Cartoes />
             </div>
-            <div style={{ display: location === "/adicionar" ? "block" : "none" }}>
+            <div className="w-full" style={{ display: location === "/adicionar" ? "block" : "none" }}>
               <Adicionar />
             </div>
-            <div style={{ display: location === "/configuracoes" ? "block" : "none" }}>
+            <div className="w-full" style={{ display: location === "/configuracoes" ? "block" : "none" }}>
               <Configuracoes />
             </div>
           </main>
         </div>
       </div>
+      <FAB />
       <Toaster />
     </SidebarProvider>
   );
