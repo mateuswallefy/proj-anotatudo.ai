@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PiggyBank, TrendingUp, Percent, Plus } from "lucide-react";
@@ -6,6 +6,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { MetricCard } from "@/components/cards/MetricCard";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 type CategoryData = {
   categoria: string;
@@ -21,9 +44,18 @@ type PeriodSummary = {
   variacaoDespesas: number;
 };
 
+const formSchema = z.object({
+  descricao: z.string().min(1, "Descrição obrigatória"),
+  valor: z.coerce.number().min(0.01, "Valor deve ser maior que zero"),
+  data: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
 export default function Economias() {
   const { period } = usePeriod();
   const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: periodSummary, isLoading: loadingSummary } = useQuery<PeriodSummary>({
     queryKey: ["/api/analytics/period-summary", { period }],
@@ -38,6 +70,53 @@ export default function Economias() {
   });
 
   const isLoading = loadingSummary || loadingReceitas || loadingDespesas;
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      descricao: "",
+      valor: 0,
+      data: new Date().toISOString().split('T')[0],
+    },
+  });
+
+  const createEconomiaMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      await apiRequest("POST", "/api/transacoes", {
+        descricao: data.descricao,
+        valor: data.valor.toString(),
+        tipo: "entrada",
+        categoria: "Economia",
+        dataReal: data.data || new Date().toISOString().split('T')[0],
+        origem: "manual",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/period-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/income-by-category"] });
+      toast({
+        title: "Economia registrada com sucesso!",
+      });
+      setDialogOpen(false);
+      form.reset({
+        descricao: "",
+        valor: 0,
+        data: new Date().toISOString().split('T')[0],
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao registrar economia",
+        description: "Não foi possível registrar a economia. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: FormData) => {
+    createEconomiaMutation.mutate(data);
+  };
 
   if (isLoading) {
     return (
@@ -75,12 +154,7 @@ export default function Economias() {
         variant="default"
         size="lg"
         data-testid="button-registrar-economia"
-        onClick={() => {
-          toast({
-            title: "Em breve",
-            description: "Esta funcionalidade será implementada em breve.",
-          });
-        }}
+        onClick={() => setDialogOpen(true)}
       >
         <Plus className="h-4 w-4" />
         Registrar Economia
@@ -145,6 +219,97 @@ export default function Economias() {
           </div>
         </div>
       </Card>
+
+      {/* Registrar Economia Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Registrar Economia</DialogTitle>
+            <DialogDescription>
+              Registre o valor que você guardou para alcançar seus objetivos
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="descricao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ex: Guardei para viagem"
+                        {...field}
+                        data-testid="input-descricao"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="valor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor (R$)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        data-testid="input-valor"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data (opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        data-testid="input-data"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={createEconomiaMutation.isPending}
+                  data-testid="button-cancel"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createEconomiaMutation.isPending}
+                  data-testid="button-submit"
+                >
+                  {createEconomiaMutation.isPending ? "Salvando..." : "Registrar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

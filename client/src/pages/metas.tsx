@@ -3,21 +3,98 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Target, Plus, CheckCircle, PiggyBank, Clock, Filter } from "lucide-react";
+import { Target, Plus, CheckCircle, PiggyBank, Clock, Filter, CalendarIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/cards/MetricCard";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePeriod } from "@/contexts/PeriodContext";
 import type { Goal } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+
+const formSchema = z.object({
+  nome: z.string().min(1, "Nome obrigatório"),
+  valorObjetivo: z.coerce.number().min(0.01, "Valor deve ser maior que zero"),
+  valorAtual: z.coerce.number().min(0).optional().default(0),
+  dataFim: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 export default function Metas() {
   const { period } = usePeriod();
   const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
   
   const { data: goals, isLoading } = useQuery<Goal[]>({
     queryKey: ["/api/goals", period],
   });
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      nome: "",
+      valorObjetivo: 0,
+      valorAtual: 0,
+      dataFim: "",
+    },
+  });
+
+  const createGoalMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        nome: data.nome,
+        valorAlvo: data.valorObjetivo.toString(),
+        dataInicio: today,
+        dataFim: data.dataFim || undefined,
+      };
+      return await apiRequest("POST", "/api/goals", payload);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Meta criada com sucesso!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
+      setDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao criar meta",
+        description: error.message || "Tente novamente mais tarde",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: FormValues) => {
+    createGoalMutation.mutate(data);
+  };
 
   if (isLoading) {
     return (
@@ -74,12 +151,7 @@ export default function Metas() {
           variant="default"
           size="lg"
           data-testid="button-add-goal"
-          onClick={() => {
-            toast({
-              title: "Em breve",
-              description: "Esta funcionalidade será implementada em breve.",
-            });
-          }}
+          onClick={() => setDialogOpen(true)}
         >
           <Plus className="h-4 w-4 mr-2" />
           Nova Meta
@@ -244,12 +316,7 @@ export default function Metas() {
               </p>
               <Button 
                 data-testid="button-add-first-goal"
-                onClick={() => {
-                  toast({
-                    title: "Em breve",
-                    description: "Esta funcionalidade será implementada em breve.",
-                  });
-                }}
+                onClick={() => setDialogOpen(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Primeira Meta
@@ -258,6 +325,144 @@ export default function Metas() {
           </Card>
         )}
       </div>
+
+      {/* Nova Meta Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-nova-meta">
+          <DialogHeader>
+            <DialogTitle data-testid="dialog-title">Nova Meta Financeira</DialogTitle>
+            <DialogDescription data-testid="dialog-description">
+              Defina uma nova meta financeira para acompanhar seu progresso
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="nome"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome da Meta</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Ex: Viagem para Europa" 
+                        data-testid="input-nome"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="valorObjetivo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor Objetivo (R$)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        min="0.01"
+                        placeholder="0.00" 
+                        data-testid="input-valor-objetivo"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="valorAtual"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor Atual (R$)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        placeholder="0.00" 
+                        data-testid="input-valor-atual"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dataFim"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data Limite (opcional)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="button-date-picker"
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), "dd/MM/yyyy")
+                            ) : (
+                              <span>Selecione uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => {
+                            field.onChange(date ? date.toISOString().split('T')[0] : "");
+                          }}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                          data-testid="calendar-data-fim"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createGoalMutation.isPending}
+                  data-testid="button-submit"
+                >
+                  {createGoalMutation.isPending ? "Criando..." : "Criar Meta"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

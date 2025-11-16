@@ -1,11 +1,36 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Transacao } from "@shared/schema";
 import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -28,6 +53,7 @@ import {
 import { StatCard } from "@/components/cards/StatCard";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface PeriodSummary {
   totalReceitas: number;
@@ -38,9 +64,18 @@ interface PeriodSummary {
   transacoesTotal: number;
 }
 
+const formSchema = z.object({
+  descricao: z.string().min(1, "Descrição obrigatória"),
+  valor: z.coerce.number().min(0.01, "Valor deve ser maior que zero"),
+  tipo: z.enum(["receita", "despesa"], { required_error: "Selecione o tipo" }),
+  categoria: z.string().min(1, "Categoria obrigatória"),
+  data: z.string().optional(),
+});
+
 export default function Transacoes() {
   const { period } = usePeriod();
   const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
   
   const { data: transacoes, isLoading: transacoesLoading } = useQuery<Transacao[]>({
     queryKey: ["/api/transacoes", { period }],
@@ -61,6 +96,52 @@ export default function Transacoes() {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      descricao: "",
+      valor: 0,
+      tipo: undefined,
+      categoria: "",
+      data: new Date().toISOString().split('T')[0],
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
+      const dataToSend = {
+        descricao: values.descricao,
+        valor: values.valor.toString(),
+        tipo: values.tipo === "receita" ? "entrada" : "saida",
+        categoria: values.categoria,
+        dataReal: values.data || new Date().toISOString().split('T')[0],
+        origem: "manual",
+      };
+      
+      return await apiRequest("POST", "/api/transacoes", dataToSend);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Transação criada com sucesso!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/period-summary"] });
+      setDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao criar transação",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    createMutation.mutate(values);
+  };
 
   const filteredTransacoes = useMemo(() => {
     if (!transacoes) return [];
@@ -170,16 +251,143 @@ export default function Transacoes() {
         variant="default"
         size="lg"
         data-testid="button-new-transaction"
-        onClick={() => {
-          toast({
-            title: "Em breve",
-            description: "Esta funcionalidade será implementada em breve.",
-          });
-        }}
+        onClick={() => setDialogOpen(true)}
       >
         <Plus className="w-5 h-5 mr-2" />
         Nova Transação
       </Button>
+
+      {/* Nova Transação Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent data-testid="dialog-new-transaction">
+          <DialogHeader>
+            <DialogTitle>Nova Transação</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova transação manualmente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="descricao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Ex: Almoço no restaurante" 
+                        data-testid="input-descricao"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="valor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor (R$)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="0.00" 
+                        data-testid="input-valor"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tipo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-tipo">
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="receita" data-testid="option-receita">Receita</SelectItem>
+                        <SelectItem value="despesa" data-testid="option-despesa">Despesa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="categoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Ex: Alimentação, Transporte, Saúde" 
+                        data-testid="input-categoria"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="data"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data (opcional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="date"
+                        data-testid="input-data"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createMutation.isPending}
+                  data-testid="button-submit"
+                >
+                  {createMutation.isPending ? "Criando..." : "Criar Transação"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="summary-cards-section">
