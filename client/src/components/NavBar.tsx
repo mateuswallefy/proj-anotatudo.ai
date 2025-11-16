@@ -177,9 +177,9 @@ export function NavBar() {
         </div>
 
         {/* Mobile Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[160px] h-9 [&>span]:line-clamp-none [&>span]:whitespace-nowrap" data-testid="period-selector-mobile">
+            <SelectTrigger className="w-[140px] h-9 [&>span]:line-clamp-none [&>span]:whitespace-nowrap text-xs" data-testid="period-selector-mobile">
               <SelectValue placeholder="30 dias" />
             </SelectTrigger>
             <SelectContent>

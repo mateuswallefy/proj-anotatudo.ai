@@ -2,7 +2,7 @@ export function Logo({ className = "h-8" }: { className?: string }) {
   return (
     <svg 
       className={className} 
-      viewBox="0 0 600 120" 
+      viewBox="0 0 380 120" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -31,20 +31,12 @@ export function Logo({ className = "h-8" }: { className?: string }) {
         className="fill-[#1e3a5f] dark:fill-slate-100"
         style={{ fontSize: '48px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif' }}
       >
-        Anota
-      </text>
-      <text 
-        x="260" 
-        y="75" 
-        className="fill-[#1e3a5f] dark:fill-slate-100"
-        style={{ fontSize: '48px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif' }}
-      >
-        Tudo
+        AnotaTudo
       </text>
       
       {/* Texto .AI */}
       <text 
-        x="420" 
+        x="320" 
         y="75" 
         className="fill-[#10b981]"
         style={{ fontSize: '48px', fontWeight: 'bold', fontFamily: 'JetBrains Mono, monospace' }}
