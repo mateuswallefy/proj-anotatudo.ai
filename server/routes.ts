@@ -99,14 +99,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create session
       req.session.userId = user.id;
+      console.log('[LOGIN] 🔧 Session userId set to:', user.id);
+      console.log('[LOGIN] 🔧 Session object before save:', JSON.stringify(req.session));
       
       // Save session before responding
-      await new Promise<void>((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) reject(err);
-          else resolve();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error('[LOGIN] ❌ Session save error:', err);
+              reject(err);
+            } else {
+              console.log('[LOGIN] ✅ Session saved successfully');
+              resolve();
+            }
+          });
         });
-      });
+      } catch (saveError) {
+        console.error('[LOGIN] ❌ Failed to save session:', saveError);
+        throw saveError;
+      }
       
       console.log('[LOGIN] ✅ Login successful, session saved for user:', user.id);
 
