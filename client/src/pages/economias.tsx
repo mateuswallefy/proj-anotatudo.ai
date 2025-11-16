@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PiggyBank, TrendingUp, Percent, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePeriod } from "@/contexts/PeriodContext";
@@ -11,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Goal, Transacao } from "@shared/schema";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +29,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -48,6 +57,7 @@ const formSchema = z.object({
   descricao: z.string().min(1, "Descrição obrigatória"),
   valor: z.coerce.number().min(0.01, "Valor deve ser maior que zero"),
   data: z.string().optional(),
+  goalId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -69,6 +79,18 @@ export default function Economias() {
     queryKey: ["/api/analytics/expenses-by-category", { period }],
   });
 
+  const { data: goals } = useQuery<Goal[]>({
+    queryKey: ["/api/goals"],
+  });
+
+  const { data: allTransacoes } = useQuery<Transacao[]>({
+    queryKey: ["/api/transacoes", { period }],
+  });
+
+  const economias = allTransacoes?.filter(t => t.categoria === 'Economia') || [];
+
+  const activeGoals = goals?.filter(g => g.status === 'ativa') || [];
+
   const isLoading = loadingSummary || loadingReceitas || loadingDespesas;
 
   const form = useForm<FormData>({
@@ -77,24 +99,32 @@ export default function Economias() {
       descricao: "",
       valor: 0,
       data: new Date().toISOString().split('T')[0],
+      goalId: "",
     },
   });
 
   const createEconomiaMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest("POST", "/api/transacoes", {
+      const payload: any = {
         descricao: data.descricao,
         valor: data.valor.toString(),
         tipo: "entrada",
         categoria: "Economia",
         dataReal: data.data || new Date().toISOString().split('T')[0],
         origem: "manual",
-      });
+      };
+      
+      if (data.goalId) {
+        payload.goalId = data.goalId;
+      }
+      
+      return await apiRequest("POST", "/api/transacoes", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/period-summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/income-by-category"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
       toast({
         title: "Economia registrada com sucesso!",
       });
@@ -103,6 +133,7 @@ export default function Economias() {
         descricao: "",
         valor: 0,
         data: new Date().toISOString().split('T')[0],
+        goalId: "",
       });
     },
     onError: () => {
@@ -220,6 +251,55 @@ export default function Economias() {
         </div>
       </Card>
 
+      {/* Lista de Economias Registradas */}
+      {economias.length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Economias Registradas</h3>
+          <div className="space-y-3">
+            {economias
+              .sort((a, b) => new Date(b.dataReal).getTime() - new Date(a.dataReal).getTime())
+              .map((economia) => {
+                const goalName = economia.goalId 
+                  ? goals?.find(g => g.id === economia.goalId)?.nome 
+                  : null;
+                
+                return (
+                  <div 
+                    key={economia.id} 
+                    className="flex items-center justify-between p-4 rounded-lg border hover-elevate"
+                    data-testid={`economia-${economia.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <PiggyBank className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <p className="font-medium">{economia.descricao || 'Economia'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(economia.dataReal).toLocaleDateString('pt-BR')}
+                        </p>
+                        {goalName && (
+                          <>
+                            <span className="text-sm text-muted-foreground">•</span>
+                            <Badge variant="outline" className="text-xs">
+                              Meta: {goalName}
+                            </Badge>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-success">
+                        + R$ {parseFloat(economia.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </Card>
+      )}
+
       {/* Registrar Economia Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -283,6 +363,32 @@ export default function Economias() {
                         data-testid="input-data"
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="goalId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vincular a Meta? (opcional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-goal">
+                          <SelectValue placeholder="Selecione uma meta" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Nenhuma meta</SelectItem>
+                        {activeGoals.map((goal) => (
+                          <SelectItem key={goal.id} value={goal.id}>
+                            {goal.nome} - R$ {parseFloat(goal.valorAtual || '0').toFixed(2)} / {parseFloat(goal.valorAlvo).toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

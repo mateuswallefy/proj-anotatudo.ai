@@ -1,11 +1,42 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Filter, Home, ShoppingCart, Car, Utensils, Heart, GraduationCap, Sparkles } from "lucide-react";
+import { Filter, Home, ShoppingCart, Car, Utensils, Heart, GraduationCap, Sparkles, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { MetricCard } from "@/components/cards/MetricCard";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { categorias } from "@shared/schema";
 
 type SpendingLimit = {
   id: string;
@@ -34,8 +65,17 @@ const categoryIcons: Record<string, any> = {
   'Lazer': Sparkles,
 };
 
+const formSchema = z.object({
+  categoria: z.string().min(1, "Categoria obrigatória"),
+  valorLimite: z.coerce.number().min(0.01, "Valor deve ser maior que zero"),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
 export default function Orcamento() {
   const { period } = usePeriod();
+  const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: limits, isLoading: loadingLimits } = useQuery<SpendingLimit[]>({
     queryKey: ["/api/spending-limits", { period }],
@@ -46,6 +86,50 @@ export default function Orcamento() {
   });
 
   const isLoading = loadingLimits || loadingDespesas;
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      categoria: "",
+      valorLimite: 0,
+    },
+  });
+
+  const createOrcamentoMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const [year, month] = period.split('-').map(Number);
+      return await apiRequest("POST", "/api/spending-limits", {
+        tipo: "mensal_categoria",
+        categoria: data.categoria,
+        valorLimite: data.valorLimite.toString(),
+        mes: month,
+        ano: year,
+        ativo: "sim",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/spending-limits"] });
+      toast({
+        title: "Orçamento criado com sucesso!",
+      });
+      setDialogOpen(false);
+      form.reset({
+        categoria: "",
+        valorLimite: 0,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao criar orçamento",
+        description: "Não foi possível criar o orçamento. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: FormData) => {
+    createOrcamentoMutation.mutate(data);
+  };
 
   if (isLoading) {
     return (
@@ -114,11 +198,22 @@ export default function Orcamento() {
             Controle seus gastos por categoria
           </p>
         </div>
-        <div className="text-left md:text-right">
-          <p className="text-sm text-muted-foreground mb-1">Orçamento Total</p>
-          <p className="text-2xl font-bold font-mono tabular-nums" data-testid="text-total-budget">
-            R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="default"
+            size="lg"
+            data-testid="button-novo-orcamento"
+            onClick={() => setDialogOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Orçamento
+          </Button>
+          <div className="text-left md:text-right">
+            <p className="text-sm text-muted-foreground mb-1">Orçamento Total</p>
+            <p className="text-2xl font-bold font-mono tabular-nums" data-testid="text-total-budget">
+              R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -233,6 +328,86 @@ export default function Orcamento() {
           </Card>
         )}
       </div>
+
+      {/* Novo Orçamento Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Novo Orçamento</DialogTitle>
+            <DialogDescription>
+              Defina um limite de gastos para uma categoria específica
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="categoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-categoria">
+                          <SelectValue placeholder="Selecione uma categoria" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categorias.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="valorLimite"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor Limite (R$)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        data-testid="input-valor-limite"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={createOrcamentoMutation.isPending}
+                  data-testid="button-cancel"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createOrcamentoMutation.isPending}
+                  data-testid="button-submit-orcamento"
+                >
+                  {createOrcamentoMutation.isPending ? "Salvando..." : "Criar Orçamento"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

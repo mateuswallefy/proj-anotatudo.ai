@@ -281,7 +281,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
       });
       
+      // Validar goalId antes de criar a transação
+      if (data.goalId) {
+        const goal = await storage.getGoalById(data.goalId);
+        if (!goal || goal.userId !== userId) {
+          return res.status(403).json({ message: "Meta não encontrada ou não autorizada" });
+        }
+      }
+      
       const transacao = await storage.createTransacao(data);
+      
+      // Se a transação está vinculada a uma meta, atualizar valorAtual da meta
+      if (data.goalId && data.tipo === 'entrada') {
+        const goal = await storage.getGoalById(data.goalId);
+        if (goal) {
+          const newValorAtual = parseFloat(goal.valorAtual || '0') + parseFloat(data.valor);
+          await storage.updateGoalValorAtual(data.goalId, userId, newValorAtual.toString());
+          
+          // Se atingiu a meta, atualizar status
+          if (newValorAtual >= parseFloat(goal.valorAlvo)) {
+            await storage.updateGoalStatus(data.goalId, userId, 'concluida');
+          }
+        }
+      }
+      
       res.status(201).json(transacao);
     } catch (error: any) {
       console.error("Error creating transaction:", error);
@@ -874,8 +897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status } = req.body;
+      const userId = req.session.userId;
       
-      await storage.updateGoalStatus(id, status);
+      await storage.updateGoalStatus(id, userId, status);
       res.json({ message: "Goal status updated" });
     } catch (error) {
       console.error("Error updating goal status:", error);

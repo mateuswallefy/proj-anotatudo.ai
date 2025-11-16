@@ -82,9 +82,11 @@ export interface IStorage {
 
   // Goals operations
   getGoals(userId: string): Promise<Goal[]>;
+  getGoalById(id: string): Promise<Goal | undefined>;
   createGoal(goal: InsertGoal): Promise<Goal>;
-  updateGoalValorAtual(id: string, valorAtual: string): Promise<void>;
-  updateGoalStatus(id: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void>;
+  updateGoal(id: string, userId: string, goal: Partial<InsertGoal>): Promise<Goal | undefined>;
+  updateGoalValorAtual(id: string, userId: string, valorAtual: string): Promise<void>;
+  updateGoalStatus(id: string, userId: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void>;
 
   // Spending limits operations
   getSpendingLimits(userId: string): Promise<SpendingLimit[]>;
@@ -336,18 +338,35 @@ export class DatabaseStorage implements IStorage {
     return newGoal;
   }
 
-  async updateGoalValorAtual(id: string, valorAtual: string): Promise<void> {
+  async getGoalById(id: string): Promise<Goal | undefined> {
+    const [goal] = await db
+      .select()
+      .from(goals)
+      .where(eq(goals.id, id));
+    return goal;
+  }
+
+  async updateGoal(id: string, userId: string, goal: Partial<InsertGoal>): Promise<Goal | undefined> {
+    const [updatedGoal] = await db
+      .update(goals)
+      .set(goal)
+      .where(and(eq(goals.id, id), eq(goals.userId, userId)))
+      .returning();
+    return updatedGoal;
+  }
+
+  async updateGoalValorAtual(id: string, userId: string, valorAtual: string): Promise<void> {
     await db
       .update(goals)
       .set({ valorAtual })
-      .where(eq(goals.id, id));
+      .where(and(eq(goals.id, id), eq(goals.userId, userId)));
   }
 
-  async updateGoalStatus(id: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void> {
+  async updateGoalStatus(id: string, userId: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void> {
     await db
       .update(goals)
       .set({ status })
-      .where(eq(goals.id, id));
+      .where(and(eq(goals.id, id), eq(goals.userId, userId)));
   }
 
   // Spending limits operations

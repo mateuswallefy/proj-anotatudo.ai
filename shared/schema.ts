@@ -72,6 +72,7 @@ export const transacoes = pgTable("transacoes", {
   descricao: text("descricao"),
   mediaUrl: varchar("media_url"),
   cartaoId: varchar("cartao_id").references(() => cartoes.id, { onDelete: 'set null' }),
+  goalId: varchar("goal_id").references(() => goals.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -83,6 +84,10 @@ export const transacoesRelations = relations(transacoes, ({ one }) => ({
   cartao: one(cartoes, {
     fields: [transacoes.cartaoId],
     references: [cartoes.id],
+  }),
+  goal: one(goals, {
+    fields: [transacoes.goalId],
+    references: [goals.id],
   }),
 }));
 
