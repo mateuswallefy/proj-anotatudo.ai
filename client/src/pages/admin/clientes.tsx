@@ -241,6 +241,13 @@ export default function AdminClientes() {
         billingStatus: data.billingStatus || "none",
         interval: data.interval || "monthly",
       });
+      
+      // Verify response is ok (apiRequest already throws on error, but ensure we have data)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erro ao criar cliente" }));
+        throw new Error(errorData.message || "Erro ao criar cliente");
+      }
+      
       return await response.json();
     },
     onSuccess: async (data: any) => {
@@ -282,6 +289,13 @@ export default function AdminClientes() {
     mutationFn: async (data: EditUserForm) => {
       if (!selectedUser?.id) throw new Error("User not selected");
       const response = await apiRequest("PATCH", `/api/admin/users/${selectedUser.id}`, data);
+      
+      // Verify response is ok (apiRequest already throws on error, but ensure we have data)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erro ao atualizar cliente" }));
+        throw new Error(errorData.message || "Erro ao atualizar cliente");
+      }
+      
       return await response.json();
     },
     onSuccess: async (updatedUser) => {
@@ -297,9 +311,11 @@ export default function AdminClientes() {
       });
     },
     onError: (error: any) => {
+      console.error("[Admin] Error updating user:", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Erro ao atualizar cliente. Tente novamente.";
       toast({
         title: "Erro ao atualizar cliente",
-        description: error.message || "Tente novamente",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -307,7 +323,13 @@ export default function AdminClientes() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/admin/users/${id}`);
+      const response = await apiRequest("DELETE", `/api/admin/users/${id}`);
+      // Verify response is ok (apiRequest already throws on error, but double-check)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erro ao excluir cliente" }));
+        throw new Error(errorData.message || "Erro ao excluir cliente");
+      }
+      return await response.json().catch(() => ({}));
     },
     onSuccess: async () => {
       await Promise.all([
@@ -323,9 +345,11 @@ export default function AdminClientes() {
       setSelectedUser(null);
     },
     onError: (error: any) => {
+      console.error("[Admin] Error deleting user:", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Erro ao excluir cliente. Tente novamente.";
       toast({
         title: "Erro ao excluir cliente",
-        description: error.message || "Tente novamente",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -453,10 +477,18 @@ export default function AdminClientes() {
   });
 
   const handleCreateSubmit = (data: CreateUserForm) => {
+    // Prevent multiple submissions
+    if (createUserMutation.isPending) {
+      return;
+    }
     createUserMutation.mutate(data);
   };
 
   const handleUpdateSubmit = (data: EditUserForm) => {
+    // Prevent multiple submissions
+    if (updateUserMutation.isPending) {
+      return;
+    }
     updateUserMutation.mutate(data);
   };
 
@@ -466,7 +498,7 @@ export default function AdminClientes() {
   };
 
   const handleDelete = () => {
-    if (selectedUser?.id) {
+    if (selectedUser?.id && !deleteUserMutation.isPending) {
       deleteUserMutation.mutate(selectedUser.id);
     }
   };
@@ -528,7 +560,17 @@ export default function AdminClientes() {
                 </DialogHeader>
                 <div className="space-y-4 md:space-y-6 py-4">
                   <Form {...createForm}>
-                    <form id="create-user-form" onSubmit={createForm.handleSubmit(handleCreateSubmit)} className="space-y-4 md:space-y-5">
+                    <form 
+                      id="create-user-form" 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (createUserMutation.isPending) {
+                          return;
+                        }
+                        createForm.handleSubmit(handleCreateSubmit)(e);
+                      }} 
+                      className="space-y-4 md:space-y-5"
+                    >
                       <FormField
                         control={createForm.control}
                         name="name"
@@ -907,7 +949,16 @@ export default function AdminClientes() {
                 {/* Tab: Informações - Editable Form */}
                 <TabsContent value="informacoes" className="mt-0 space-y-6">
                   <Form {...editForm}>
-                    <form onSubmit={editForm.handleSubmit(handleUpdateSubmit)} className="space-y-6">
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (updateUserMutation.isPending) {
+                          return;
+                        }
+                        editForm.handleSubmit(handleUpdateSubmit)(e);
+                      }} 
+                      className="space-y-6"
+                    >
                       <div className="space-y-4">
                         <SectionTitle title="Dados Pessoais" />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1269,8 +1320,11 @@ export default function AdminClientes() {
               <AlertDialogAction asChild>
                 <PremiumButton
                   variant="destructive"
-                  onClick={handleDelete}
-                  disabled={deleteUserMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDelete();
+                  }}
+                  disabled={deleteUserMutation.isPending || !selectedUser?.id}
                   className="w-full md:w-auto"
                 >
                   {deleteUserMutation.isPending ? "Excluindo..." : "Excluir Cliente"}

@@ -2274,9 +2274,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "User deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting admin user:", error);
-      res.status(500).json({ message: "Failed to delete user" });
+    } catch (error: any) {
+      console.error("[Admin] ❌ Error deleting admin user:", error);
+      console.error("[Admin] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        userId: req.params.id,
+      });
+      res.status(500).json({ 
+        message: error.message || "Failed to delete user",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
     }
   });
 
