@@ -1358,28 +1358,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (extractedEmail) {
                   console.log(`[WhatsApp] Email extracted: ${extractedEmail}`);
                   
-                  // Verify if purchase exists and is approved
-                  const purchase = await storage.getPurchaseByEmail(extractedEmail);
+                  // Find user by email
+                  const userByEmail = await storage.getUserByEmail(extractedEmail);
                   
-                  if (purchase) {
-                    // Authenticate user
-                    await storage.updateUserEmail(user.id, extractedEmail);
-                    await storage.updateUserStatus(user.id, 'authenticated');
-                    await storage.updatePurchasePhone(extractedEmail, fromNumber);
+                  if (userByEmail) {
+                    // Check subscription status using unified function
+                    const subscriptionStatus = await storage.getUserSubscriptionStatus(userByEmail.id);
                     
-                    console.log(`[WhatsApp] ✅ User authenticated: ${extractedEmail}`);
-                    
-                    await sendWhatsAppReply(
-                      fromNumber,
-                      "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
-                    );
+                    if (subscriptionStatus === 'active') {
+                      // Authenticate user
+                      await storage.updateUserEmail(user.id, extractedEmail);
+                      await storage.updateUserStatus(user.id, 'authenticated');
+                      await storage.updatePurchasePhone(extractedEmail, fromNumber);
+                      
+                      console.log(`[WhatsApp] ✅ User authenticated: ${extractedEmail}`);
+                      
+                      await sendWhatsAppReply(
+                        fromNumber,
+                        "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
+                      );
+                    } else {
+                      console.log(`[WhatsApp] ❌ User subscription status: ${subscriptionStatus}`);
+                      
+                      await sendWhatsAppReply(
+                        fromNumber,
+                        "❌ *Assinatura não ativa.*\n\nSua assinatura está " + 
+                        (subscriptionStatus === 'suspended' ? 'suspensa' : 
+                         subscriptionStatus === 'expired' ? 'expirada' : 
+                         subscriptionStatus === 'canceled' ? 'cancelada' : 'inativa') +
+                        ". Entre em contato com o suporte para reativar."
+                      );
+                    }
                   } else {
-                    console.log(`[WhatsApp] ❌ No approved purchase found for ${extractedEmail}`);
+                    // Check if purchase exists (legacy support)
+                    const purchase = await storage.getPurchaseByEmail(extractedEmail);
                     
-                    await sendWhatsAppReply(
-                      fromNumber,
-                      "❌ *Esse e-mail não possui compra válida.*\n\nVerifique se você digitou corretamente o e-mail usado na compra ou entre em contato com o suporte."
-                    );
+                    if (purchase) {
+                      // Authenticate user
+                      await storage.updateUserEmail(user.id, extractedEmail);
+                      await storage.updateUserStatus(user.id, 'authenticated');
+                      await storage.updatePurchasePhone(extractedEmail, fromNumber);
+                      
+                      console.log(`[WhatsApp] ✅ User authenticated via purchase: ${extractedEmail}`);
+                      
+                      await sendWhatsAppReply(
+                        fromNumber,
+                        "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
+                      );
+                    } else {
+                      console.log(`[WhatsApp] ❌ No user or purchase found for ${extractedEmail}`);
+                      
+                      await sendWhatsAppReply(
+                        fromNumber,
+                        "❌ *E-mail não encontrado.*\n\nVerifique se você digitou corretamente o e-mail ou entre em contato com o suporte."
+                      );
+                    }
                   }
                 } else {
                   // Not a valid email, prompt again
@@ -1404,7 +1437,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // ========================================
             
             else if (user.status === 'authenticated') {
-              console.log(`[WhatsApp] Processing transaction for authenticated user`);
+              // Verify subscription status before processing
+              const subscriptionStatus = await storage.getUserSubscriptionStatus(user.id);
+              
+              if (subscriptionStatus !== 'active') {
+                console.log(`[WhatsApp] User ${user.id} subscription status: ${subscriptionStatus}`);
+                
+                await sendWhatsAppReply(
+                  fromNumber,
+                  "❌ *Acesso bloqueado.*\n\nSua assinatura está " + 
+                  (subscriptionStatus === 'suspended' ? 'suspensa' : 
+                   subscriptionStatus === 'expired' ? 'expirada' : 
+                   subscriptionStatus === 'canceled' ? 'cancelada' : 'inativa') +
+                  ". Entre em contato com o suporte para reativar."
+                );
+                return;
+              }
+              
+              console.log(`[WhatsApp] Processing transaction for authenticated user with active subscription`);
               
               try {
                 // Call AI to process the message
@@ -1641,20 +1691,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { name, email, whatsappNumber, planLabel, billingStatus, role } = req.body;
 
       if (!name || !email) {
         return res.status(400).json({ message: "Nome e email são obrigatórios" });
       }
 
-      const [firstName, ...lastNameParts] = name.split(' ');
-      const lastName = lastNameParts.join(' ') || null;
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Email inválido" });
+      }
 
       // Check if email already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
         return res.status(409).json({ message: "Email já está em uso" });
       }
+
+      // Check if WhatsApp number already exists (if provided)
+      if (whatsappNumber) {
+        const existingUserByPhone = await storage.getUserByPhone(whatsappNumber);
+        if (existingUserByPhone) {
+          return res.status(409).json({ message: "WhatsApp já está em uso" });
+        }
+      }
+
+      const [firstName, ...lastNameParts] = name.split(' ');
+      const lastName = lastNameParts.join(' ') || null;
 
       // Create user without password (manual creation)
       const user = await storage.createUser({
@@ -1662,13 +1727,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName,
         lastName,
         whatsappNumber: whatsappNumber || null,
-        planLabel: planLabel || null,
-        billingStatus: billingStatus || 'none',
+        planLabel: planLabel || 'Premium',
+        billingStatus: billingStatus || 'active',
         role: role || 'user',
         status: 'authenticated',
       });
 
-      res.status(201).json(user);
+      // Create active subscription for manually created user
+      const crypto = await import('crypto');
+      const subscriptionId = crypto.randomUUID();
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days from now
+
+      const subscription = await storage.createSubscription({
+        userId: user.id,
+        provider: 'manual',
+        providerSubscriptionId: subscriptionId,
+        planName: planLabel || 'Premium',
+        priceCents: 0, // Manual subscriptions are free by default
+        currency: 'BRL',
+        billingInterval: 'month',
+        status: 'active',
+        currentPeriodEnd: expiresAt,
+        meta: {
+          createdBy: 'admin',
+          adminId: adminId,
+          createdAt: now.toISOString(),
+        },
+      });
+
+      // Update user billing status
+      await storage.updateUser(user.id, {
+        billingStatus: 'active',
+        planLabel: planLabel || 'Premium',
+      });
+
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: user.id,
+        type: 'create_user',
+        metadata: {
+          email,
+          whatsappNumber: whatsappNumber || null,
+          planLabel: planLabel || 'Premium',
+          subscriptionId: subscription.id,
+        },
+      });
+
+      res.status(201).json({
+        ...user,
+        subscription: subscription,
+      });
     } catch (error) {
       console.error("Error creating admin user:", error);
       res.status(500).json({ message: "Failed to create user" });
@@ -1677,6 +1788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/admin/users/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { id } = req.params;
       const { nome, sobrenome, email, whatsappNumber, status, plano, planLabel, billingStatus, role } = req.body;
 
@@ -1687,17 +1799,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updates: any = {};
+      const metadata: any = {};
 
       // Handle name updates
       if (nome !== undefined) {
         updates.firstName = nome;
+        metadata.firstName = nome;
       }
       if (sobrenome !== undefined) {
         updates.lastName = sobrenome;
+        metadata.lastName = sobrenome;
       }
 
       // Handle email update (critical: sync with WhatsApp and sessions)
       if (email && email !== currentUser.email) {
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({ message: "Email inválido" });
+        }
+
         // Check if email is already taken by another user
         const existingUser = await storage.getUserByEmail(email);
         if (existingUser && existingUser.id !== id) {
@@ -1705,6 +1826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         updates.email = email;
+        metadata.email = email;
         
         // Update WhatsApp purchase mapping
         if (currentUser.telefone || currentUser.whatsappNumber) {
@@ -1716,7 +1838,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Force logout: Delete all sessions for this user
-        // Using direct SQL query since connect-pg-simple stores sessions in 'sessions' table
         const allSessions = await db.select().from(sessions);
         for (const session of allSessions) {
           try {
@@ -1733,7 +1854,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Handle WhatsApp number update
       if (whatsappNumber !== undefined && whatsappNumber !== currentUser.whatsappNumber) {
+        // Check if WhatsApp number is already taken by another user
+        if (whatsappNumber) {
+          const existingUserByPhone = await storage.getUserByPhone(whatsappNumber);
+          if (existingUserByPhone && existingUserByPhone.id !== id) {
+            return res.status(409).json({ message: "WhatsApp já está em uso" });
+          }
+        }
+
         updates.whatsappNumber = whatsappNumber;
+        metadata.whatsappNumber = whatsappNumber;
         
         // Update phone in users table
         if (whatsappNumber) {
@@ -1747,22 +1877,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Handle status update (active/suspended)
+      // Handle status update (active/suspended) - also update subscriptions
       if (status !== undefined) {
         if (status === 'suspended') {
           updates.billingStatus = 'paused';
-          updates.status = 'authenticated'; // Keep authenticated but paused
+          updates.status = 'authenticated';
+          
+          // Update all active subscriptions to paused
+          const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+          for (const sub of userSubscriptions) {
+            if (sub.status === 'active' || sub.status === 'trial') {
+              await storage.updateSubscription(sub.id, { status: 'paused' });
+            }
+          }
+          metadata.status = 'suspended';
         } else if (status === 'active') {
           updates.billingStatus = billingStatus || 'active';
           updates.status = 'authenticated';
+          
+          // Reactivate paused subscriptions
+          const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+          for (const sub of userSubscriptions) {
+            if (sub.status === 'paused') {
+              await storage.updateSubscription(sub.id, { status: 'active' });
+            }
+          }
+          metadata.status = 'active';
         }
       }
 
       // Handle plano and planLabel
-      if (plano !== undefined) updates.plano = plano;
-      if (planLabel !== undefined) updates.planLabel = planLabel;
-      if (billingStatus !== undefined) updates.billingStatus = billingStatus;
-      if (role !== undefined) updates.role = role;
+      if (plano !== undefined) {
+        updates.plano = plano;
+        metadata.plano = plano;
+      }
+      if (planLabel !== undefined) {
+        updates.planLabel = planLabel;
+        metadata.planLabel = planLabel;
+        
+        // Update subscription plan name
+        const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+        for (const sub of userSubscriptions) {
+          if (sub.status === 'active' || sub.status === 'trial') {
+            await storage.updateSubscription(sub.id, { planName: planLabel });
+          }
+        }
+      }
+      if (billingStatus !== undefined) {
+        updates.billingStatus = billingStatus;
+        metadata.billingStatus = billingStatus;
+      }
+      if (role !== undefined) {
+        updates.role = role;
+        metadata.role = role;
+      }
 
       // Update user
       const updatedUser = await storage.updateUser(id, updates);
@@ -1770,6 +1938,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
+
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'update_user',
+        metadata: metadata,
+      });
 
       res.json(updatedUser);
     } catch (error) {
@@ -1780,6 +1956,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/users/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { id } = req.params;
       
       // Check if user exists
@@ -1788,8 +1965,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Delete user (cascade will handle related data if configured)
+      // Get subscriptions before deletion (for logging)
+      const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+
+      // Delete user (cascade will handle related data including subscriptions)
       await db.delete(users).where(eq(users.id, id));
+
+      // Log admin action (before deletion, so we have user data)
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'delete_user',
+        metadata: {
+          email: user.email,
+          whatsappNumber: user.whatsappNumber,
+          subscriptionsCount: userSubscriptions.length,
+        },
+      });
 
       res.json({ message: "User deleted successfully" });
     } catch (error) {
@@ -1800,6 +1992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users/:id/suspend", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { id } = req.params;
       
       const user = await storage.getUser(id);
@@ -1812,6 +2005,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingStatus: 'paused',
         status: 'authenticated', // Keep authenticated but paused (blocks login in auth.ts if needed)
       });
+
+      // Update all active subscriptions to paused
+      const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+      for (const sub of userSubscriptions) {
+        if (sub.status === 'active' || sub.status === 'trial') {
+          await storage.updateSubscription(sub.id, { status: 'paused' });
+        }
+      }
 
       // Force logout: Delete all sessions for this user
       const allSessions = await db.select().from(sessions);
@@ -1827,6 +2028,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'suspend_user',
+        metadata: {
+          email: user.email,
+          subscriptionsUpdated: userSubscriptions.filter(s => s.status === 'active' || s.status === 'trial').length,
+        },
+      });
+
       res.json(updatedUser);
     } catch (error) {
       console.error("Error suspending user:", error);
@@ -1836,6 +2048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users/:id/reactivate", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { id } = req.params;
       
       const user = await storage.getUser(id);
@@ -1847,6 +2060,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(id, {
         billingStatus: 'active',
         status: 'authenticated',
+      });
+
+      // Reactivate paused subscriptions
+      const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+      for (const sub of userSubscriptions) {
+        if (sub.status === 'paused') {
+          await storage.updateSubscription(sub.id, { status: 'active' });
+        }
+      }
+
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'reactivate_user',
+        metadata: {
+          email: user.email,
+          subscriptionsUpdated: userSubscriptions.filter(s => s.status === 'paused').length,
+        },
       });
 
       res.json(updatedUser);
@@ -1894,6 +2126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users/:id/reset-password", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { id } = req.params;
       
       // Check if user exists
@@ -1911,6 +2144,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update user password
       await storage.updateUser(id, { passwordHash });
+
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'reset_password',
+        metadata: {
+          email: user.email,
+        },
+      });
 
       // TODO: Send password via email or WhatsApp
       // For now, return the temporary password (in production, send via secure channel)

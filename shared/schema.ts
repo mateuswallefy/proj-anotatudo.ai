@@ -565,3 +565,21 @@ export const insertSystemLogSchema = createInsertSchema(systemLogs).omit({
 
 export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
 export type SystemLog = typeof systemLogs.$inferSelect;
+
+// Admin event logs table (auditoria de ações admin)
+export const adminEventLogs = pgTable("admin_event_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar("type").notNull(), // 'create_user', 'update_user', 'suspend_user', 'reactivate_user', 'delete_user', 'reset_password', etc.
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAdminEventLogSchema = createInsertSchema(adminEventLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAdminEventLog = z.infer<typeof insertAdminEventLogSchema>;
+export type AdminEventLog = typeof adminEventLogs.$inferSelect;

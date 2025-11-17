@@ -17,6 +17,7 @@ import {
   subscriptions,
   subscriptionEvents,
   systemLogs,
+  adminEventLogs,
   type User,
   type UpsertUser,
   type Transacao,
@@ -53,6 +54,8 @@ import {
   type InsertSubscriptionEvent,
   type SystemLog,
   type InsertSystemLog,
+  type AdminEventLog,
+  type InsertAdminEventLog,
 } from "@shared/schema";
 import { db } from "./db.js";
 import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray } from "drizzle-orm";
@@ -171,6 +174,20 @@ export interface IStorage {
   getSubscriptionEventsBySubscriptionId(subscriptionId: string, limit?: number): Promise<SubscriptionEvent[]>;
   getSubscriptionEventsByUserId(userId: string, limit?: number): Promise<SubscriptionEvent[]>;
   listRecentSubscriptionEvents(limit?: number): Promise<SubscriptionEvent[]>;
+
+  // System logs operations
+  createSystemLog(log: InsertSystemLog): Promise<SystemLog>;
+  getSystemLogs(options?: {
+    limit?: number;
+    level?: 'info' | 'warning' | 'error';
+    source?: 'whatsapp' | 'ai' | 'webhook' | 'system' | 'other';
+  }): Promise<SystemLog[]>;
+
+  // Subscription status operations
+  getUserSubscriptionStatus(userId: string): Promise<'active' | 'suspended' | 'expired' | 'canceled' | 'none'>;
+
+  // Admin event logs operations
+  createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1020,6 +1037,57 @@ export class DatabaseStorage implements IStorage {
     query = query.limit(limit) as any;
 
     return await query;
+  }
+
+  // Subscription status operations
+  async getUserSubscriptionStatus(userId: string): Promise<'active' | 'suspended' | 'expired' | 'canceled' | 'none'> {
+    const userSubscriptions = await this.getSubscriptionsByUserId(userId);
+    
+    if (userSubscriptions.length === 0) {
+      return 'none';
+    }
+
+    // Get the most recent active subscription
+    const activeSubscription = userSubscriptions.find(sub => 
+      sub.status === 'active' || sub.status === 'trial'
+    );
+
+    if (activeSubscription) {
+      // Check if expired
+      if (activeSubscription.currentPeriodEnd) {
+        const expiresAt = new Date(activeSubscription.currentPeriodEnd);
+        if (expiresAt < new Date()) {
+          return 'expired';
+        }
+      }
+      return 'active';
+    }
+
+    // Check for paused subscription
+    const pausedSubscription = userSubscriptions.find(sub => sub.status === 'paused');
+    if (pausedSubscription) {
+      return 'suspended';
+    }
+
+    // Check for canceled subscription
+    const canceledSubscription = userSubscriptions.find(sub => sub.status === 'canceled');
+    if (canceledSubscription) {
+      return 'canceled';
+    }
+
+    // Check for overdue
+    const overdueSubscription = userSubscriptions.find(sub => sub.status === 'overdue');
+    if (overdueSubscription) {
+      return 'expired';
+    }
+
+    return 'none';
+  }
+
+  // Admin event logs operations
+  async createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog> {
+    const [newLog] = await db.insert(adminEventLogs).values(log).returning();
+    return newLog;
   }
 }
 
