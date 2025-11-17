@@ -224,3 +224,55 @@ export async function downloadWhatsAppMedia(mediaId: string, mediaType: 'audio' 
     throw new Error(`Failed to download WhatsApp media: ${error.message}`);
   }
 }
+
+// ========================================
+// HUMANIZED MESSAGES - Random selection
+// ========================================
+
+/**
+ * Selects a random message from an array
+ */
+export function randomMessage(messages: string[]): string {
+  if (messages.length === 0) return "";
+  const randomIndex = Math.floor(Math.random() * messages.length);
+  return messages[randomIndex];
+}
+
+// Messages to ask for email (variations)
+export const ASK_EMAIL_MESSAGES = [
+  "Claro! Me diz qual e-mail você usou na compra? 😊",
+  "Perfeito, só preciso do seu e-mail para localizar seu acesso. 📩",
+  "Me manda o e-mail que você usa no AnotaTudo? 🙌",
+  "Ótimo! Qual é o seu e-mail mesmo?",
+  "Para liberar direitinho, me diga o e-mail cadastrado. 😉",
+];
+
+// Messages when email is not found
+export const EMAIL_NOT_FOUND_MESSAGES = [
+  "Hmm… não achei esse e-mail aqui 😕 Pode conferir rapidinho?",
+  "Parece que esse e-mail não está na minha lista… você pode verificar e me mandar novamente?",
+  "Não encontrei esse e-mail. Será que você pode me enviar outro que usa por aí?",
+  "Não consegui achar seu cadastro com esse e-mail. Me manda o correto, por favor. 😊",
+  "Ops! Esse e-mail não está no sistema. Quer tentar outro?",
+];
+
+// Messages for backend errors
+export const ERROR_MESSAGES = [
+  "Opa, acho que deu um errinho aqui… já tenta novamente, por favor? 🙏",
+  "Tive um problema momentâneo, pode repetir? 😊",
+  "Aconteceu algo inesperado, mas já estou pronto de novo. Me manda o e-mail mais uma vez?",
+];
+
+// Messages for initial greetings (oi, olá, etc.)
+export const GREETING_RESPONSES = [
+  "Oi! 😊 Tudo bem? Vou te ajudar agora mesmo. Pode me mandar seu e-mail?",
+  "Olá! 🙌 Me envia seu e-mail que eu libero seu acesso rapidinho.",
+  "Claro! Vou te ajudar com isso. Qual é o e-mail da compra?",
+];
+
+// Messages for non-text messages while awaiting email
+export const NON_TEXT_WHILE_AWAITING_EMAIL = [
+  "Claro! Me diz qual e-mail você usou na compra? 😊",
+  "Perfeito, só preciso do seu e-mail para localizar seu acesso. 📩",
+  "Me manda o e-mail que você usa no AnotaTudo? 🙌",
+];

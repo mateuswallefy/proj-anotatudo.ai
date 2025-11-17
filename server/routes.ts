@@ -31,7 +31,19 @@ import {
   getPeriodSummary
 } from "./analytics.js";
 import { z } from "zod";
-import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp.js";
+import { 
+  sendWhatsAppReply, 
+  normalizePhoneNumber, 
+  extractEmail, 
+  checkRateLimit, 
+  downloadWhatsAppMedia,
+  randomMessage,
+  ASK_EMAIL_MESSAGES,
+  EMAIL_NOT_FOUND_MESSAGES,
+  ERROR_MESSAGES,
+  GREETING_RESPONSES,
+  NON_TEXT_WHILE_AWAITING_EMAIL,
+} from "./whatsapp.js";
 
 function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
   if (!period || !/^\d{4}-\d{2}$/.test(period)) {
@@ -569,7 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.createUserFromPhone(phoneNumber);
         await sendWhatsAppReply(
           phoneNumber,
-          "Bem-vindo ao AnotaTudo.AI!\n\nPara liberar seu acesso, envie o e-mail usado na compra."
+          randomMessage(GREETING_RESPONSES)
         );
         res.status(200).json({ success: true });
         return;
@@ -577,12 +589,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Se usuário está aguardando email
       if (user.status === 'awaiting_email') {
+        // Check if message is a greeting or short message
+        const normalizedContent = content.toLowerCase().trim();
+        const isGreeting = normalizedContent === 'oi' || 
+                          normalizedContent === 'olá' || 
+                          normalizedContent === 'ola' ||
+                          normalizedContent === 'quero acessar' ||
+                          normalizedContent === 'acessar' ||
+                          normalizedContent.length < 5;
+        
         // Só aceitar texto para autenticação
         if (messageType !== 'text' || !content) {
           await sendWhatsAppReply(
             phoneNumber,
-            "Por favor, envie o e-mail usado na compra (apenas texto).\n\nExemplo: seu@email.com"
+            randomMessage(NON_TEXT_WHILE_AWAITING_EMAIL)
           );
+          res.status(200).json({ success: true });
+          return;
+        }
+        
+        // If it's a greeting or very short message, respond with empathy
+        if (isGreeting) {
+          await sendWhatsAppReply(phoneNumber, randomMessage(GREETING_RESPONSES));
           res.status(200).json({ success: true });
           return;
         }
@@ -592,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!email) {
           await sendWhatsAppReply(
             phoneNumber,
-            "Por favor, envie um e-mail válido para continuar.\n\nExemplo: seu@email.com"
+            randomMessage(ASK_EMAIL_MESSAGES)
           );
           res.status(200).json({ success: true });
           return;
@@ -604,7 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!purchase || purchase.status !== 'approved') {
           await sendWhatsAppReply(
             phoneNumber,
-            "Email não encontrado ou compra não aprovada.\n\nPor favor, use o mesmo e-mail da compra ou entre em contato com o suporte."
+            randomMessage(EMAIL_NOT_FOUND_MESSAGES)
           );
           res.status(200).json({ success: true });
           return;
@@ -1337,7 +1365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`[WhatsApp] Audio downloaded: ${messageContent}`);
               } catch (error: any) {
                 console.error(`[WhatsApp] Failed to download audio:`, error.message);
-                await sendWhatsAppReply(fromNumber, "❌ Erro ao baixar áudio. Por favor, tente novamente.");
+                await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES));
                 continue;
               }
             } else if (messageType === 'image') {
@@ -1355,7 +1383,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (user.status === 'awaiting_email') {
               // User needs to send email to authenticate
               
+              // Check if message is a greeting or short message
+              const normalizedContent = messageContent.toLowerCase().trim();
+              const isGreeting = normalizedContent === 'oi' || 
+                                normalizedContent === 'olá' || 
+                                normalizedContent === 'ola' ||
+                                normalizedContent === 'quero acessar' ||
+                                normalizedContent === 'acessar' ||
+                                normalizedContent.length < 5;
+              
               if (messageType === 'text') {
+                // If it's a greeting or very short message, respond with empathy
+                if (isGreeting) {
+                  await sendWhatsAppReply(fromNumber, randomMessage(GREETING_RESPONSES));
+                  continue;
+                }
+                
                 const extractedEmail = extractEmail(messageContent);
                 
                 if (extractedEmail) {
@@ -1443,7 +1486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       await sendWhatsAppReply(
                         fromNumber,
-                        "❌ *E-mail não encontrado.*\n\nVerifique se você digitou corretamente o e-mail ou entre em contato com o suporte."
+                        randomMessage(EMAIL_NOT_FOUND_MESSAGES)
                       );
                     }
                   }
@@ -1453,14 +1496,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   
                   await sendWhatsAppReply(
                     fromNumber,
-                    "📧 *Para liberar seu acesso, envie o e-mail usado na compra.*\n\nExemplo: seuemail@gmail.com"
+                    randomMessage(ASK_EMAIL_MESSAGES)
                   );
                 }
               } else {
-                // Non-text message while awaiting email
+                // Non-text message while awaiting email (audio, image, video, emoji)
                 await sendWhatsAppReply(
                   fromNumber,
-                  "📧 *Para liberar seu acesso, envie o e-mail usado na compra.*\n\nPor favor, envie uma mensagem de texto com seu e-mail."
+                  randomMessage(NON_TEXT_WHILE_AWAITING_EMAIL)
                 );
               }
             } 
@@ -1539,7 +1582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 await sendWhatsAppReply(
                   fromNumber,
-                  "❌ Erro ao processar mensagem. Tente novamente."
+                  randomMessage(ERROR_MESSAGES)
                 );
               }
             }
