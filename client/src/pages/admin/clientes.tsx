@@ -301,6 +301,11 @@ export default function AdminClientes() {
     },
     onError: (error: any) => {
       console.error("[Admin] ❌ Error creating user:", error);
+      console.error("[Admin] Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        raw: error,
+      });
       const errorMessage = error?.message || "Erro ao criar cliente. Verifique os dados e tente novamente.";
       toast({
         title: "❌ Erro ao criar cliente",
@@ -428,6 +433,11 @@ export default function AdminClientes() {
     },
     onError: (error: any) => {
       console.error("[Admin] ❌ Error deleting user:", error);
+      console.error("[Admin] Delete error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        raw: error,
+      });
       const errorMessage = error?.message || "Erro ao excluir cliente. Tente novamente.";
       toast({
         title: "❌ Erro ao excluir cliente",
@@ -1400,19 +1410,14 @@ export default function AdminClientes() {
                   Cancelar
                 </PremiumButton>
               </AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <PremiumButton
-                  variant="destructive"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDelete();
-                  }}
-                  disabled={deleteUserMutation.isPending || !selectedUser?.id}
-                  className="w-full md:w-auto"
-                >
-                  {deleteUserMutation.isPending ? "Excluindo..." : "Excluir Cliente"}
-                </PremiumButton>
-              </AlertDialogAction>
+              <PremiumButton
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleteUserMutation.isPending || !selectedUser?.id}
+                className="w-full md:w-auto"
+              >
+                {deleteUserMutation.isPending ? "Excluindo..." : "Excluir Cliente"}
+              </PremiumButton>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1435,15 +1440,13 @@ export default function AdminClientes() {
                   Cancelar
                 </PremiumButton>
               </AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <PremiumButton
-                  onClick={handleSuspend}
-                  disabled={suspendUserMutation.isPending}
-                  className="w-full md:w-auto"
-                >
-                  {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
-                </PremiumButton>
-              </AlertDialogAction>
+              <PremiumButton
+                onClick={handleSuspend}
+                disabled={suspendUserMutation.isPending}
+                className="w-full md:w-auto"
+              >
+                {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
+              </PremiumButton>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1465,15 +1468,13 @@ export default function AdminClientes() {
                   Cancelar
                 </PremiumButton>
               </AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <PremiumButton
-                  onClick={handleReactivate}
-                  disabled={reactivateUserMutation.isPending}
-                  className="w-full md:w-auto"
-                >
-                  {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
-                </PremiumButton>
-              </AlertDialogAction>
+              <PremiumButton
+                onClick={handleReactivate}
+                disabled={reactivateUserMutation.isPending}
+                className="w-full md:w-auto"
+              >
+                {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
+              </PremiumButton>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1495,15 +1496,13 @@ export default function AdminClientes() {
                   Cancelar
                 </PremiumButton>
               </AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <PremiumButton
-                  onClick={handleForceLogout}
-                  disabled={forceLogoutMutation.isPending}
-                  className="w-full md:w-auto"
-                >
-                  {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
-                </PremiumButton>
-              </AlertDialogAction>
+              <PremiumButton
+                onClick={handleForceLogout}
+                disabled={forceLogoutMutation.isPending}
+                className="w-full md:w-auto"
+              >
+                {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
+              </PremiumButton>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
