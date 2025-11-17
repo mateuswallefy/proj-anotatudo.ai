@@ -1040,15 +1040,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Subscription status operations
-  async getUserSubscriptionStatus(userId: string): Promise<'active' | 'suspended' | 'expired' | 'canceled' | 'none'> {
+  async getUserSubscriptionStatus(userId: string): Promise<'active' | 'suspended' | 'paused' | 'expired' | 'canceled' | 'none'> {
     const userSubscriptions = await this.getSubscriptionsByUserId(userId);
     
     if (userSubscriptions.length === 0) {
       return 'none';
     }
 
-    // Get the most recent active subscription
-    const activeSubscription = userSubscriptions.find(sub => 
+    // Sort by createdAt desc to get the most recent subscription first
+    const sortedSubscriptions = [...userSubscriptions].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Check for active or trial subscriptions first
+    const activeSubscription = sortedSubscriptions.find(sub => 
       sub.status === 'active' || sub.status === 'trial'
     );
 
@@ -1063,25 +1070,26 @@ export class DatabaseStorage implements IStorage {
       return 'active';
     }
 
-    // Check for paused subscription
-    const pausedSubscription = userSubscriptions.find(sub => sub.status === 'paused');
+    // Check for paused subscription (returns 'paused' not 'suspended')
+    const pausedSubscription = sortedSubscriptions.find(sub => sub.status === 'paused');
     if (pausedSubscription) {
-      return 'suspended';
+      return 'paused';
     }
 
     // Check for canceled subscription
-    const canceledSubscription = userSubscriptions.find(sub => sub.status === 'canceled');
+    const canceledSubscription = sortedSubscriptions.find(sub => sub.status === 'canceled');
     if (canceledSubscription) {
       return 'canceled';
     }
 
     // Check for overdue
-    const overdueSubscription = userSubscriptions.find(sub => sub.status === 'overdue');
+    const overdueSubscription = sortedSubscriptions.find(sub => sub.status === 'overdue');
     if (overdueSubscription) {
       return 'expired';
     }
 
-    return 'none';
+    // If we have subscriptions but none match the above, return 'suspended' as fallback
+    return 'suspended';
   }
 
   // Admin event logs operations

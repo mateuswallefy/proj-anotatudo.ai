@@ -1373,6 +1373,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       console.log(`[WhatsApp] ✅ User authenticated: ${extractedEmail}`);
                       
+                      // Log WhatsApp authentication event (system log, not admin event)
+                      await storage.createSystemLog({
+                        level: 'info',
+                        source: 'whatsapp',
+                        message: `User authenticated via WhatsApp`,
+                        meta: { userId: userByEmail.id, email: extractedEmail, phoneNumber: fromNumber },
+                      });
+                      
                       await sendWhatsAppReply(
                         fromNumber,
                         "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
@@ -1380,13 +1388,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     } else {
                       console.log(`[WhatsApp] ❌ User subscription status: ${subscriptionStatus}`);
                       
+                      const statusMessage = 
+                        subscriptionStatus === 'paused' || subscriptionStatus === 'suspended' ? 'suspensa' :
+                        subscriptionStatus === 'expired' ? 'expirada' :
+                        subscriptionStatus === 'canceled' ? 'cancelada' :
+                        'inativa';
+                      
                       await sendWhatsAppReply(
                         fromNumber,
-                        "❌ *Assinatura não ativa.*\n\nSua assinatura está " + 
-                        (subscriptionStatus === 'suspended' ? 'suspensa' : 
-                         subscriptionStatus === 'expired' ? 'expirada' : 
-                         subscriptionStatus === 'canceled' ? 'cancelada' : 'inativa') +
-                        ". Entre em contato com o suporte para reativar."
+                        `❌ *Assinatura não ativa.*\n\nSua assinatura está ${statusMessage}. Entre em contato com o suporte para reativar.`
                       );
                     }
                   } else {
@@ -1443,13 +1453,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (subscriptionStatus !== 'active') {
                 console.log(`[WhatsApp] User ${user.id} subscription status: ${subscriptionStatus}`);
                 
+                const statusMessage = 
+                  subscriptionStatus === 'paused' || subscriptionStatus === 'suspended' ? 'suspensa' :
+                  subscriptionStatus === 'expired' ? 'expirada' :
+                  subscriptionStatus === 'canceled' ? 'cancelada' :
+                  'inativa';
+                
                 await sendWhatsAppReply(
                   fromNumber,
-                  "❌ *Acesso bloqueado.*\n\nSua assinatura está " + 
-                  (subscriptionStatus === 'suspended' ? 'suspensa' : 
-                   subscriptionStatus === 'expired' ? 'expirada' : 
-                   subscriptionStatus === 'canceled' ? 'cancelada' : 'inativa') +
-                  ". Entre em contato com o suporte para reativar."
+                  `❌ *Acesso bloqueado.*\n\nSua assinatura está ${statusMessage}. Entre em contato com o suporte para reativar.`
                 );
                 return;
               }
@@ -2090,6 +2102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users/:id/logout", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const adminId = req.session.userId;
       const { id } = req.params;
       
       const user = await storage.getUser(id);
@@ -2113,6 +2126,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Ignore invalid session data
         }
       }
+
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'force_logout',
+        metadata: {
+          email: user.email,
+          sessionsDeleted: deletedCount,
+        },
+      });
 
       res.json({ 
         message: "User logged out successfully",
