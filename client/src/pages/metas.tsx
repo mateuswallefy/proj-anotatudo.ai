@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { PageHeader, PremiumButton, AppCard, SectionTitle, DataBadge, PremiumInput } from "@/components/design-system";
 
 const formSchema = z.object({
   nome: z.string().min(1, "Nome obrigatório"),
@@ -98,17 +99,20 @@ export default function Metas() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 p-6">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-6">
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-48" />
-          ))}
+      <div className="min-h-screen bg-background">
+        <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+          <Skeleton className="h-10 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-32 rounded-2xl" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-48 rounded-2xl" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -136,347 +140,384 @@ export default function Metas() {
       return dateA - dateB;
     })[0];
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const getProgressColor = (progresso: number, isCompleted: boolean) => {
+    if (isCompleted) return "bg-emerald-500";
+    if (progresso >= 75) return "bg-blue-500";
+    if (progresso >= 50) return "bg-purple-500";
+    return "bg-primary";
+  };
+
   return (
-    <div className="space-y-8 p-6" data-testid="page-metas">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div data-testid="header-section">
-          <h1 className="text-3xl font-bold tracking-tight mb-2" data-testid="title-metas">
-            Metas Financeiras
-          </h1>
-          <p className="text-muted-foreground" data-testid="subtitle-metas">
-            Defina e acompanhe seus objetivos financeiros
-          </p>
-        </div>
-        <Button 
-          variant="default"
-          size="lg"
-          data-testid="button-add-goal"
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Meta
-        </Button>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="statistics-section">
-        <MetricCard
-          icon={Target}
-          label="Total de Metas"
-          value={activeGoals.length}
-          subtitle="Ativas"
-          iconColor="text-blue-600"
-          iconBg="bg-blue-600/10"
-          data-testid="card-total-metas"
-        />
-        <MetricCard
-          icon={CheckCircle}
-          label="Metas Atingidas"
-          value={completedThisYear.length}
-          subtitle="Este ano"
-          iconColor="text-purple-600"
-          iconBg="bg-purple-600/10"
-          data-testid="card-metas-atingidas"
-        />
-        <MetricCard
-          icon={PiggyBank}
-          label="Total Poupado"
-          value={`R$ ${totalSaved.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
-          subtitle="Todas as metas"
-          iconColor="text-blue-600"
-          iconBg="bg-blue-600/10"
-          data-testid="card-total-poupado"
-        />
-        <MetricCard
-          icon={Clock}
-          label="Próximo Prazo"
-          value={nextDeadlineGoal?.dataFim 
-            ? new Date(nextDeadlineGoal.dataFim).toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit' }).replace('/', '-')
-            : '-'
+    <div className="min-h-screen bg-background" data-testid="page-metas">
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Premium Header */}
+        <PageHeader
+          title="Metas Financeiras"
+          subtitle="Defina e acompanhe seus objetivos financeiros"
+          action={
+            <PremiumButton
+              size="lg"
+              data-testid="button-add-goal"
+              onClick={() => setDialogOpen(true)}
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Nova Meta
+            </PremiumButton>
           }
-          subtitle={nextDeadlineGoal?.nome || 'Nenhum prazo'}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-600/10"
-          data-testid="card-proximo-prazo"
         />
-      </div>
 
-      {/* Goals List Section */}
-      <div className="space-y-6" data-testid="goals-list-section">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold" data-testid="title-todas-metas">
-            Todas as Metas
-          </h2>
-          <Button variant="ghost" size="icon" data-testid="button-filter">
-            <Filter className="h-4 w-4" />
-          </Button>
+        {/* Statistics Cards - Premium Design */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6" data-testid="statistics-section">
+          <MetricCard
+            icon={Target}
+            label="Total de Metas"
+            value={activeGoals.length}
+            subtitle="Ativas"
+            iconColor="text-blue-600 dark:text-blue-400"
+            iconBg="bg-blue-500/10"
+            data-testid="card-total-metas"
+          />
+          <MetricCard
+            icon={CheckCircle}
+            label="Metas Atingidas"
+            value={completedThisYear.length}
+            subtitle="Este ano"
+            iconColor="text-purple-600 dark:text-purple-400"
+            iconBg="bg-purple-500/10"
+            data-testid="card-metas-atingidas"
+          />
+          <MetricCard
+            icon={PiggyBank}
+            label="Total Poupado"
+            value={formatCurrency(totalSaved)}
+            subtitle="Todas as metas"
+            iconColor="text-emerald-600 dark:text-emerald-400"
+            iconBg="bg-emerald-500/10"
+            data-testid="card-total-poupado"
+          />
+          <MetricCard
+            icon={Clock}
+            label="Próximo Prazo"
+            value={nextDeadlineGoal?.dataFim 
+              ? new Date(nextDeadlineGoal.dataFim).toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit' }).replace('/', '-')
+              : '-'
+            }
+            subtitle={nextDeadlineGoal?.nome || 'Nenhum prazo'}
+            iconColor="text-orange-600 dark:text-orange-400"
+            iconBg="bg-orange-500/10"
+            data-testid="card-proximo-prazo"
+          />
         </div>
 
-        {allGoals && allGoals.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {allGoals.map((goal, index) => {
-              const valorAtual = parseFloat(goal.valorAtual);
-              const valorAlvo = parseFloat(goal.valorAlvo);
-              const progresso = valorAlvo > 0 ? (valorAtual / valorAlvo) * 100 : 0;
-              const faltam = valorAlvo - valorAtual;
-              const isCompleted = goal.status === 'concluida';
-              
-              return (
-                <Card
-                  key={goal.id}
-                  className={`hover-elevate active-elevate-2 ${isCompleted ? 'border-green-500/50' : ''}`}
-                  data-testid={`goal-card-${index}`}
-                >
-                  <CardContent className="p-6 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex gap-2 mb-2 flex-wrap">
-                          {isCompleted && (
-                            <Badge 
-                              variant="default"
-                              className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                              data-testid={`badge-completed-${index}`}
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Concluída
-                            </Badge>
-                          )}
-                          {goal.prioridade && (
-                            <Badge 
-                              variant={goal.prioridade === 'alta' ? 'destructive' : 'default'}
-                              className={`${
-                                goal.prioridade === 'media' ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20' :
-                                goal.prioridade === 'baixa' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' :
-                                ''
-                              }`}
-                              data-testid={`badge-priority-${index}`}
-                            >
-                              {goal.prioridade === 'alta' ? 'Alta' : goal.prioridade === 'media' ? 'Média' : 'Baixa'}
-                            </Badge>
-                          )}
+        {/* Goals List Section - Premium Design */}
+        <div className="space-y-6" data-testid="goals-list-section">
+          <SectionTitle
+            title="Todas as Metas"
+            subtitle={`${allGoals.length} ${allGoals.length === 1 ? 'meta' : 'metas'}`}
+            action={
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-2" data-testid="button-filter">
+                <Filter className="h-4 w-4" />
+              </Button>
+            }
+          />
+
+          {allGoals && allGoals.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {allGoals.map((goal, index) => {
+                const valorAtual = parseFloat(goal.valorAtual || '0');
+                const valorAlvo = parseFloat(goal.valorAlvo);
+                const progresso = valorAlvo > 0 ? (valorAtual / valorAlvo) * 100 : 0;
+                const faltam = Math.max(0, valorAlvo - valorAtual);
+                const isCompleted = goal.status === 'concluida';
+                const borderAccent = isCompleted ? "emerald" : progresso >= 75 ? "blue" : "purple";
+                
+                return (
+                  <AppCard
+                    key={goal.id}
+                    className="p-5 md:p-6"
+                    borderAccent={borderAccent}
+                    hover
+                    data-testid={`goal-card-${index}`}
+                  >
+                    <div className="space-y-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex gap-2 mb-3 flex-wrap">
+                            {isCompleted && (
+                              <DataBadge
+                                variant="default"
+                                color="hsl(142, 71%, 45%)"
+                                icon={<CheckCircle className="h-3 w-3" />}
+                                data-testid={`badge-completed-${index}`}
+                              >
+                                Concluída
+                              </DataBadge>
+                            )}
+                            {goal.prioridade && (
+                              <DataBadge
+                                variant="outline"
+                                color={
+                                  goal.prioridade === 'alta' ? 'hsl(0, 72%, 51%)' :
+                                  goal.prioridade === 'media' ? 'hsl(25, 95%, 53%)' :
+                                  'hsl(217, 91%, 60%)'
+                                }
+                                data-testid={`badge-priority-${index}`}
+                              >
+                                {goal.prioridade === 'alta' ? 'Alta' : goal.prioridade === 'media' ? 'Média' : 'Baixa'}
+                              </DataBadge>
+                            )}
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Target className="h-6 w-6 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-base md:text-lg mb-1" data-testid={`goal-name-${index}`}>
+                                {goal.nome}
+                              </h3>
+                              {goal.descricao && (
+                                <p className="text-sm text-muted-foreground" data-testid={`goal-description-${index}`}>
+                                  {goal.descricao}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <h3 className="font-semibold text-lg mb-1" data-testid={`goal-name-${index}`}>
-                          {goal.nome}
-                        </h3>
-                        {goal.descricao && (
-                          <p className="text-sm text-muted-foreground" data-testid={`goal-description-${index}`}>
-                            {goal.descricao}
-                          </p>
-                        )}
                       </div>
-                      <Target className="h-6 w-6 text-muted-foreground flex-shrink-0" />
-                    </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Progresso</span>
-                        <span className="font-semibold" data-testid={`goal-progress-${index}`}>
-                          {progresso.toFixed(0)}%
-                        </span>
-                      </div>
-                      <Progress value={Math.min(progresso, 100)} className="h-2" data-testid={`progress-bar-${index}`} />
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm gap-4">
-                      <div className="flex-1">
-                        <p className="text-muted-foreground text-xs mb-1">Atual</p>
-                        <p className="font-semibold font-mono tabular-nums" data-testid={`goal-current-${index}`}>
-                          R$ {valorAtual.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                        </p>
-                      </div>
-                      <div className="flex-1 text-center">
-                        <p className="text-muted-foreground text-xs mb-1">Faltam</p>
-                        <p className="font-semibold font-mono tabular-nums text-orange-600 dark:text-orange-400" data-testid={`goal-remaining-${index}`}>
-                          R$ {faltam.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                        </p>
-                      </div>
-                      <div className="flex-1 text-right">
-                        <p className="text-muted-foreground text-xs mb-1">Meta</p>
-                        <p className="font-semibold font-mono tabular-nums" data-testid={`goal-target-${index}`}>
-                          R$ {valorAlvo.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                        </p>
-                      </div>
-                    </div>
-
-                    {goal.dataFim && (
-                      <div className="pt-3 border-t border-border">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Prazo</span>
-                          <span className="font-medium" data-testid={`goal-deadline-${index}`}>
-                            {new Date(goal.dataFim).toLocaleDateString('pt-BR', { 
-                              day: '2-digit',
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
+                          <span className="text-muted-foreground">Progresso</span>
+                          <span className="font-semibold" data-testid={`goal-progress-${index}`}>
+                            {progresso.toFixed(0)}%
                           </span>
                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card className="p-12">
-            <div className="text-center">
-              <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2" data-testid="empty-title">
-                Nenhuma meta cadastrada
-              </h3>
-              <p className="text-muted-foreground mb-6" data-testid="empty-description">
-                Comece definindo suas metas financeiras para acompanhar seu progresso
-              </p>
-              <Button 
-                data-testid="button-add-first-goal"
-                onClick={() => setDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Primeira Meta
-              </Button>
-            </div>
-          </Card>
-        )}
-      </div>
-
-      {/* Nova Meta Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-nova-meta">
-          <DialogHeader>
-            <DialogTitle data-testid="dialog-title">Nova Meta Financeira</DialogTitle>
-            <DialogDescription data-testid="dialog-description">
-              Defina uma nova meta financeira para acompanhar seu progresso
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="nome"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome da Meta</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Ex: Viagem para Europa" 
-                        data-testid="input-nome"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="valorObjetivo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor Objetivo (R$)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.01" 
-                        min="0.01"
-                        placeholder="0.00" 
-                        data-testid="input-valor-objetivo"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="valorAtual"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor Atual (R$)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.01" 
-                        min="0"
-                        placeholder="0.00" 
-                        data-testid="input-valor-atual"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="dataFim"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data Limite (opcional)</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="button-date-picker"
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "dd/MM/yyyy")
-                            ) : (
-                              <span>Selecione uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => {
-                            field.onChange(date ? date.toISOString().split('T')[0] : "");
-                          }}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                          data-testid="calendar-data-fim"
+                        <Progress 
+                          value={Math.min(progresso, 100)} 
+                          className="h-3 rounded-full"
+                          indicatorClassName={getProgressColor(progresso, isCompleted)}
+                          data-testid={`progress-bar-${index}`} 
                         />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      </div>
 
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setDialogOpen(false)}
-                  data-testid="button-cancel"
+                      <div className="grid grid-cols-3 gap-4 pt-2">
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">Atual</p>
+                          <p className="font-semibold font-mono tabular-nums text-sm" data-testid={`goal-current-${index}`}>
+                            {formatCurrency(valorAtual)}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs mb-1">Faltam</p>
+                          <p className="font-semibold font-mono tabular-nums text-sm text-orange-600 dark:text-orange-400" data-testid={`goal-remaining-${index}`}>
+                            {formatCurrency(faltam)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground text-xs mb-1">Meta</p>
+                          <p className="font-semibold font-mono tabular-nums text-sm" data-testid={`goal-target-${index}`}>
+                            {formatCurrency(valorAlvo)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {goal.dataFim && (
+                        <div className="pt-3 border-t border-border/50">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1.5">
+                              <CalendarIcon className="w-3.5 h-3.5" />
+                              Prazo
+                            </span>
+                            <span className="font-medium" data-testid={`goal-deadline-${index}`}>
+                              {new Date(goal.dataFim).toLocaleDateString('pt-BR', { 
+                                day: '2-digit',
+                                month: 'short', 
+                                year: 'numeric' 
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </AppCard>
+                );
+              })}
+            </div>
+          ) : (
+            <AppCard className="p-12 md:p-16">
+              <div className="text-center">
+                <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Target className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2" data-testid="empty-title">
+                  Nenhuma meta cadastrada
+                </h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto" data-testid="empty-description">
+                  Comece definindo suas metas financeiras para acompanhar seu progresso
+                </p>
+                <PremiumButton 
+                  data-testid="button-add-first-goal"
+                  onClick={() => setDialogOpen(true)}
                 >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createGoalMutation.isPending}
-                  data-testid="button-submit"
-                >
-                  {createGoalMutation.isPending ? "Criando..." : "Criar Meta"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+                  <Plus className="h-5 w-5 mr-2" />
+                  Criar Primeira Meta
+                </PremiumButton>
+              </div>
+            </AppCard>
+          )}
+        </div>
+
+        {/* Premium Nova Meta Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-[540px] rounded-2xl" data-testid="dialog-nova-meta">
+            <DialogHeader className="space-y-2 pb-2">
+              <DialogTitle className="text-2xl font-bold tracking-tight" data-testid="dialog-title">Nova Meta Financeira</DialogTitle>
+              <DialogDescription className="text-base" data-testid="dialog-description">
+                Defina uma nova meta financeira para acompanhar seu progresso
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+                <FormField
+                  control={form.control}
+                  name="nome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-semibold">Nome da Meta</FormLabel>
+                      <FormControl>
+                        <PremiumInput 
+                          placeholder="Ex: Viagem para Europa" 
+                          data-testid="input-nome"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <FormField
+                    control={form.control}
+                    name="valorObjetivo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-semibold">Valor Objetivo (R$)</FormLabel>
+                        <FormControl>
+                          <PremiumInput 
+                            type="number" 
+                            step="0.01" 
+                            min="0.01"
+                            placeholder="0,00" 
+                            className="font-mono"
+                            data-testid="input-valor-objetivo"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="valorAtual"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-semibold">Valor Atual (R$)</FormLabel>
+                        <FormControl>
+                          <PremiumInput 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            placeholder="0,00" 
+                            className="font-mono"
+                            data-testid="input-valor-atual"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="dataFim"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-sm font-semibold">Data Limite (opcional)</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full h-12 pl-3 text-left font-normal rounded-xl border-2",
+                                !field.value && "text-muted-foreground"
+                              )}
+                              data-testid="button-date-picker"
+                            >
+                              {field.value ? (
+                                format(new Date(field.value), "dd/MM/yyyy")
+                              ) : (
+                                <span>Selecione uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={(date) => {
+                              field.onChange(date ? date.toISOString().split('T')[0] : "");
+                            }}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            data-testid="calendar-data-fim"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <PremiumButton 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setDialogOpen(false)}
+                    className="h-11 px-6"
+                    data-testid="button-cancel"
+                  >
+                    Cancelar
+                  </PremiumButton>
+                  <PremiumButton 
+                    type="submit" 
+                    disabled={createGoalMutation.isPending}
+                    className="h-11 px-6"
+                    data-testid="button-submit"
+                  >
+                    {createGoalMutation.isPending ? "Criando..." : "Criar Meta"}
+                  </PremiumButton>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

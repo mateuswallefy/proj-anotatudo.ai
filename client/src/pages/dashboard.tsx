@@ -17,6 +17,7 @@ import { AlertasImportantes } from "@/components/AlertasImportantes";
 import { CardsMensais } from "@/components/CardsMensais";
 import { LightbulbIcon } from "lucide-react";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { PageHeader, AppCard } from "@/components/design-system";
 
 interface FinancialInsights {
   mediaDiariaGastos: number;
@@ -125,21 +126,23 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
-        <div>
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-4 w-96 mt-2" />
-        </div>
+      <div className="min-h-screen bg-background">
+        <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+          <div>
+            <Skeleton className="h-10 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-32 rounded-2xl" />
+            ))}
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton className="h-96" />
-          <Skeleton className="h-96" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Skeleton className="h-96 rounded-2xl" />
+            <Skeleton className="h-96 rounded-2xl" />
+          </div>
         </div>
       </div>
     );
@@ -148,9 +151,16 @@ export default function Dashboard() {
   const hasSpendingLimit = spendingProgress && spendingProgress.limiteTotal > 0;
 
   return (
-    <div className="space-y-8 p-6">
-      {/* Alertas Importantes */}
-      <AlertasImportantes />
+    <div className="min-h-screen bg-background">
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Premium Header */}
+        <PageHeader
+          title="Dashboard Financeiro"
+          subtitle="Visão geral das suas finanças"
+        />
+
+        {/* Alertas Importantes */}
+        <AlertasImportantes />
 
       {/* Cards Mensais - ENTRADAS, DESPESAS, ECONOMIAS, SALDO */}
       <CardsMensais />
@@ -224,25 +234,30 @@ export default function Dashboard() {
         <RecentTransactions transacoes={transacoes} />
       )}
 
-      {/* Tips Section */}
-      {insights && insights.dicasEconomia.length > 1 && (
-        <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-6 border">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <LightbulbIcon className="h-5 w-5 text-primary" />
-            Mais Dicas para Economizar
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {insights.dicasEconomia.slice(1).map((dica, index) => (
-              <div
-                key={index}
-                className="bg-background/50 rounded-md p-4 hover-elevate"
-              >
-                <p className="text-sm leading-relaxed">{dica}</p>
+        {/* Tips Section - Premium Design */}
+        {insights && insights.dicasEconomia.length > 1 && (
+          <AppCard className="p-6 md:p-8" borderAccent="purple">
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <LightbulbIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight">Mais Dicas para Economizar</h3>
+                  <p className="text-sm text-muted-foreground">Recomendações personalizadas para você</p>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {insights.dicasEconomia.slice(1).map((dica, index) => (
+                  <AppCard key={index} className="p-5" hover>
+                    <p className="text-sm leading-relaxed text-foreground">{dica}</p>
+                  </AppCard>
+                ))}
+              </div>
+            </div>
+          </AppCard>
+        )}
+      </div>
     </div>
   );
 }

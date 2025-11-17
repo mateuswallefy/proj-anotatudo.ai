@@ -4,15 +4,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { MessageSquare, Mail, Lock, User, ArrowRight, Sparkles } from "lucide-react";
 import { insertUserSchema, loginSchema } from "@shared/schema";
+import { PremiumButton, PremiumInput, AppCard } from "@/components/design-system";
 
 type RegisterFormData = z.infer<typeof insertUserSchema>;
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -171,18 +170,18 @@ export default function Auth() {
         </div>
 
         {/* Right side - Auth form */}
-        <Card className="w-full max-w-md mx-auto shadow-2xl" data-testid="card-auth-form">
-          <CardHeader className="space-y-1">
+        <AppCard className="w-full max-w-md mx-auto p-6 md:p-8 rounded-2xl" borderAccent="blue" data-testid="card-auth-form">
+          <CardHeader className="space-y-2 pb-4">
             <div className="flex items-center gap-2 lg:hidden mb-4">
-              <div className="w-10 h-10 bg-primary rounded-md flex items-center justify-center">
+              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
                 <MessageSquare className="w-6 h-6 text-primary-foreground" />
               </div>
-              <CardTitle className="text-2xl">AnotaTudo.AI</CardTitle>
+              <CardTitle className="text-2xl font-bold">AnotaTudo.AI</CardTitle>
             </div>
-            <CardTitle className="text-2xl">
+            <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">
               {activeTab === "login" ? "Bem-vindo de volta" : "Criar conta"}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-base">
               {activeTab === "login"
                 ? "Entre com sua conta para acessar o dashboard"
                 : "Comece a gerenciar suas finanças com IA"}
@@ -190,19 +189,19 @@ export default function Auth() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login" data-testid="tab-login">Entrar</TabsTrigger>
-                <TabsTrigger value="register" data-testid="tab-register">Criar Conta</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6 h-11 rounded-xl">
+                <TabsTrigger value="login" data-testid="tab-login" className="rounded-lg">Entrar</TabsTrigger>
+                <TabsTrigger value="register" data-testid="tab-register" className="rounded-lg">Criar Conta</TabsTrigger>
               </TabsList>
 
               {/* Login Tab */}
               <TabsContent value="login">
-                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <Label htmlFor="login-email" className="text-sm font-semibold">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                      <PremiumInput
                         id="login-email"
                         type="email"
                         placeholder="seu@email.com"
@@ -212,17 +211,17 @@ export default function Auth() {
                       />
                     </div>
                     {loginForm.formState.errors.email && (
-                      <p className="text-sm text-destructive">
+                      <p className="text-sm text-destructive mt-1">
                         {loginForm.formState.errors.email.message}
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Senha</Label>
+                    <Label htmlFor="login-password" className="text-sm font-semibold">Senha</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                      <PremiumInput
                         id="login-password"
                         type="password"
                         placeholder="••••••••"
@@ -232,32 +231,32 @@ export default function Auth() {
                       />
                     </div>
                     {loginForm.formState.errors.password && (
-                      <p className="text-sm text-destructive">
+                      <p className="text-sm text-destructive mt-1">
                         {loginForm.formState.errors.password.message}
                       </p>
                     )}
                   </div>
 
-                  <Button
+                  <PremiumButton
                     type="submit"
-                    className="w-full"
+                    className="w-full h-11"
                     disabled={loginMutation.isPending}
                     data-testid="button-login-submit"
                   >
                     {loginMutation.isPending ? "Entrando..." : "Entrar"}
-                  </Button>
+                  </PremiumButton>
                 </form>
               </TabsContent>
 
               {/* Register Tab */}
               <TabsContent value="register">
-                <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-5">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="register-firstName">Nome</Label>
+                      <Label htmlFor="register-firstName" className="text-sm font-semibold">Nome</Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                        <PremiumInput
                           id="register-firstName"
                           placeholder="João"
                           className="pl-9"
@@ -268,8 +267,8 @@ export default function Auth() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="register-lastName">Sobrenome</Label>
-                      <Input
+                      <Label htmlFor="register-lastName" className="text-sm font-semibold">Sobrenome</Label>
+                      <PremiumInput
                         id="register-lastName"
                         placeholder="Silva"
                         {...registerForm.register("lastName")}
@@ -279,10 +278,10 @@ export default function Auth() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="register-email">Email</Label>
+                    <Label htmlFor="register-email" className="text-sm font-semibold">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                      <PremiumInput
                         id="register-email"
                         type="email"
                         placeholder="seu@email.com"
@@ -292,17 +291,17 @@ export default function Auth() {
                       />
                     </div>
                     {registerForm.formState.errors.email && (
-                      <p className="text-sm text-destructive">
+                      <p className="text-sm text-destructive mt-1">
                         {registerForm.formState.errors.email.message}
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="register-password">Senha</Label>
+                    <Label htmlFor="register-password" className="text-sm font-semibold">Senha</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                      <PremiumInput
                         id="register-password"
                         type="password"
                         placeholder="Mínimo 8 caracteres"
@@ -312,20 +311,20 @@ export default function Auth() {
                       />
                     </div>
                     {registerForm.formState.errors.password && (
-                      <p className="text-sm text-destructive">
+                      <p className="text-sm text-destructive mt-1">
                         {registerForm.formState.errors.password.message}
                       </p>
                     )}
                   </div>
 
-                  <Button
+                  <PremiumButton
                     type="submit"
-                    className="w-full"
+                    className="w-full h-11"
                     disabled={registerMutation.isPending}
                     data-testid="button-register-submit"
                   >
                     {registerMutation.isPending ? "Criando conta..." : "Criar Conta"}
-                  </Button>
+                  </PremiumButton>
 
                   <p className="text-xs text-center text-muted-foreground">
                     Ao criar uma conta, você concorda com nossos Termos de Serviço e Política de Privacidade.
@@ -334,7 +333,7 @@ export default function Auth() {
               </TabsContent>
             </Tabs>
           </CardContent>
-        </Card>
+        </AppCard>
       </div>
     </div>
   );

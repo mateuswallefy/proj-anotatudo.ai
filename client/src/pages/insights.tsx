@@ -1,6 +1,4 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { 
   Lightbulb, 
   DollarSign, 
@@ -23,6 +21,7 @@ import {
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader, PremiumButton, AppCard, SectionTitle, DataBadge } from "@/components/design-system";
 
 type Insight = {
   id: string;
@@ -95,57 +94,49 @@ export default function Insights() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-12 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-        <Skeleton className="h-12 w-full" />
-        <div className="grid grid-cols-1 gap-6">
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-48" />
-          ))}
+      <div className="min-h-screen bg-background">
+        <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+          <Skeleton className="h-10 w-64 mb-2 rounded-2xl" />
+          <Skeleton className="h-4 w-96 rounded-2xl" />
+          <Skeleton className="h-12 w-64 rounded-2xl" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-32 rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-12 w-full rounded-2xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-48 rounded-2xl" />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 p-6 max-w-7xl mx-auto">
-      {/* Header Section */}
-      <div className="space-y-2" data-testid="insights-header">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Zap className="h-6 w-6 text-primary" data-testid="icon-header" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
-              Insights Inteligentes
-            </h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-subtitle">
-              Análises personalizadas para otimizar suas finanças
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Premium Header */}
+        <PageHeader
+          title="Insights Inteligentes"
+          subtitle="Análises personalizadas para otimizar suas finanças"
+          action={
+            <PremiumButton
+              size="lg"
+              onClick={() => generateInsightsMutation.mutate()}
+              disabled={generateInsightsMutation.isPending}
+              data-testid="button-generate-insights"
+            >
+              <Lightbulb className="h-5 w-5 mr-2" />
+              {generateInsightsMutation.isPending ? "Gerando..." : "Gerar Novos Insights"}
+            </PremiumButton>
+          }
+        />
 
-      {/* CTA Button */}
-      <Button 
-        onClick={() => generateInsightsMutation.mutate()}
-        disabled={generateInsightsMutation.isPending}
-        variant="default"
-        size="lg"
-        data-testid="button-generate-insights"
-      >
-        <Lightbulb className="h-4 w-4" />
-        {generateInsightsMutation.isPending ? "Gerando..." : "Gerar Novos Insights"}
-      </Button>
-
-      {/* Metrics Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="metrics-grid">
+        {/* Metrics Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6" data-testid="metrics-grid">
         <MetricCard
           icon={Lightbulb}
           label="Total Insights"
@@ -173,9 +164,9 @@ export default function Insights() {
           label="Economia Potencial"
           value={`R$ ${totalSavings.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           subtitle="Por ano"
-          iconColor="text-blue-600"
-          iconBg="bg-blue-600/10"
-          valueColor="text-primary"
+          iconColor="text-emerald-600 dark:text-emerald-400"
+          iconBg="bg-emerald-500/10"
+          valueColor="text-emerald-600 dark:text-emerald-400"
           className="font-mono"
           data-testid="metric-potential-savings"
         />
@@ -185,127 +176,142 @@ export default function Insights() {
           label="Oportunidades"
           value={`+R$ ${monthlyOpportunity.toLocaleString('pt-BR')}`}
           subtitle="Economia extra/mês"
-          iconColor="text-blue-600"
-          iconBg="bg-blue-600/10"
-          valueColor="text-primary"
+          iconColor="text-blue-600 dark:text-blue-400"
+          iconBg="bg-blue-500/10"
+          valueColor="text-blue-600 dark:text-blue-400"
           className="font-mono"
           data-testid="metric-opportunities"
         />
       </div>
 
-      {/* Insights List Section */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h2 className="text-xl font-semibold" data-testid="text-list-title">
-            Todos os Insights
-          </h2>
-          
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-64" data-testid="select-category-filter">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Todas as categorias" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as categorias</SelectItem>
-              <SelectItem value="economia">Economia</SelectItem>
-              <SelectItem value="investimento">Investimento</SelectItem>
-              <SelectItem value="otimizacao_cartao">Otimização de Cartão</SelectItem>
-              <SelectItem value="outro">Outro</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Insights List Section */}
+        <div className="space-y-6">
+          <SectionTitle
+            title="Todos os Insights"
+            subtitle={`${filteredInsights.length} ${filteredInsights.length === 1 ? 'insight' : 'insights'}`}
+            action={
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-64 h-10 rounded-xl border-2" data-testid="select-category-filter">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Todas as categorias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  <SelectItem value="economia">Economia</SelectItem>
+                  <SelectItem value="investimento">Investimento</SelectItem>
+                  <SelectItem value="otimizacao_cartao">Otimização de Cartão</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
 
-        {/* Insights Grid */}
-        {filteredInsights.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-testid="insights-list">
-            {filteredInsights.map((insight, index) => {
-              const Icon = getInsightIcon(insight.tipoInsight);
-              const valorImpacto = insight.valorImpacto ? parseFloat(insight.valorImpacto) : null;
-              const percentualImpacto = insight.percentualImpacto ? parseFloat(insight.percentualImpacto) : null;
-              
-              const relevanciaColor = insight.relevancia === 'alta' 
-                ? 'border-amber-500/50' 
-                : insight.relevancia === 'media' 
-                  ? 'border-amber-300/30' 
-                  : 'border-amber-200/20';
-              
-              return (
-                <Card
-                  key={insight.id}
-                  className={`p-6 bg-gradient-to-br from-amber-500/5 to-orange-500/10 ${relevanciaColor} hover-elevate active-elevate-2`}
-                  data-testid={`insight-card-${index}`}
-                >
-                  <CardContent className="p-0">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 rounded-lg bg-amber-500/10">
-                        <Icon className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      
-                      <div className="flex-1 space-y-3">
-                        <div>
-                          <h3 className="font-semibold text-lg mb-1" data-testid={`insight-title-${index}`}>
-                            {insight.titulo}
-                          </h3>
+          {/* Insights Grid */}
+          {filteredInsights.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-testid="insights-list">
+              {filteredInsights.map((insight, index) => {
+                const Icon = getInsightIcon(insight.tipoInsight);
+                const valorImpacto = insight.valorImpacto ? parseFloat(insight.valorImpacto) : null;
+                const percentualImpacto = insight.percentualImpacto ? parseFloat(insight.percentualImpacto) : null;
+                
+                const borderAccent = insight.relevancia === 'alta' 
+                  ? 'purple' 
+                  : insight.relevancia === 'media' 
+                    ? 'blue' 
+                    : 'none';
+                
+                return (
+                  <AppCard
+                    key={insight.id}
+                    className="p-5 md:p-6"
+                    borderAccent={borderAccent}
+                    hover
+                    data-testid={`insight-card-${index}`}
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Icon className="h-7 w-7 text-primary" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h3 className="font-semibold text-base md:text-lg" data-testid={`insight-title-${index}`}>
+                              {insight.titulo}
+                            </h3>
+                            <DataBadge
+                              variant={insight.relevancia === 'alta' ? 'default' : 'outline'}
+                              color={
+                                insight.relevancia === 'alta' ? 'hsl(262, 83%, 58%)' :
+                                insight.relevancia === 'media' ? 'hsl(217, 91%, 60%)' :
+                                'hsl(var(--muted-foreground))'
+                              }
+                            >
+                              {insight.relevancia === 'alta' ? 'Alta' : insight.relevancia === 'media' ? 'Média' : 'Baixa'}
+                            </DataBadge>
+                          </div>
                           <p className="text-sm text-muted-foreground" data-testid={`insight-description-${index}`}>
                             {insight.descricao}
                           </p>
                         </div>
-                        
-                        {valorImpacto && valorImpacto > 0 && (
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400" data-testid={`insight-impact-value-${index}`}>
-                              R$ {valorImpacto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
-                            <span className="text-sm text-muted-foreground">/ano</span>
-                          </div>
-                        )}
-                        
-                        {percentualImpacto && percentualImpacto > 0 && (
-                          <div className="text-sm">
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400" data-testid={`insight-impact-percent-${index}`}>
-                              +{percentualImpacto.toFixed(0)}%
-                            </span>
-                            <span className="text-muted-foreground ml-1">
-                              {insight.tipoInsight === 'investimento' ? 'retorno potencial' : 'economia potencial'}
-                            </span>
-                          </div>
-                        )}
-
-                        {insight.acaoSugerida && (
-                          <div className="pt-3 border-t border-border">
-                            <p className="text-sm font-medium text-foreground" data-testid={`insight-action-${index}`}>
-                              <Lightbulb className="h-4 w-4 inline mr-1 text-amber-500" />
-                              {insight.acaoSugerida}
-                            </p>
-                          </div>
-                        )}
                       </div>
+                      
+                      {valorImpacto && valorImpacto > 0 && (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xl md:text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400" data-testid={`insight-impact-value-${index}`}>
+                            R$ {valorImpacto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </span>
+                          <span className="text-sm text-muted-foreground">/ano</span>
+                        </div>
+                      )}
+                      
+                      {percentualImpacto && percentualImpacto > 0 && (
+                        <div className="text-sm">
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400" data-testid={`insight-impact-percent-${index}`}>
+                            +{percentualImpacto.toFixed(0)}%
+                          </span>
+                          <span className="text-muted-foreground ml-1">
+                            {insight.tipoInsight === 'investimento' ? 'retorno potencial' : 'economia potencial'}
+                          </span>
+                        </div>
+                      )}
+
+                      {insight.acaoSugerida && (
+                        <div className="pt-3 border-t border-border/50">
+                          <p className="text-sm font-medium text-foreground flex items-start gap-2" data-testid={`insight-action-${index}`}>
+                            <Lightbulb className="h-4 w-4 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                            <span>{insight.acaoSugerida}</span>
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card className="p-12" data-testid="insights-empty-state">
-            <div className="text-center">
-              <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum insight disponível</h3>
-              <p className="text-muted-foreground mb-6">
-                Continue usando o app para receber sugestões personalizadas
-              </p>
-              <Button 
-                onClick={() => generateInsightsMutation.mutate()}
-                disabled={generateInsightsMutation.isPending}
-                variant="outline"
-                data-testid="button-generate-empty"
-              >
-                <Lightbulb className="h-4 w-4" />
-                Gerar Insights
-              </Button>
+                  </AppCard>
+                );
+              })}
             </div>
-          </Card>
-        )}
+          ) : (
+            <AppCard className="p-12 md:p-16" data-testid="insights-empty-state">
+              <div className="text-center">
+                <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Lightbulb className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Nenhum insight disponível</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Continue usando o app para receber sugestões personalizadas
+                </p>
+                <PremiumButton 
+                  onClick={() => generateInsightsMutation.mutate()}
+                  disabled={generateInsightsMutation.isPending}
+                  variant="outline"
+                  data-testid="button-generate-empty"
+                >
+                  <Lightbulb className="h-5 w-5 mr-2" />
+                  Gerar Insights
+                </PremiumButton>
+              </div>
+            </AppCard>
+          )}
+        </div>
       </div>
     </div>
   );

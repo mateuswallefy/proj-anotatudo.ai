@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { categorias } from "@shared/schema";
+import { PageHeader, PremiumButton, AppCard, SectionTitle, PremiumInput } from "@/components/design-system";
 
 type SpendingLimit = {
   id: string;
@@ -133,14 +134,17 @@ export default function Orcamento() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-32" />
-          ))}
+      <div className="min-h-screen bg-background">
+        <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+          <Skeleton className="h-10 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-32 rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-64 rounded-2xl" />
         </div>
-        <Skeleton className="h-64" />
       </div>
     );
   }
@@ -186,228 +190,241 @@ export default function Orcamento() {
     return "bg-emerald-500";
   };
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2" data-testid="title-orcamento">
-            Orçamento Mensal
-          </h1>
-          <p className="text-muted-foreground" data-testid="subtitle-orcamento">
-            Controle seus gastos por categoria
-          </p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Button
-            variant="default"
-            size="lg"
-            data-testid="button-novo-orcamento"
-            onClick={() => setDialogOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Orçamento
-          </Button>
-          <div className="text-left md:text-right">
-            <p className="text-sm text-muted-foreground mb-1">Orçamento Total</p>
-            <p className="text-2xl font-bold font-mono tabular-nums" data-testid="text-total-budget">
-              R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Budget Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard
-          icon={Sparkles}
-          label="Disponível"
-          value={`R$ ${Math.max(0, totalAvailable).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
-          subtitle={`${percentAvailable.toFixed(1)}% do orçamento`}
-          iconColor="text-purple-600"
-          iconBg="bg-purple-100 dark:bg-purple-950"
-          valueColor="text-purple-600 dark:text-purple-400"
-          data-testid="card-disponivel"
-        />
-        
-        <MetricCard
-          icon={ShoppingCart}
-          label="Gasto"
-          value={`R$ ${totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
-          subtitle={`${percentSpent.toFixed(1)}% do orçamento`}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-100 dark:bg-blue-950"
-          valueColor="text-blue-600 dark:text-blue-400"
-          data-testid="card-gasto"
-        />
-        
-        <MetricCard
-          icon={Heart}
-          label="Excedido"
-          value={`R$ ${totalExceeded.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
-          subtitle={totalExceeded > 0 ? `${percentExceeded.toFixed(1)}% acima` : '0% acima'}
-          iconColor="text-red-600"
-          iconBg="bg-red-100 dark:bg-red-950"
-          valueColor="text-red-600 dark:text-red-400"
-          data-testid="card-excedido"
-        />
-      </div>
-
-      {/* Categories Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold" data-testid="title-categorias">
-            Categorias de Orçamento
-          </h2>
-          <Button variant="ghost" size="icon" data-testid="button-filter">
-            <Filter className="h-5 w-5" />
-          </Button>
-        </div>
-
-        {categoryBudgets.length > 0 ? (
-          <div className="space-y-3">
-            {categoryBudgets.map((category, index) => {
-              const Icon = categoryIcons[category.categoria || ''] || Home;
-              const progressColor = getProgressColor(category.percentualUsado);
-              
-              return (
-                <Card key={category.id} className="hover-elevate" data-testid={`category-card-${index}`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-primary/10 p-2 rounded-lg">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold" data-testid={`text-category-name-${index}`}>
-                          {category.categoria}
-                        </h3>
-                      </div>
-                      <span 
-                        className={`text-sm font-medium ${
-                          category.percentualUsado >= 100 
-                            ? 'text-red-600 dark:text-red-400' 
-                            : category.percentualUsado >= 75 
-                            ? 'text-orange-600 dark:text-orange-400' 
-                            : 'text-emerald-600 dark:text-emerald-400'
-                        }`}
-                        data-testid={`text-percentage-${index}`}
-                      >
-                        {category.percentualUsado.toFixed(1)}% usado
-                      </span>
-                    </div>
-
-                    <Progress 
-                      value={Math.min(category.percentualUsado, 100)} 
-                      className="h-2 mb-3"
-                      data-testid={`progress-${index}`}
-                    />
-
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-mono text-muted-foreground" data-testid={`text-spent-${index}`}>
-                        R$ {category.gastoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                      </span>
-                      <span className="text-muted-foreground">/</span>
-                      <span className="font-mono font-semibold" data-testid={`text-limit-${index}`}>
-                        R$ {category.limiteValor.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card className="p-12">
-            <div className="text-center">
-              <Filter className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum orçamento configurado</h3>
-              <p className="text-muted-foreground mb-6">
-                Comece definindo limites de gastos para suas categorias
-              </p>
+    <div className="min-h-screen bg-background">
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Premium Header */}
+        <PageHeader
+          title="Orçamento Mensal"
+          subtitle="Controle seus gastos por categoria"
+          action={
+            <div className="flex flex-col gap-3">
+              <PremiumButton
+                size="lg"
+                data-testid="button-novo-orcamento"
+                onClick={() => setDialogOpen(true)}
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Novo Orçamento
+              </PremiumButton>
+              <div className="text-left md:text-right">
+                <p className="text-sm text-muted-foreground mb-1">Orçamento Total</p>
+                <p className="text-2xl md:text-3xl font-bold font-mono tabular-nums" data-testid="text-total-budget">
+                  {formatCurrency(totalBudget)}
+                </p>
+              </div>
             </div>
-          </Card>
-        )}
-      </div>
+          }
+        />
 
-      {/* Novo Orçamento Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Novo Orçamento</DialogTitle>
-            <DialogDescription>
-              Defina um limite de gastos para uma categoria específica
-            </DialogDescription>
-          </DialogHeader>
+        {/* Budget Summary Cards - Premium Design */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+          <MetricCard
+            icon={Sparkles}
+            label="Disponível"
+            value={formatCurrency(Math.max(0, totalAvailable))}
+            subtitle={`${percentAvailable.toFixed(1)}% do orçamento`}
+            iconColor="text-purple-600 dark:text-purple-400"
+            iconBg="bg-purple-500/10"
+            data-testid="card-disponivel"
+          />
+          
+          <MetricCard
+            icon={ShoppingCart}
+            label="Gasto"
+            value={formatCurrency(totalSpent)}
+            subtitle={`${percentSpent.toFixed(1)}% do orçamento`}
+            iconColor="text-blue-600 dark:text-blue-400"
+            iconBg="bg-blue-500/10"
+            data-testid="card-gasto"
+          />
+          
+          <MetricCard
+            icon={Heart}
+            label="Excedido"
+            value={formatCurrency(totalExceeded)}
+            subtitle={totalExceeded > 0 ? `${percentExceeded.toFixed(1)}% acima` : '0% acima'}
+            iconColor="text-red-600 dark:text-red-400"
+            iconBg="bg-red-500/10"
+            data-testid="card-excedido"
+          />
+        </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="categoria"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-categoria">
-                          <SelectValue placeholder="Selecione uma categoria" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {categorias.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {/* Categories Section - Premium Design */}
+        <div className="space-y-6">
+          <SectionTitle
+            title="Categorias de Orçamento"
+            subtitle={`${categoryBudgets.length} ${categoryBudgets.length === 1 ? 'categoria' : 'categorias'}`}
+            action={
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-2" data-testid="button-filter">
+                <Filter className="h-4 w-4" />
+              </Button>
+            }
+          />
 
-              <FormField
-                control={form.control}
-                name="valorLimite"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor Limite (R$)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...field}
-                        data-testid="input-valor-limite"
+          {categoryBudgets.length > 0 ? (
+            <div className="space-y-3">
+              {categoryBudgets.map((category, index) => {
+                const Icon = categoryIcons[category.categoria || ''] || Home;
+                const progressColor = getProgressColor(category.percentualUsado);
+                const borderAccent = category.percentualUsado >= 100 ? "red" : category.percentualUsado >= 75 ? "red" : "emerald";
+                
+                return (
+                  <AppCard key={category.id} className="p-5 md:p-6" borderAccent={borderAccent} hover data-testid={`category-card-${index}`}>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Icon className="h-7 w-7 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base md:text-lg" data-testid={`text-category-name-${index}`}>
+                            {category.categoria}
+                          </h3>
+                        </div>
+                        <span 
+                          className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                            category.percentualUsado >= 100 
+                              ? 'bg-red-500/10 text-red-600 dark:text-red-400' 
+                              : category.percentualUsado >= 75 
+                              ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
+                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          }`}
+                          data-testid={`text-percentage-${index}`}
+                        >
+                          {category.percentualUsado.toFixed(1)}% usado
+                        </span>
+                      </div>
+
+                      <Progress 
+                        value={Math.min(category.percentualUsado, 100)} 
+                        className="h-3 rounded-full"
+                        indicatorClassName={progressColor}
+                        data-testid={`progress-${index}`}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                  disabled={createOrcamentoMutation.isPending}
-                  data-testid="button-cancel"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createOrcamentoMutation.isPending}
-                  data-testid="button-submit-orcamento"
-                >
-                  {createOrcamentoMutation.isPending ? "Salvando..." : "Criar Orçamento"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-mono text-muted-foreground" data-testid={`text-spent-${index}`}>
+                          {formatCurrency(category.gastoAtual)}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="font-mono font-semibold" data-testid={`text-limit-${index}`}>
+                          {formatCurrency(category.limiteValor)}
+                        </span>
+                      </div>
+                    </div>
+                  </AppCard>
+                );
+              })}
+            </div>
+          ) : (
+            <AppCard className="p-12 md:p-16">
+              <div className="text-center">
+                <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Filter className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Nenhum orçamento configurado</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Comece definindo limites de gastos para suas categorias
+                </p>
+                <PremiumButton onClick={() => setDialogOpen(true)}>
+                  <Plus className="h-5 w-5 mr-2" />
+                  Criar Primeiro Orçamento
+                </PremiumButton>
+              </div>
+            </AppCard>
+          )}
+        </div>
+
+        {/* Premium Novo Orçamento Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-[540px] rounded-2xl">
+            <DialogHeader className="space-y-2 pb-2">
+              <DialogTitle className="text-2xl font-bold tracking-tight">Novo Orçamento</DialogTitle>
+              <DialogDescription className="text-base">
+                Defina um limite de gastos para uma categoria específica
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+                <FormField
+                  control={form.control}
+                  name="categoria"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-semibold">Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-categoria">
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categorias.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="valorLimite"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-semibold">Valor Limite (R$)</FormLabel>
+                      <FormControl>
+                        <PremiumInput
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          className="font-mono"
+                          {...field}
+                          data-testid="input-valor-limite"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <PremiumButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                    disabled={createOrcamentoMutation.isPending}
+                    className="h-11 px-6"
+                    data-testid="button-cancel"
+                  >
+                    Cancelar
+                  </PremiumButton>
+                  <PremiumButton
+                    type="submit"
+                    disabled={createOrcamentoMutation.isPending}
+                    className="h-11 px-6"
+                    data-testid="button-submit-orcamento"
+                  >
+                    {createOrcamentoMutation.isPending ? "Salvando..." : "Criar Orçamento"}
+                  </PremiumButton>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
