@@ -15,7 +15,9 @@ import {
   X,
   AlertTriangle,
   TrendingUp,
-  Shield
+  Shield,
+  User,
+  LogOut
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,6 +41,15 @@ import { ptBR } from "date-fns/locale";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { logout } from "@/lib/auth";
 
 const tabs: Array<{ id: TabType; label: string; icon: any }> = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -184,6 +195,49 @@ export function NavBar() {
           </Select>
 
           <ThemeToggle />
+
+          {/* User Dropdown Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" data-testid="button-user-menu">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-semibold">
+                  {user?.firstName && user?.lastName 
+                    ? `${user.firstName} ${user.lastName}` 
+                    : user?.email || "Usuário"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email || ""}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setActiveTab("configuracoes")}
+                data-testid="menu-item-profile"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Meu Perfil
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => logout()}
+                data-testid="menu-item-logout"
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -210,6 +264,49 @@ export function NavBar() {
           </Select>
 
           <ThemeToggle />
+
+          {/* User Dropdown Menu - Mobile */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" data-testid="button-user-menu-mobile">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-semibold">
+                  {user?.firstName && user?.lastName 
+                    ? `${user.firstName} ${user.lastName}` 
+                    : user?.email || "Usuário"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email || ""}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setActiveTab("configuracoes")}
+                data-testid="menu-item-profile-mobile"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Meu Perfil
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => logout()}
+                data-testid="menu-item-logout-mobile"
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
             <PopoverTrigger asChild>

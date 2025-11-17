@@ -79,10 +79,20 @@ function AuthenticatedShell() {
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
 
   // Check if we're on an admin route
   const isAdminRoute = location.startsWith("/admin");
+  
+  // Check if we're on login/auth route
+  const isAuthRoute = location === "/login" || location === "/auth";
+
+  // Redirect authenticated users away from login/auth pages
+  useEffect(() => {
+    if (isAuthenticated && isAuthRoute) {
+      setLocation("/");
+    }
+  }, [isAuthenticated, isAuthRoute, setLocation]);
 
   if (isLoading) {
     return (
@@ -95,6 +105,12 @@ function AppContent() {
     );
   }
 
+  // If authenticated and trying to access login/auth, show loading while redirecting
+  if (isAuthenticated && isAuthRoute) {
+    return null;
+  }
+
+  // Render login/auth page if not authenticated
   if (!isAuthenticated) {
     return (
       <>

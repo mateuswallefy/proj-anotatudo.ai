@@ -185,6 +185,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Logout endpoint (preferred for client dashboard)
+  app.post('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Erro ao fazer logout" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ success: true });
+    });
+  });
+
   // TODO: Implement secure password reset with email verification
   // For now, users can use "Criar Conta" with their purchase email to set a new password
 
