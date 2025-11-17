@@ -14,6 +14,8 @@ import {
   alertas,
   insights,
   notificationPreferences,
+  subscriptions,
+  subscriptionEvents,
   type User,
   type UpsertUser,
   type Transacao,
@@ -44,9 +46,13 @@ import {
   type InsertInsight,
   type NotificationPreferences,
   type UpdateNotificationPreferences,
+  type Subscription,
+  type InsertSubscription,
+  type SubscriptionEvent,
+  type InsertSubscriptionEvent,
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, and, desc, or, sql as sqlOp } from "drizzle-orm";
+import { db } from "./db.js";
+import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray } from "drizzle-orm";
 import { format } from "date-fns";
 
 export interface IStorage {
@@ -144,6 +150,24 @@ export interface IStorage {
   // Notification preferences operations
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   upsertNotificationPreferences(userId: string, preferences: UpdateNotificationPreferences): Promise<NotificationPreferences>;
+
+  // Admin operations
+  listUsers(filters?: { search?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }>;
+  updateUser(id: string, updates: Partial<UpsertUser>): Promise<User | undefined>;
+
+  // Subscription operations
+  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  getSubscriptionById(id: string): Promise<Subscription | undefined>;
+  getSubscriptionByProviderId(provider: 'caktos' | 'manual', providerSubscriptionId: string): Promise<Subscription | undefined>;
+  getSubscriptionsByUserId(userId: string): Promise<Subscription[]>;
+  updateSubscription(id: string, updates: Partial<InsertSubscription>): Promise<Subscription | undefined>;
+  listSubscriptions(filters?: { status?: string; provider?: string }): Promise<Subscription[]>;
+
+  // Subscription events operations
+  createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent>;
+  getSubscriptionEventsBySubscriptionId(subscriptionId: string, limit?: number): Promise<SubscriptionEvent[]>;
+  getSubscriptionEventsByUserId(userId: string, limit?: number): Promise<SubscriptionEvent[]>;
+  listRecentSubscriptionEvents(limit?: number): Promise<SubscriptionEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -788,6 +812,177 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Admin operations
+  async listUsers(filters?: { search?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }> {
+    const page = filters?.page ?? 1;
+    const pageSize = filters?.pageSize ?? 50;
+    const offset = (page - 1) * pageSize;
+
+    let whereConditions: any[] = [];
+
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      whereConditions.push(
+        or(
+          ilike(users.email, searchTerm),
+          ilike(users.firstName, searchTerm),
+          ilike(users.lastName, searchTerm),
+          ilike(users.telefone, searchTerm),
+          sqlOp`COALESCE(${users.whatsappNumber}::text, '') LIKE ${searchTerm}`
+        )!
+      );
+    }
+
+    if (filters?.status) {
+      whereConditions.push(eq(users.billingStatus, filters.status as any));
+    }
+
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
+    const [items, totalResult] = await Promise.all([
+      db
+        .select()
+        .from(users)
+        .where(whereClause)
+        .orderBy(desc(users.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sqlOp<number>`count(*)` })
+        .from(users)
+        .where(whereClause)
+    ]);
+
+    const total = Number(totalResult[0]?.count ?? 0);
+
+    return { items, total };
+  }
+
+  async updateUser(id: string, updates: Partial<UpsertUser>): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Subscription operations
+  async createSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    const [newSubscription] = await db
+      .insert(subscriptions)
+      .values(subscription)
+      .returning();
+    return newSubscription;
+  }
+
+  async getSubscriptionById(id: string): Promise<Subscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.id, id));
+    return subscription;
+  }
+
+  async getSubscriptionByProviderId(provider: 'caktos' | 'manual', providerSubscriptionId: string): Promise<Subscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.provider, provider),
+          eq(subscriptions.providerSubscriptionId, providerSubscriptionId)
+        )
+      );
+    return subscription;
+  }
+
+  async getSubscriptionsByUserId(userId: string): Promise<Subscription[]> {
+    return await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt));
+  }
+
+  async updateSubscription(id: string, updates: Partial<InsertSubscription>): Promise<Subscription | undefined> {
+    const [updated] = await db
+      .update(subscriptions)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async listSubscriptions(filters?: { status?: string; provider?: string }): Promise<Subscription[]> {
+    let whereConditions: any[] = [];
+
+    if (filters?.status) {
+      whereConditions.push(eq(subscriptions.status, filters.status as any));
+    }
+
+    if (filters?.provider) {
+      whereConditions.push(eq(subscriptions.provider, filters.provider as any));
+    }
+
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
+    return await db
+      .select()
+      .from(subscriptions)
+      .where(whereClause)
+      .orderBy(desc(subscriptions.createdAt));
+  }
+
+  // Subscription events operations
+  async createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent> {
+    const [newEvent] = await db
+      .insert(subscriptionEvents)
+      .values(event)
+      .returning();
+    return newEvent;
+  }
+
+  async getSubscriptionEventsBySubscriptionId(subscriptionId: string, limit: number = 50): Promise<SubscriptionEvent[]> {
+    return await db
+      .select()
+      .from(subscriptionEvents)
+      .where(eq(subscriptionEvents.subscriptionId, subscriptionId))
+      .orderBy(desc(subscriptionEvents.createdAt))
+      .limit(limit);
+  }
+
+  async getSubscriptionEventsByUserId(userId: string, limit: number = 50): Promise<SubscriptionEvent[]> {
+    // First get all subscriptions for the user
+    const userSubscriptions = await this.getSubscriptionsByUserId(userId);
+    const subscriptionIds = userSubscriptions.map(s => s.id);
+
+    if (subscriptionIds.length === 0) {
+      return [];
+    }
+
+    return await db
+      .select()
+      .from(subscriptionEvents)
+      .where(inArray(subscriptionEvents.subscriptionId, subscriptionIds))
+      .orderBy(desc(subscriptionEvents.createdAt))
+      .limit(limit);
+  }
+
+  async listRecentSubscriptionEvents(limit: number = 50): Promise<SubscriptionEvent[]> {
+    return await db
+      .select()
+      .from(subscriptionEvents)
+      .orderBy(desc(subscriptionEvents.createdAt))
+      .limit(limit);
   }
 }
 

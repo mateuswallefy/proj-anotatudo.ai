@@ -46,6 +46,13 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+// Função global de normalização de datas para evitar problemas de timezone
+const normalizeDate = (date: Date) => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
 export default function Metas() {
   const { period } = usePeriod();
   const { toast } = useToast();
@@ -376,16 +383,17 @@ export default function Metas() {
 
         {/* Premium Nova Meta Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[540px] rounded-2xl" data-testid="dialog-nova-meta">
-            <DialogHeader className="space-y-2 pb-2">
-              <DialogTitle className="text-2xl font-bold tracking-tight" data-testid="dialog-title">Nova Meta Financeira</DialogTitle>
-              <DialogDescription className="text-base" data-testid="dialog-description">
-                Defina uma nova meta financeira para acompanhar seu progresso
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent data-testid="dialog-nova-meta">
+            <div className="space-y-4 md:space-y-6">
+              <DialogHeader>
+                <DialogTitle className="text-xl md:text-2xl font-bold tracking-tight" data-testid="dialog-title">Nova Meta Financeira</DialogTitle>
+                <DialogDescription className="text-sm md:text-base" data-testid="dialog-description">
+                  Defina uma nova meta financeira para acompanhar seu progresso
+                </DialogDescription>
+              </DialogHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                 <FormField
                   control={form.control}
                   name="nome"
@@ -462,7 +470,7 @@ export default function Metas() {
                             <Button
                               variant="outline"
                               className={cn(
-                                "w-full h-12 pl-3 text-left font-normal rounded-xl border-2",
+                                "w-full h-11 md:h-12 pl-3 text-left font-normal rounded-xl border-2",
                                 !field.value && "text-muted-foreground"
                               )}
                               data-testid="button-date-picker"
@@ -481,9 +489,17 @@ export default function Metas() {
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
                             onSelect={(date) => {
-                              field.onChange(date ? date.toISOString().split('T')[0] : "");
+                              if (date) {
+                                const normalized = normalizeDate(date);
+                                field.onChange(normalized.toISOString().split('T')[0]);
+                              } else {
+                                field.onChange("");
+                              }
                             }}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => {
+                              const today = normalizeDate(new Date());
+                              return normalizeDate(date) < today;
+                            }}
                             initialFocus
                             data-testid="calendar-data-fim"
                           />
@@ -494,12 +510,12 @@ export default function Metas() {
                   )}
                 />
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <DialogFooter>
                   <PremiumButton 
                     type="button" 
                     variant="outline" 
                     onClick={() => setDialogOpen(false)}
-                    className="h-11 px-6"
+                    className="w-full md:w-auto h-11 md:h-12 px-6"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -507,14 +523,15 @@ export default function Metas() {
                   <PremiumButton 
                     type="submit" 
                     disabled={createGoalMutation.isPending}
-                    className="h-11 px-6"
+                    className="w-full md:w-auto h-11 md:h-12 px-6"
                     data-testid="button-submit"
                   >
                     {createGoalMutation.isPending ? "Criando..." : "Criar Meta"}
                   </PremiumButton>
-                </div>
-              </form>
-            </Form>
+                </DialogFooter>
+                </form>
+              </Form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

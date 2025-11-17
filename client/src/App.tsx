@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { TabProvider, useTab } from "@/contexts/TabContext";
 import { useEffect, startTransition } from "react";
+import { useLocation } from "wouter";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import Transacoes from "@/pages/transacoes";
@@ -17,6 +18,10 @@ import Metas from "@/pages/metas";
 import Cartoes from "@/pages/cartoes";
 import Insights from "@/pages/insights";
 import Configuracoes from "@/pages/configuracoes";
+import AdminPage from "@/pages/admin";
+import AdminClientes from "@/pages/admin/clientes";
+import AdminAssinaturas from "@/pages/admin/assinaturas";
+import AdminEventos from "@/pages/admin/eventos";
 
 function AuthenticatedShell() {
   const { activeTab } = useTab();
@@ -74,6 +79,10 @@ function AuthenticatedShell() {
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  // Check if we're on an admin route
+  const isAdminRoute = location.startsWith("/admin");
 
   if (isLoading) {
     return (
@@ -93,6 +102,24 @@ function AppContent() {
         <Toaster />
       </>
     );
+  }
+
+  // Render admin routes separately (they have their own layout)
+  if (isAdminRoute) {
+    if (location === "/admin") {
+      return <AdminPage />;
+    }
+    if (location === "/admin/clientes") {
+      return <AdminClientes />;
+    }
+    if (location === "/admin/assinaturas") {
+      return <AdminAssinaturas />;
+    }
+    if (location === "/admin/eventos") {
+      return <AdminEventos />;
+    }
+    // Default to overview
+    return <AdminPage />;
   }
 
   return (

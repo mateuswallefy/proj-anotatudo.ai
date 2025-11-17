@@ -319,16 +319,17 @@ export default function Economias() {
 
         {/* Premium Registrar Economia Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[540px] rounded-2xl">
-            <DialogHeader className="space-y-2 pb-2">
-              <DialogTitle className="text-2xl font-bold tracking-tight">Registrar Economia</DialogTitle>
-              <DialogDescription className="text-base">
-                Registre o valor que você guardou para alcançar seus objetivos
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent>
+            <div className="space-y-4 md:space-y-6">
+              <DialogHeader>
+                <DialogTitle className="text-xl md:text-2xl font-bold tracking-tight">Registrar Economia</DialogTitle>
+                <DialogDescription className="text-sm md:text-base">
+                  Registre o valor que você guardou para alcançar seus objetivos
+                </DialogDescription>
+              </DialogHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                 <FormField
                   control={form.control}
                   name="descricao"
@@ -398,7 +399,7 @@ export default function Economias() {
                       <FormLabel className="text-sm font-semibold">Vincular a Meta? (opcional)</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-goal">
+                          <SelectTrigger className="h-11 md:h-12 rounded-xl border-2" data-testid="select-goal">
                             <SelectValue placeholder="Nenhuma meta" />
                           </SelectTrigger>
                         </FormControl>
@@ -415,13 +416,13 @@ export default function Economias() {
                   )}
                 />
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <DialogFooter>
                   <PremiumButton
                     type="button"
                     variant="outline"
                     onClick={() => setDialogOpen(false)}
                     disabled={createEconomiaMutation.isPending}
-                    className="h-11 px-6"
+                    className="w-full md:w-auto h-11 md:h-12 px-6"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -429,14 +430,15 @@ export default function Economias() {
                   <PremiumButton
                     type="submit"
                     disabled={createEconomiaMutation.isPending}
-                    className="h-11 px-6"
+                    className="w-full md:w-auto h-11 md:h-12 px-6"
                     data-testid="button-submit"
                   >
                     {createEconomiaMutation.isPending ? "Salvando..." : "Registrar Economia"}
                   </PremiumButton>
-                </div>
-              </form>
-            </Form>
+                </DialogFooter>
+                </form>
+              </Form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

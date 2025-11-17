@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -311,16 +312,17 @@ export default function Transacoes() {
 
         {/* Premium Nova Transação Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[540px] rounded-2xl" data-testid="dialog-new-transaction">
-            <DialogHeader className="space-y-2 pb-2">
-              <DialogTitle className="text-2xl font-bold tracking-tight">Novo Registro Financeiro</DialogTitle>
-              <DialogDescription className="text-base">
-                Adicione uma nova transação manualmente ao seu controle financeiro
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+          <DialogContent data-testid="dialog-new-transaction">
+            <div className="space-y-4 md:space-y-6">
+              <DialogHeader>
+                <DialogTitle className="text-xl md:text-2xl font-bold tracking-tight">Novo Registro Financeiro</DialogTitle>
+                <DialogDescription className="text-sm md:text-base">
+                  Adicione uma nova transação manualmente ao seu controle financeiro
+                </DialogDescription>
+              </DialogHeader>
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <FormField
                     control={form.control}
@@ -330,7 +332,7 @@ export default function Transacoes() {
                         <FormLabel className="text-sm font-semibold">Tipo de Transação</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-tipo">
+                            <SelectTrigger className="h-11 md:h-12 rounded-xl border-2" data-testid="select-tipo">
                               <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
                           </FormControl>
@@ -366,7 +368,7 @@ export default function Transacoes() {
                             step="0.01"
                             min="0.01"
                             placeholder="0,00" 
-                            className="h-12 rounded-xl border-2 font-mono text-base"
+                            className="h-11 md:h-12 rounded-xl border-2 font-mono text-base"
                             data-testid="input-valor"
                             {...field}
                             onChange={(e) => field.onChange(e.target.value)}
@@ -387,7 +389,7 @@ export default function Transacoes() {
                       <FormControl>
                         <Input 
                           placeholder="Ex: Almoço no restaurante" 
-                          className="h-12 rounded-xl border-2 text-base"
+                          className="h-11 md:h-12 rounded-xl border-2 text-base"
                           data-testid="input-descricao"
                           {...field} 
                         />
@@ -406,7 +408,7 @@ export default function Transacoes() {
                         <FormLabel className="text-sm font-semibold">Categoria</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-categoria">
+                            <SelectTrigger className="h-11 md:h-12 rounded-xl border-2" data-testid="select-categoria">
                               <SelectValue placeholder="Selecione uma categoria" />
                             </SelectTrigger>
                           </FormControl>
@@ -432,7 +434,7 @@ export default function Transacoes() {
                         <FormControl>
                           <Input 
                             type="date"
-                            className="h-12 rounded-xl border-2 font-mono"
+                            className="h-11 md:h-12 rounded-xl border-2 font-mono"
                             data-testid="input-data"
                             {...field} 
                           />
@@ -451,7 +453,7 @@ export default function Transacoes() {
                       <FormLabel className="text-sm font-semibold">Cartão de Crédito (opcional)</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-cartao">
+                          <SelectTrigger className="h-11 md:h-12 rounded-xl border-2" data-testid="select-cartao">
                             <SelectValue placeholder="Nenhum cartão" />
                           </SelectTrigger>
                         </FormControl>
@@ -471,12 +473,12 @@ export default function Transacoes() {
                   )}
                 />
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <DialogFooter>
                   <Button 
                     type="button" 
                     variant="outline" 
                     onClick={() => setDialogOpen(false)}
-                    className="h-11 px-6 rounded-xl font-medium"
+                    className="w-full md:w-auto h-11 md:h-12 rounded-xl font-medium"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -484,14 +486,15 @@ export default function Transacoes() {
                   <Button 
                     type="submit" 
                     disabled={createMutation.isPending}
-                    className="h-11 px-6 rounded-xl font-medium shadow-lg hover:shadow-xl transition-shadow"
+                    className="w-full md:w-auto h-11 md:h-12 rounded-xl font-medium shadow-lg hover:shadow-xl transition-shadow"
                     data-testid="button-submit"
                   >
                     {createMutation.isPending ? "Criando..." : "Registrar Transação"}
                   </Button>
-                </div>
-              </form>
-            </Form>
+                </DialogFooter>
+                </form>
+              </Form>
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -616,7 +619,7 @@ export default function Transacoes() {
                                   {transacao.dataRegistro && (
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                       <Clock className="w-3.5 h-3.5" />
-                                      <span>{formatTime(transacao.dataRegistro)}</span>
+                                      <span>{formatTime(typeof transacao.dataRegistro === 'string' ? transacao.dataRegistro : transacao.dataRegistro.toISOString())}</span>
                                     </div>
                                   )}
                                 </div>

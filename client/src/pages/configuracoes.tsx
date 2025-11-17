@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,7 +53,7 @@ interface NotificationPreferences {
 export default function Configuracoes() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || "");
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Fetch account members
   const { data: members } = useQuery<AccountMember[]>({
@@ -84,27 +84,6 @@ export default function Configuracoes() {
       toast({
         title: "Erro ao alterar senha",
         description: error.message || "Verifique sua senha atual",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update profile image mutation
-  const updateProfileImageMutation = useMutation({
-    mutationFn: async (imageUrl: string) => {
-      await apiRequest("POST", "/api/user/profile-image", { imageUrl });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Foto atualizada!",
-        description: "Sua foto de perfil foi atualizada com sucesso.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao atualizar foto",
-        description: error.message || "Tente novamente",
         variant: "destructive",
       });
     },
@@ -199,11 +178,95 @@ export default function Configuracoes() {
     addMemberMutation.mutate(data);
   };
 
-  const handleProfileImageUpdate = () => {
-    if (profileImageUrl) {
-      updateProfileImageMutation.mutate(profileImageUrl);
+
+  // Upload avatar mutation
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const res = await fetch('/api/user/upload-avatar', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      // Clear preview after successful upload
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+        setPreviewImage(null);
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Foto atualizada!",
+        description: "Sua foto de perfil foi atualizada com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      // Clear preview on error
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+        setPreviewImage(null);
+      }
+      
+      toast({
+        title: "Erro ao fazer upload",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione uma imagem PNG, JPG, JPEG ou GIF.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "A imagem deve ter no máximo 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create preview
+    const previewUrl = URL.createObjectURL(file);
+    setPreviewImage(previewUrl);
+
+    // Upload file
+    uploadAvatarMutation.mutate(file);
   };
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+      }
+    };
+  }, [previewImage]);
 
   const getUserInitials = () => {
     if (!user) return "U";
@@ -378,36 +441,50 @@ export default function Configuracoes() {
             title="Perfil"
             subtitle="Atualize sua foto de perfil e informações pessoais"
           />
+
+          {/* Foto de Perfil Upload */}
+          <AppCard className="p-5 md:p-6" borderAccent="blue" data-testid="card-profile-photo">
+            <div className="flex flex-col items-center gap-4">
+              <Avatar className="h-32 w-32 border-4 border-border">
+                <AvatarImage src={previewImage || user?.profileImageUrl || ""} />
+                <AvatarFallback className="text-3xl">{getUserInitials()}</AvatarFallback>
+              </Avatar>
+              <div className="text-center space-y-2">
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/gif"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  data-testid="input-avatar-upload"
+                />
+                <Label htmlFor="avatar-upload" className="cursor-pointer block">
+                  <PremiumButton
+                    type="button"
+                    variant="outline"
+                    disabled={uploadAvatarMutation.isPending}
+                    className="w-full"
+                    onClick={() => document.getElementById('avatar-upload')?.click()}
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    {uploadAvatarMutation.isPending ? "Enviando..." : "Alterar Foto"}
+                  </PremiumButton>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  PNG, JPG, JPEG ou GIF até 5MB
+                </p>
+              </div>
+            </div>
+          </AppCard>
           
           <AppCard className="p-5 md:p-6" borderAccent="blue" data-testid="card-profile">
             <div className="space-y-6">
           <div className="flex items-center gap-6">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={user?.profileImageUrl || ""} />
+              <AvatarImage src={previewImage || user?.profileImageUrl || ""} />
               <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-3">
-              <div>
-                <Label htmlFor="profile-image" className="text-sm font-semibold mb-2 block">URL da Foto de Perfil</Label>
-                <div className="flex gap-3">
-                  <PremiumInput
-                    id="profile-image"
-                    placeholder="https://exemplo.com/foto.jpg"
-                    value={profileImageUrl}
-                    onChange={(e) => setProfileImageUrl(e.target.value)}
-                    data-testid="input-profile-image"
-                    className="flex-1"
-                  />
-                  <PremiumButton
-                    onClick={handleProfileImageUpdate}
-                    disabled={updateProfileImageMutation.isPending || !profileImageUrl}
-                    data-testid="button-update-image"
-                  >
-                    <Camera className="h-4 w-4 mr-2" />
-                    Atualizar
-                  </PremiumButton>
-                </div>
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-semibold mb-2 block">Nome</Label>

@@ -344,16 +344,17 @@ export default function Orcamento() {
 
         {/* Premium Novo Orçamento Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[540px] rounded-2xl">
-            <DialogHeader className="space-y-2 pb-2">
-              <DialogTitle className="text-2xl font-bold tracking-tight">Novo Orçamento</DialogTitle>
-              <DialogDescription className="text-base">
-                Defina um limite de gastos para uma categoria específica
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent>
+            <div className="space-y-4 md:space-y-6">
+              <DialogHeader>
+                <DialogTitle className="text-xl md:text-2xl font-bold tracking-tight">Novo Orçamento</DialogTitle>
+                <DialogDescription className="text-sm md:text-base">
+                  Defina um limite de gastos para uma categoria específica
+                </DialogDescription>
+              </DialogHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                 <FormField
                   control={form.control}
                   name="categoria"
@@ -362,7 +363,7 @@ export default function Orcamento() {
                       <FormLabel className="text-sm font-semibold">Categoria</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-categoria">
+                          <SelectTrigger className="h-11 md:h-12 rounded-xl border-2" data-testid="select-categoria">
                             <SelectValue placeholder="Selecione uma categoria" />
                           </SelectTrigger>
                         </FormControl>
@@ -400,13 +401,13 @@ export default function Orcamento() {
                   )}
                 />
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <DialogFooter>
                   <PremiumButton
                     type="button"
                     variant="outline"
                     onClick={() => setDialogOpen(false)}
                     disabled={createOrcamentoMutation.isPending}
-                    className="h-11 px-6"
+                    className="w-full md:w-auto h-11 md:h-12 px-6"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -414,14 +415,15 @@ export default function Orcamento() {
                   <PremiumButton
                     type="submit"
                     disabled={createOrcamentoMutation.isPending}
-                    className="h-11 px-6"
+                    className="w-full md:w-auto h-11 md:h-12 px-6"
                     data-testid="button-submit-orcamento"
                   >
                     {createOrcamentoMutation.isPending ? "Salvando..." : "Criar Orçamento"}
                   </PremiumButton>
-                </div>
-              </form>
-            </Form>
+                </DialogFooter>
+                </form>
+              </Form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

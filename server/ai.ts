@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import fs from "fs";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 

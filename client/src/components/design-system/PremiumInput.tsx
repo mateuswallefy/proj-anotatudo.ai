@@ -29,7 +29,7 @@ export const PremiumInput = forwardRef<HTMLInputElement, PremiumInputProps>(
       <Input
         ref={ref}
         className={cn(
-          "h-12 rounded-xl border-2 text-base transition-colors",
+          "h-11 md:h-12 rounded-xl border-2 text-base transition-colors",
           className
         )}
         {...props}

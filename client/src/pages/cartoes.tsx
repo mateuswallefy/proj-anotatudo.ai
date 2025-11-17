@@ -147,15 +147,16 @@ export default function Cartoes() {
                   Adicionar Cartão
                 </PremiumButton>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[540px] rounded-2xl">
-                <DialogHeader className="space-y-2 pb-2">
-                  <DialogTitle className="text-2xl font-bold tracking-tight">Adicionar Cartão</DialogTitle>
-                  <DialogDescription className="text-base">
-                    Cadastre um novo cartão de crédito
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+              <DialogContent>
+                <div className="space-y-4 md:space-y-6">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl md:text-2xl font-bold tracking-tight">Adicionar Cartão</DialogTitle>
+                    <DialogDescription className="text-sm md:text-base">
+                      Cadastre um novo cartão de crédito
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                     <FormField
                       control={form.control}
                       name="nomeCartao"
@@ -179,7 +180,7 @@ export default function Cartoes() {
                             <FormLabel className="text-sm font-semibold">Bandeira</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value || "visa"}>
                               <FormControl>
-                                <SelectTrigger className="h-12 rounded-xl border-2" data-testid="select-card-brand">
+                                <SelectTrigger className="h-11 md:h-12 rounded-xl border-2" data-testid="select-card-brand">
                                   <SelectValue placeholder="Selecione a bandeira" />
                                 </SelectTrigger>
                               </FormControl>
@@ -262,26 +263,27 @@ export default function Cartoes() {
                       />
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t">
+                    <DialogFooter>
                       <PremiumButton 
                         type="button"
                         variant="outline"
                         onClick={() => setDialogOpen(false)}
-                        className="h-11 px-6"
+                        className="w-full md:w-auto h-11 md:h-12 px-6"
                       >
                         Cancelar
                       </PremiumButton>
                       <PremiumButton 
                         type="submit" 
                         disabled={createCartaoMutation.isPending}
-                        className="h-11 px-6"
+                        className="w-full md:w-auto h-11 md:h-12 px-6"
                         data-testid="button-submit-card"
                       >
                         {createCartaoMutation.isPending ? "Salvando..." : "Salvar Cartão"}
                       </PremiumButton>
-                    </div>
-                  </form>
-                </Form>
+                    </DialogFooter>
+                    </form>
+                  </Form>
+                </div>
               </DialogContent>
             </Dialog>
           }

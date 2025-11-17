@@ -132,16 +132,17 @@ export function EditTransactionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar Transação</DialogTitle>
-            <DialogDescription>
-              Faça as alterações necessárias e clique em salvar
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent>
+          <div className="space-y-4 md:space-y-6">
+            <DialogHeader>
+              <DialogTitle>Editar Transação</DialogTitle>
+              <DialogDescription>
+                Faça as alterações necessárias e clique em salvar
+              </DialogDescription>
+            </DialogHeader>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
               <FormField
                 control={form.control}
                 name="tipo"
@@ -177,7 +178,7 @@ export function EditTransactionDialog({
                     <FormLabel>Categoria</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11 md:h-12 rounded-xl">
                           <SelectValue placeholder="Selecione uma categoria" />
                         </SelectTrigger>
                       </FormControl>
@@ -205,6 +206,7 @@ export function EditTransactionDialog({
                         type="number"
                         step="0.01"
                         placeholder="0.00"
+                        className="h-11 md:h-12 rounded-xl"
                         {...field}
                         data-testid="input-edit-valor"
                       />
@@ -221,7 +223,7 @@ export function EditTransactionDialog({
                   <FormItem>
                     <FormLabel>Data</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} data-testid="input-edit-date" />
+                      <Input type="date" className="h-11 md:h-12 rounded-xl" {...field} data-testid="input-edit-date" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -246,23 +248,24 @@ export function EditTransactionDialog({
                 )}
               />
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="destructive"
                   onClick={() => setShowDeleteAlert(true)}
                   disabled={updateMutation.isPending || deleteMutation.isPending}
                   data-testid="button-delete-transaction"
+                  className="w-full md:w-auto"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Excluir
                 </Button>
-                <div className="flex-1" />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
                   disabled={updateMutation.isPending || deleteMutation.isPending}
+                  className="w-full md:w-auto"
                 >
                   Cancelar
                 </Button>
@@ -270,6 +273,7 @@ export function EditTransactionDialog({
                   type="submit"
                   disabled={updateMutation.isPending || deleteMutation.isPending}
                   data-testid="button-save-transaction"
+                  className="w-full md:w-auto"
                 >
                   {updateMutation.isPending && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -277,20 +281,22 @@ export function EditTransactionDialog({
                   Salvar
                 </Button>
               </DialogFooter>
-            </form>
-          </Form>
+              </form>
+            </Form>
+          </div>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+          <div className="space-y-4 md:space-y-6">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex flex-col md:flex-row gap-3 md:justify-end mt-6">
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteMutation.mutate()}
@@ -303,7 +309,8 @@ export function EditTransactionDialog({
               )}
               Excluir
             </AlertDialogAction>
-          </AlertDialogFooter>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </>

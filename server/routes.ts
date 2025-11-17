@@ -1,7 +1,13 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { isAuthenticated, hashPassword, comparePassword } from "./auth";
+import * as pathModule from "path";
+import * as fs from "fs";
+import multer from "multer";
+import { storage } from "./storage.js";
+import { isAuthenticated, hashPassword, comparePassword, requireAdmin } from "./auth.js";
+import { db } from "./db.js";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { 
   insertTransacaoSchema, 
   insertCartaoSchema, 
@@ -14,7 +20,7 @@ import {
   insertNotificationPreferencesSchema,
   updateNotificationPreferencesSchema
 } from "@shared/schema";
-import { processWhatsAppMessage } from "./ai";
+import { processWhatsAppMessage } from "./ai.js";
 import { 
   calculateFinancialInsights, 
   calculateSpendingProgress,
@@ -23,9 +29,9 @@ import {
   getIncomeByCategory,
   getYearlyEvolution,
   getPeriodSummary
-} from "./analytics";
+} from "./analytics.js";
 import { z } from "zod";
-import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp";
+import { sendWhatsAppReply, normalizePhoneNumber, extractEmail, checkRateLimit, downloadWhatsAppMedia } from "./whatsapp.js";
 
 function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
   if (!period || !/^\d{4}-\d{2}$/.test(period)) {
@@ -36,6 +42,8 @@ function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve static files from server/uploads
+  app.use('/uploads/avatars', express.static(pathModule.join(process.cwd(), 'server', 'uploads', 'avatars')));
 
   // Health check endpoints for Cloud Run (must be first)
   app.get('/health', (_req, res) => {
@@ -1107,6 +1115,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload avatar route with multer
+
+  // Configure multer storage
+  const multerStorage = multer.diskStorage({
+    destination: (req: any, file: any, cb: any) => {
+      const uploadsDir = pathModule.join(process.cwd(), 'server', 'uploads', 'avatars');
+      
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      
+      cb(null, uploadsDir);
+    },
+    filename: (req: any, file: any, cb: any) => {
+      const userId = req.session.userId;
+      const ext = file.originalname.split('.').pop() || 'jpg';
+      const uniqueFilename = `${userId}-${Date.now()}.${ext}`;
+      cb(null, uniqueFilename);
+    }
+  });
+
+  // Configure multer upload
+  const upload = multer({
+    storage: multerStorage,
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB
+    },
+    fileFilter: (req: any, file: any, cb: any) => {
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only PNG, JPG, JPEG, and GIF are allowed.'));
+      }
+    }
+  });
+
+  app.post("/api/user/upload-avatar", isAuthenticated, (req: any, res: any, next: any) => {
+    upload.single('avatar')(req, res, (err: any) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: "Arquivo muito grande. Máximo de 5MB." });
+        }
+        return res.status(400).json({ message: err.message || "Erro ao fazer upload do arquivo" });
+      }
+      next();
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Generate URL (relative to server/uploads/avatars)
+      // In production, you might want to use cloud storage (S3, Supabase Storage, etc.)
+      const imageUrl = `/uploads/avatars/${req.file.filename}`;
+
+      // Update user profile image in database
+      await storage.updateUserProfileImage(userId, imageUrl);
+
+      // Reload user session
+      const user = await storage.getUser(userId);
+      if (user) {
+        req.session.user = user;
+      }
+
+      res.json({ 
+        url: imageUrl,
+        message: "Avatar uploaded successfully"
+      });
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      res.status(500).json({ message: error.message || "Failed to upload avatar" });
+    }
+  });
+
   // Notification preferences routes
   app.get("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
     try {
@@ -1426,6 +1513,533 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching insights:", error);
       res.status(500).json({ message: "Failed to fetch insights" });
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/overview", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { items: allUsers } = await storage.listUsers();
+      
+      const totalUsers = allUsers.length;
+      const activeUsers = allUsers.filter(u => u.billingStatus === 'active').length;
+      const trialUsers = allUsers.filter(u => u.billingStatus === 'trial').length;
+      const canceledUsers = allUsers.filter(u => u.billingStatus === 'canceled').length;
+      const overdueUsers = allUsers.filter(u => u.billingStatus === 'overdue').length;
+
+      // Calculate MRR from active subscriptions
+      const activeSubscriptions = await storage.listSubscriptions({ status: 'active' });
+      const mrrCentsEstimado = activeSubscriptions.reduce((sum, sub) => {
+        if (sub.billingInterval === 'month') {
+          return sum + sub.priceCents;
+        } else if (sub.billingInterval === 'year') {
+          return sum + Math.round(sub.priceCents / 12);
+        }
+        return sum;
+      }, 0);
+
+      // New users in last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const newUsersLast30Days = allUsers.filter(u => 
+        u.createdAt && new Date(u.createdAt) >= thirtyDaysAgo
+      ).length;
+
+      res.json({
+        totalUsers,
+        activeUsers,
+        trialUsers,
+        canceledUsers,
+        overdueUsers,
+        mrrCentsEstimado,
+        newUsersLast30Days,
+      });
+    } catch (error) {
+      console.error("Error fetching admin overview:", error);
+      res.status(500).json({ message: "Failed to fetch admin overview" });
+    }
+  });
+
+  app.get("/api/admin/users", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const status = req.query.status as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 50;
+
+      const { items, total } = await storage.listUsers({ search, status, page, pageSize });
+
+      // Format response
+      const formattedItems = items.map(user => ({
+        id: user.id,
+        name: user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : user.email || 'Sem nome',
+        email: user.email,
+        whatsappNumber: user.whatsappNumber || user.telefone,
+        billingStatus: user.billingStatus,
+        planLabel: user.planLabel,
+        createdAt: user.createdAt,
+      }));
+
+      const totalPages = Math.ceil(total / pageSize);
+
+      res.json({
+        items: formattedItems,
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching admin users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/users/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = await storage.getUser(id);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+      const eventsRecentes = await storage.getSubscriptionEventsByUserId(id, 20);
+
+      res.json({
+        user,
+        subscriptions: userSubscriptions,
+        eventsRecentes,
+      });
+    } catch (error) {
+      console.error("Error fetching admin user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.post("/api/admin/users", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { name, email, whatsappNumber, planLabel, billingStatus, role } = req.body;
+
+      if (!name || !email) {
+        return res.status(400).json({ message: "Nome e email são obrigatórios" });
+      }
+
+      const [firstName, ...lastNameParts] = name.split(' ');
+      const lastName = lastNameParts.join(' ') || null;
+
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ message: "Email já está em uso" });
+      }
+
+      // Create user without password (manual creation)
+      const user = await storage.createUser({
+        email,
+        firstName,
+        lastName,
+        whatsappNumber: whatsappNumber || null,
+        planLabel: planLabel || null,
+        billingStatus: billingStatus || 'none',
+        role: role || 'user',
+        status: 'authenticated',
+      });
+
+      res.status(201).json(user);
+    } catch (error) {
+      console.error("Error creating admin user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { nome, sobrenome, email, whatsappNumber, status, plano, planLabel, billingStatus, role } = req.body;
+
+      // Get current user to check for email/phone changes
+      const currentUser = await storage.getUser(id);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const updates: any = {};
+
+      // Handle name updates
+      if (nome !== undefined) {
+        updates.firstName = nome;
+      }
+      if (sobrenome !== undefined) {
+        updates.lastName = sobrenome;
+      }
+
+      // Handle email update (critical: sync with WhatsApp and sessions)
+      if (email && email !== currentUser.email) {
+        // Check if email is already taken by another user
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== id) {
+          return res.status(409).json({ message: "Email já está em uso" });
+        }
+
+        updates.email = email;
+        
+        // Update WhatsApp purchase mapping
+        if (currentUser.telefone || currentUser.whatsappNumber) {
+          const phoneNumber = currentUser.whatsappNumber || currentUser.telefone;
+          if (phoneNumber) {
+            await storage.updatePurchasePhone(email, phoneNumber);
+            console.log(`[Admin] Updated WhatsApp mapping: ${email} -> ${phoneNumber}`);
+          }
+        }
+
+        // Force logout: Delete all sessions for this user
+        // Using direct SQL query since connect-pg-simple stores sessions in 'sessions' table
+        const allSessions = await db.select().from(sessions);
+        for (const session of allSessions) {
+          try {
+            const sessData = session.sess as any;
+            if (sessData?.userId === id || sessData?.user?.id === id) {
+              await db.delete(sessions).where(eq(sessions.sid, session.sid));
+              console.log(`[Admin] Deleted session ${session.sid} for user ${id} (email change)`);
+            }
+          } catch (err) {
+            // Ignore invalid session data
+          }
+        }
+      }
+
+      // Handle WhatsApp number update
+      if (whatsappNumber !== undefined && whatsappNumber !== currentUser.whatsappNumber) {
+        updates.whatsappNumber = whatsappNumber;
+        
+        // Update phone in users table
+        if (whatsappNumber) {
+          updates.telefone = whatsappNumber;
+        }
+
+        // Update WhatsApp purchase mapping if email exists
+        if (currentUser.email) {
+          await storage.updatePurchasePhone(currentUser.email, whatsappNumber);
+          console.log(`[Admin] Updated WhatsApp mapping: ${currentUser.email} -> ${whatsappNumber}`);
+        }
+      }
+
+      // Handle status update (active/suspended)
+      if (status !== undefined) {
+        if (status === 'suspended') {
+          updates.billingStatus = 'paused';
+          updates.status = 'authenticated'; // Keep authenticated but paused
+        } else if (status === 'active') {
+          updates.billingStatus = billingStatus || 'active';
+          updates.status = 'authenticated';
+        }
+      }
+
+      // Handle plano and planLabel
+      if (plano !== undefined) updates.plano = plano;
+      if (planLabel !== undefined) updates.planLabel = planLabel;
+      if (billingStatus !== undefined) updates.billingStatus = billingStatus;
+      if (role !== undefined) updates.role = role;
+
+      // Update user
+      const updatedUser = await storage.updateUser(id, updates);
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating admin user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if user exists
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Delete user (cascade will handle related data if configured)
+      await db.delete(users).where(eq(users.id, id));
+
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting admin user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/suspend", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Suspend user: set billingStatus to paused and block access
+      const updatedUser = await storage.updateUser(id, {
+        billingStatus: 'paused',
+        status: 'authenticated', // Keep authenticated but paused (blocks login in auth.ts if needed)
+      });
+
+      // Force logout: Delete all sessions for this user
+      const allSessions = await db.select().from(sessions);
+      for (const session of allSessions) {
+        try {
+          const sessData = session.sess as any;
+          if (sessData?.userId === id || sessData?.user?.id === id) {
+            await db.delete(sessions).where(eq(sessions.sid, session.sid));
+            console.log(`[Admin] Deleted session ${session.sid} for user ${id} (suspended)`);
+          }
+        } catch (err) {
+          // Ignore invalid session data
+        }
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error suspending user:", error);
+      res.status(500).json({ message: "Failed to suspend user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reactivate", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Reactivate user: set billingStatus to active
+      const updatedUser = await storage.updateUser(id, {
+        billingStatus: 'active',
+        status: 'authenticated',
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error reactivating user:", error);
+      res.status(500).json({ message: "Failed to reactivate user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/logout", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Force logout: Delete all sessions for this user
+      const allSessions = await db.select().from(sessions);
+      let deletedCount = 0;
+
+      for (const session of allSessions) {
+        try {
+          const sessData = session.sess as any;
+          if (sessData?.userId === id || sessData?.user?.id === id) {
+            await db.delete(sessions).where(eq(sessions.sid, session.sid));
+            deletedCount++;
+            console.log(`[Admin] Deleted session ${session.sid} for user ${id} (forced logout)`);
+          }
+        } catch (err) {
+          // Ignore invalid session data
+        }
+      }
+
+      res.json({ 
+        message: "User logged out successfully",
+        sessionsDeleted: deletedCount,
+      });
+    } catch (error) {
+      console.error("Error forcing logout:", error);
+      res.status(500).json({ message: "Failed to force logout" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if user exists
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Generate a random temporary password
+      const crypto = await import('crypto');
+      const tempPassword = crypto.randomBytes(12).toString('base64url').slice(0, 16);
+      
+      // Hash the new password
+      const passwordHash = await hashPassword(tempPassword);
+      
+      // Update user password
+      await storage.updateUser(id, { passwordHash });
+
+      // TODO: Send password via email or WhatsApp
+      // For now, return the temporary password (in production, send via secure channel)
+      
+      res.json({ 
+        message: "Password reset successfully",
+        temporaryPassword: tempPassword, // In production, remove this and send via email/WhatsApp
+      });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  app.get("/api/admin/subscriptions", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const provider = req.query.provider as string | undefined;
+
+      const subscriptions = await storage.listSubscriptions({ status, provider });
+
+      res.json(subscriptions);
+    } catch (error) {
+      console.error("Error fetching admin subscriptions:", error);
+      res.status(500).json({ message: "Failed to fetch subscriptions" });
+    }
+  });
+
+  app.get("/api/admin/subscriptions/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const subscription = await storage.getSubscriptionById(id);
+
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found" });
+      }
+
+      const events = await storage.getSubscriptionEventsBySubscriptionId(id, 50);
+
+      res.json({
+        subscription,
+        events,
+      });
+    } catch (error) {
+      console.error("Error fetching admin subscription:", error);
+      res.status(500).json({ message: "Failed to fetch subscription" });
+    }
+  });
+
+  // Webhook Caktos
+  app.post("/api/webhooks/caktos", async (req: any, res) => {
+    try {
+      // TODO: Verificar assinatura do webhook quando os secrets estiverem disponíveis
+      // const signature = req.headers['x-caktos-signature'];
+      // if (!verifyCaktosSignature(signature, req.body)) {
+      //   return res.status(401).json({ message: "Invalid signature" });
+      // }
+
+      const event = req.body;
+      const eventType = event.type;
+
+      console.log('[CAKTOS WEBHOOK] Received event:', eventType, JSON.stringify(event, null, 2));
+
+      // Find user by email or externalCustomerId
+      let user;
+      if (event.customer?.email) {
+        user = await storage.getUserByEmail(event.customer.email);
+      }
+
+      if (!user && event.customer?.externalId) {
+        // Se houver um campo externalId, podemos buscar por ele (ajustar conforme necessário)
+        // Por enquanto, tentamos buscar pelo email
+        console.log('[CAKTOS WEBHOOK] User not found by email, externalId:', event.customer.externalId);
+      }
+
+      if (!user) {
+        console.log('[CAKTOS WEBHOOK] User not found for event');
+        // Retornar 200 para evitar retries do webhook
+        return res.status(200).json({ message: "User not found, event ignored" });
+      }
+
+      // Process subscription based on event type
+      const subscriptionId = event.subscription?.id || event.data?.subscription?.id;
+      if (!subscriptionId) {
+        console.log('[CAKTOS WEBHOOK] No subscription ID in event');
+        return res.status(200).json({ message: "No subscription ID, event ignored" });
+      }
+
+      // Check if subscription exists
+      let subscription = await storage.getSubscriptionByProviderId('caktos', subscriptionId);
+
+      const subscriptionData = event.subscription || event.data?.subscription || {};
+      const planName = subscriptionData.plan?.name || subscriptionData.planName || 'Unknown';
+      const priceCents = subscriptionData.price?.cents || subscriptionData.priceCents || 0;
+      const currency = subscriptionData.price?.currency || subscriptionData.currency || 'BRL';
+      const billingInterval = subscriptionData.billing?.interval || subscriptionData.billingInterval || 'month';
+      const status = subscriptionData.status || event.status || 'active';
+
+      const subscriptionUpdate: any = {
+        userId: user.id,
+        provider: 'caktos',
+        providerSubscriptionId: subscriptionId,
+        planName,
+        priceCents,
+        currency,
+        billingInterval,
+        status,
+        meta: event,
+      };
+
+      // Handle dates
+      if (subscriptionData.trialEndsAt) {
+        subscriptionUpdate.trialEndsAt = new Date(subscriptionData.trialEndsAt);
+      }
+      if (subscriptionData.currentPeriodEnd) {
+        subscriptionUpdate.currentPeriodEnd = new Date(subscriptionData.currentPeriodEnd);
+      }
+      if (subscriptionData.cancelAt) {
+        subscriptionUpdate.cancelAt = new Date(subscriptionData.cancelAt);
+      }
+
+      if (subscription) {
+        // Update existing subscription
+        subscription = await storage.updateSubscription(subscription.id, subscriptionUpdate);
+      } else {
+        // Create new subscription
+        subscription = await storage.createSubscription(subscriptionUpdate);
+      }
+
+      // Create subscription event
+      await storage.createSubscriptionEvent({
+        subscriptionId: subscription.id,
+        type: eventType,
+        rawPayload: event,
+      });
+
+      // Update user billing status and plan label
+      await storage.updateUser(user.id, {
+        billingStatus: status as any,
+        planLabel: planName,
+      });
+
+      console.log('[CAKTOS WEBHOOK] Processed event successfully:', eventType);
+
+      res.status(200).json({ message: "Event processed", subscriptionId: subscription.id });
+    } catch (error) {
+      console.error('[CAKTOS WEBHOOK] Error processing webhook:', error);
+      res.status(500).json({ message: "Failed to process webhook" });
     }
   });
 

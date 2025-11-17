@@ -36,6 +36,10 @@ export const users = pgTable("users", {
   telefone: varchar("telefone").unique(),
   plano: varchar("plano").default('free'),
   status: varchar("status", { enum: ['awaiting_email', 'authenticated'] }).default('awaiting_email'),
+  role: varchar("role", { enum: ['user', 'admin'] }).default('user').notNull(),
+  whatsappNumber: varchar("whatsapp_number"),
+  planLabel: varchar("plan_label"),
+  billingStatus: varchar("billing_status", { enum: ['trial', 'active', 'paused', 'canceled', 'overdue', 'none'] }).default('none').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -484,3 +488,62 @@ export const updateNotificationPreferencesSchema = insertNotificationPreferences
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type UpdateNotificationPreferences = z.infer<typeof updateNotificationPreferencesSchema>;
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+
+// Subscriptions table (assinaturas)
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar("provider", { enum: ['caktos', 'manual'] }).notNull(),
+  providerSubscriptionId: varchar("provider_subscription_id").notNull(),
+  planName: varchar("plan_name").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  currency: varchar("currency").default('BRL').notNull(),
+  billingInterval: varchar("billing_interval", { enum: ['month', 'year'] }).notNull(),
+  status: varchar("status", { enum: ['trial', 'active', 'paused', 'canceled', 'overdue'] }).notNull(),
+  trialEndsAt: timestamp("trial_ends_at"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAt: timestamp("cancel_at"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+
+// Subscription events table (eventos de assinatura)
+export const subscriptionEvents = pgTable("subscription_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar("subscription_id").notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+  type: varchar("type").notNull(),
+  rawPayload: jsonb("raw_payload").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one }) => ({
+  subscription: one(subscriptions, {
+    fields: [subscriptionEvents.subscriptionId],
+    references: [subscriptions.id],
+  }),
+}));
+
+export const insertSubscriptionEventSchema = createInsertSchema(subscriptionEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSubscriptionEvent = z.infer<typeof insertSubscriptionEventSchema>;
+export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;

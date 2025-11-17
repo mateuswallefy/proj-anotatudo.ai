@@ -14,9 +14,13 @@ import {
   Bell,
   X,
   AlertTriangle,
-  TrendingUp
+  TrendingUp,
+  Shield
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
+import { PremiumButton } from "@/components/design-system/PremiumButton";
 import {
   Select,
   SelectContent,
@@ -90,6 +94,8 @@ const getPrioridadeColor = (prioridade: string) => {
 export function NavBar() {
   const { activeTab, setActiveTab } = useTab();
   const { period, setPeriod } = usePeriod();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   // Buscar alertas não lidos
@@ -152,6 +158,18 @@ export function NavBar() {
 
         {/* Right side controls */}
         <div className="flex items-center gap-3">
+          {user?.role === "admin" && (
+            <PremiumButton
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/admin")}
+              className="gap-2"
+            >
+              <Shield className="h-4 w-4" />
+              <span className="hidden xl:inline">Painel Admin</span>
+            </PremiumButton>
+          )}
+          
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[180px] [&>span]:line-clamp-none" data-testid="period-selector">
               <SelectValue placeholder="Período" />
