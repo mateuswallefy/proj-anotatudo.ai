@@ -6,6 +6,15 @@ AnotaTudo.AI is a SaaS financial management platform that leverages AI to transf
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 17, 2025)
+### Admin Panel Bug Fixes
+- **Critical Dialog Fix**: Removed `AlertDialogAction` and `DialogClose` wrappers from mutation buttons in admin panel that were closing dialogs before async operations completed. Delete, Suspend, Reactivate, and Force Logout buttons now execute mutations properly and close dialogs only after successful completion via `onSuccess` callbacks.
+- **Database Schema Sync**: Fixed `subscriptions` table missing 8 columns (`provider_subscription_id`, `plan_name`, `price_cents`, `currency`, `billing_interval`, `trial_ends_at`, `cancel_at`, `meta`). Added columns with proper constraints to match Drizzle schema.
+- **Admin Test User**: Created test admin user (`admin-test@anotatu.do`) with role='admin' for testing purposes.
+
+### UI Pattern Learned
+**CRITICAL**: Never wrap mutation-triggering buttons in `AlertDialogAction` or `DialogClose` - these close dialogs synchronously before async mutations can execute. Always use explicit `onClick` handlers and close dialogs in mutation `onSuccess` callbacks.
+
 ## System Architecture
 
 ### Frontend
