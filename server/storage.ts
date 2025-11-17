@@ -16,6 +16,7 @@ import {
   notificationPreferences,
   subscriptions,
   subscriptionEvents,
+  systemLogs,
   type User,
   type UpsertUser,
   type Transacao,
@@ -50,6 +51,8 @@ import {
   type InsertSubscription,
   type SubscriptionEvent,
   type InsertSubscriptionEvent,
+  type SystemLog,
+  type InsertSystemLog,
 } from "@shared/schema";
 import { db } from "./db.js";
 import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray } from "drizzle-orm";
@@ -983,6 +986,40 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptionEvents)
       .orderBy(desc(subscriptionEvents.createdAt))
       .limit(limit);
+  }
+
+  // System logs operations
+  async createSystemLog(log: InsertSystemLog): Promise<SystemLog> {
+    const [newLog] = await db.insert(systemLogs).values(log).returning();
+    return newLog;
+  }
+
+  async getSystemLogs(options?: {
+    limit?: number;
+    level?: 'info' | 'warning' | 'error';
+    source?: 'whatsapp' | 'ai' | 'webhook' | 'system' | 'other';
+  }): Promise<SystemLog[]> {
+    let conditions: any[] = [];
+
+    if (options?.level) {
+      conditions.push(eq(systemLogs.level, options.level));
+    }
+    if (options?.source) {
+      conditions.push(eq(systemLogs.source, options.source));
+    }
+
+    let query = db.select().from(systemLogs);
+
+    if (conditions.length > 0) {
+      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions)) as any;
+    }
+
+    query = query.orderBy(desc(systemLogs.createdAt));
+    
+    const limit = options?.limit || 50;
+    query = query.limit(limit) as any;
+
+    return await query;
   }
 }
 

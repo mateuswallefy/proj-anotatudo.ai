@@ -547,3 +547,21 @@ export const insertSubscriptionEventSchema = createInsertSchema(subscriptionEven
 
 export type InsertSubscriptionEvent = z.infer<typeof insertSubscriptionEventSchema>;
 export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
+
+// System logs table (logs de sistema para monitoramento)
+export const systemLogs = pgTable("system_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  level: varchar("level", { enum: ['info', 'warning', 'error'] }).notNull(),
+  source: varchar("source", { enum: ['whatsapp', 'ai', 'webhook', 'system', 'other'] }).notNull(),
+  message: text("message").notNull(),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSystemLogSchema = createInsertSchema(systemLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
+export type SystemLog = typeof systemLogs.$inferSelect;

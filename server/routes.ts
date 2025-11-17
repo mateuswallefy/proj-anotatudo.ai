@@ -6,8 +6,8 @@ import multer from "multer";
 import { storage } from "./storage.js";
 import { isAuthenticated, hashPassword, comparePassword, requireAdmin } from "./auth.js";
 import { db } from "./db.js";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, transacoes, subscriptionEvents } from "@shared/schema";
+import { eq, and, or, desc, sql as sqlOp } from "drizzle-orm";
 import { 
   insertTransacaoSchema, 
   insertCartaoSchema, 
@@ -1249,23 +1249,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WHATSAPP WEBHOOK ROUTES (Meta WhatsApp Cloud API)
   // ============================================================================
 
+  // Enable CORS for WhatsApp webhook endpoint
+  app.use("/api/whatsapp/webhook", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    
+    next();
+  });
+
   // Webhook verification (GET) - Meta sends this to verify your endpoint
   app.get("/api/whatsapp/webhook", (req, res) => {
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "seu_token_secreto_aqui";
-    
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-    
-    console.log("[WhatsApp Webhook] Verification request:", { mode, token });
-    
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log("[WhatsApp Webhook] ✅ Webhook verified successfully!");
-      res.status(200).send(challenge);
-    } else {
-      console.log("[WhatsApp Webhook] ❌ Verification failed");
-      res.sendStatus(403);
+    // Meta Webhook verification
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+
+    if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      return res.status(200).send(challenge);
     }
+
+    return res.sendStatus(403);
   });
 
   // Webhook notifications (POST) - Meta sends incoming messages here
@@ -2051,6 +2059,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[CAKTOS WEBHOOK] Error processing webhook:', error);
       res.status(500).json({ message: "Failed to process webhook" });
+    }
+  });
+
+  // Health Center routes
+  app.get("/api/admin/health/overview", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      // WhatsApp status - use transacoes with origem from WhatsApp
+      const allTransacoes = await db
+        .select()
+        .from(transacoes)
+        .orderBy(desc(transacoes.createdAt));
+
+      const whatsappTransacoes = allTransacoes.filter(t => {
+        const createdAt = new Date(t.createdAt);
+        return createdAt >= twentyFourHoursAgo && 
+               (t.origem === 'texto' || t.origem === 'audio' || t.origem === 'foto' || t.origem === 'video');
+      });
+
+      const whatsappTransacoesLastHour = whatsappTransacoes.filter(t => 
+        new Date(t.createdAt) >= oneHourAgo
+      );
+
+      const whatsappErrors = await storage.getSystemLogs({
+        source: 'whatsapp',
+        level: 'error',
+        limit: 100
+      });
+
+      const lastWhatsAppError = whatsappErrors.length > 0 ? whatsappErrors[0].createdAt : null;
+      const lastWhatsAppMessage = whatsappTransacoes.length > 0 ? whatsappTransacoes[0].createdAt : null;
+
+      // Calculate error rate (errors in last 24h / total messages in last 24h)
+      const whatsappErrors24h = whatsappErrors.filter(e => 
+        new Date(e.createdAt) >= twentyFourHoursAgo
+      ).length;
+      const errorRate24h = whatsappTransacoes.length > 0 
+        ? whatsappErrors24h / whatsappTransacoes.length 
+        : 0;
+
+      // Determine WhatsApp status
+      let whatsappStatus: "up" | "down" | "degraded" = "up";
+      if (lastWhatsAppError && new Date(lastWhatsAppError) >= oneHourAgo) {
+        whatsappStatus = "down";
+      } else if (errorRate24h > 0.1 || (lastWhatsAppMessage && new Date(now.getTime() - new Date(lastWhatsAppMessage).getTime()) > 2 * 60 * 60 * 1000)) {
+        whatsappStatus = "degraded";
+      }
+
+      // AI status - use same transacoes (all go through AI)
+      const aiErrors = await storage.getSystemLogs({
+        source: 'ai',
+        level: 'error',
+        limit: 100
+      });
+
+      const aiErrors24h = aiErrors.filter(e => 
+        new Date(e.createdAt) >= twentyFourHoursAgo
+      ).length;
+
+      const lastAiError = aiErrors.length > 0 ? aiErrors[0].createdAt : null;
+      const lastAiCall = whatsappTransacoes.length > 0 ? whatsappTransacoes[0].createdAt : null;
+
+      // Calculate average latency (simplified - would need actual timing data)
+      const aiLatency = null; // TODO: Store actual latency in logs
+
+      const aiErrorRate = whatsappTransacoes.length > 0 
+        ? aiErrors24h / whatsappTransacoes.length 
+        : 0;
+
+      let aiStatus: "up" | "down" | "degraded" = "up";
+      if (lastAiError && new Date(lastAiError) >= oneHourAgo) {
+        aiStatus = "down";
+      } else if (aiErrorRate > 0.1) {
+        aiStatus = "degraded";
+      }
+
+      // Webhooks status - use subscriptionEvents
+      const allWebhookEvents = await db
+        .select()
+        .from(subscriptionEvents)
+        .orderBy(desc(subscriptionEvents.createdAt));
+
+      const webhookEvents = allWebhookEvents.filter(e => 
+        new Date(e.createdAt) >= twentyFourHoursAgo
+      );
+
+      const webhookErrors = await storage.getSystemLogs({
+        source: 'webhook',
+        level: 'error',
+        limit: 100
+      });
+
+      const lastCaktosEvent = webhookEvents.length > 0 ? webhookEvents[0].createdAt : null;
+      const lastWebhookError = webhookErrors.length > 0 ? webhookErrors[0].createdAt : null;
+
+      const webhookErrors24h = webhookErrors.filter(e => 
+        new Date(e.createdAt) >= twentyFourHoursAgo
+      ).length;
+      const webhookSuccess24h = webhookEvents.length - webhookErrors24h;
+
+      let webhookStatus: "up" | "down" | "degraded" = "up";
+      if (lastWebhookError && new Date(lastWebhookError) >= oneHourAgo) {
+        webhookStatus = "down";
+      } else if (webhookErrors24h > 0 && webhookErrors24h / webhookEvents.length > 0.1) {
+        webhookStatus = "degraded";
+      }
+
+      // System status - aggregate all system logs
+      const systemEvents = await storage.getSystemLogs({
+        source: 'system',
+        limit: 1000
+      });
+
+      const systemEventsLastHour = systemEvents.filter(e => 
+        new Date(e.createdAt) >= oneHourAgo
+      );
+      const systemEvents24h = systemEvents.filter(e => 
+        new Date(e.createdAt) >= twentyFourHoursAgo
+      );
+      const systemErrors24h = systemEvents24h.filter(e => e.level === 'error').length;
+
+      // Test DB latency
+      const dbStart = Date.now();
+      await db.select().from(users).limit(1);
+      const dbLatency = Date.now() - dbStart;
+
+      let systemStatus: "up" | "down" | "degraded" = "up";
+      if (dbLatency > 1000 || systemErrors24h > 10) {
+        systemStatus = "down";
+      } else if (dbLatency > 500 || systemErrors24h > 5) {
+        systemStatus = "degraded";
+      }
+
+      res.json({
+        whatsapp: {
+          status: whatsappStatus,
+          lastMessageAt: lastWhatsAppMessage,
+          lastErrorAt: lastWhatsAppError,
+          messagesLastHour: whatsappTransacoesLastHour.length,
+          messagesLast24h: whatsappTransacoes.length,
+          errorRate24h: errorRate24h,
+        },
+        ai: {
+          status: aiStatus,
+          lastCallAt: lastAiCall,
+          lastErrorAt: lastAiError,
+          callsLastHour: whatsappTransacoesLastHour.length,
+          callsLast24h: whatsappTransacoes.length,
+          avgLatencyMsLastHour: aiLatency,
+          errorRate24h: aiErrorRate,
+        },
+        webhooks: {
+          status: webhookStatus,
+          lastCaktosAt: lastCaktosEvent,
+          lastErrorAt: lastWebhookError,
+          successLast24h: webhookSuccess24h,
+          errorsLast24h: webhookErrors24h,
+        },
+        system: {
+          status: systemStatus,
+          dbLatencyMs: dbLatency,
+          eventsLastHour: systemEventsLastHour.length,
+          eventsLast24h: systemEvents24h.length,
+          errorsLast24h: systemErrors24h,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching health overview:", error);
+      res.status(500).json({ message: "Failed to fetch health overview" });
+    }
+  });
+
+  app.get("/api/admin/health/logs", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const level = req.query.level as 'info' | 'warning' | 'error' | undefined;
+      const source = req.query.source as 'whatsapp' | 'ai' | 'webhook' | 'system' | 'other' | undefined;
+
+      const logs = await storage.getSystemLogs({
+        limit,
+        level,
+        source,
+      });
+
+      res.json(logs.map(log => ({
+        id: log.id,
+        createdAt: log.createdAt,
+        level: log.level,
+        source: log.source,
+        message: log.message,
+        meta: log.meta,
+      })));
+    } catch (error) {
+      console.error("Error fetching health logs:", error);
+      res.status(500).json({ message: "Failed to fetch health logs" });
+    }
+  });
+
+  // Health check test endpoints
+  app.post("/api/admin/health/test/whatsapp", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // Test WhatsApp connection by checking env vars
+      const hasToken = !!process.env.WHATSAPP_TOKEN;
+      const hasPhoneId = !!process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+      if (!hasToken || !hasPhoneId) {
+        return res.json({
+          ok: false,
+          details: "WhatsApp credentials not configured",
+        });
+      }
+
+      // Log the test
+      await storage.createSystemLog({
+        level: 'info',
+        source: 'whatsapp',
+        message: 'Health check test performed',
+        meta: { testType: 'whatsapp', timestamp: new Date().toISOString() },
+      });
+
+      res.json({
+        ok: true,
+        details: "WhatsApp API configured and ready",
+      });
+    } catch (error) {
+      console.error("Error testing WhatsApp:", error);
+      res.status(500).json({ message: "Failed to test WhatsApp" });
+    }
+  });
+
+  app.post("/api/admin/health/test/ai", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // Test AI connection by checking env vars
+      const hasApiKey = !!process.env.OPENAI_API_KEY;
+
+      if (!hasApiKey) {
+        return res.json({
+          ok: false,
+          details: "OpenAI API key not configured",
+        });
+      }
+
+      // Log the test
+      await storage.createSystemLog({
+        level: 'info',
+        source: 'ai',
+        message: 'Health check test performed',
+        meta: { testType: 'ai', timestamp: new Date().toISOString() },
+      });
+
+      res.json({
+        ok: true,
+        details: "OpenAI API configured and ready",
+      });
+    } catch (error) {
+      console.error("Error testing AI:", error);
+      res.status(500).json({ message: "Failed to test AI" });
+    }
+  });
+
+  app.post("/api/admin/health/test/check", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // General health check - test DB connection
+      const dbStart = Date.now();
+      await db.select().from(users).limit(1);
+      const dbLatency = Date.now() - dbStart;
+
+      // Log the test
+      await storage.createSystemLog({
+        level: 'info',
+        source: 'system',
+        message: 'General health check performed',
+        meta: { dbLatency, timestamp: new Date().toISOString() },
+      });
+
+      res.json({
+        ok: true,
+        details: {
+          dbLatency,
+          status: dbLatency < 500 ? "healthy" : "degraded",
+        },
+      });
+    } catch (error) {
+      console.error("Error performing health check:", error);
+      res.status(500).json({ message: "Failed to perform health check" });
     }
   });
 

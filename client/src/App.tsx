@@ -22,6 +22,7 @@ import AdminPage from "@/pages/admin";
 import AdminClientes from "@/pages/admin/clientes";
 import AdminAssinaturas from "@/pages/admin/assinaturas";
 import AdminEventos from "@/pages/admin/eventos";
+import AdminHealth from "@/pages/admin/health";
 
 function AuthenticatedShell() {
   const { activeTab } = useTab();
@@ -133,6 +134,9 @@ function AppContent() {
     }
     if (location === "/admin/eventos") {
       return <AdminEventos />;
+    }
+    if (location === "/admin/health") {
+      return <AdminHealth />;
     }
     // Default to overview
     return <AdminPage />;

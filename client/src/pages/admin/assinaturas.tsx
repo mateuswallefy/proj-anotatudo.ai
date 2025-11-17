@@ -14,10 +14,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { CreditCard, AlertTriangle } from "lucide-react";
 
 type Subscription = {
   id: string;
@@ -68,13 +70,18 @@ export default function AdminAssinaturas() {
   });
 
   return (
-    <AdminLayout currentPath="/admin/assinaturas">
-      <PageHeader
-        title="Assinaturas"
-        subtitle="Gerencie todas as assinaturas do AnotaTudo.AI."
-      />
+    <AdminLayout 
+      currentPath="/admin/assinaturas"
+      pageTitle="Assinaturas"
+      pageSubtitle="Gerencie todas as assinaturas do AnotaTudo.AI."
+    >
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <PageHeader
+          title="Assinaturas"
+          subtitle="Gerencie todas as assinaturas do AnotaTudo.AI."
+        />
 
-      <div className="space-y-6 mt-8">
+        <div className="space-y-6 mt-8">
         {/* Filters */}
         <AppCard className="p-5 md:p-6">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -115,16 +122,27 @@ export default function AdminAssinaturas() {
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      Carregando assinaturas...
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={`skeleton-${i}`}>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-red-600 py-8">
-                      Erro ao carregar assinaturas. Tente novamente.
+                    <TableCell colSpan={7} className="text-center text-destructive py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        <p>Erro ao carregar assinaturas. Tente novamente.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -133,8 +151,12 @@ export default function AdminAssinaturas() {
                   if (items.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                          Nenhuma assinatura encontrada
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <CreditCard className="h-8 w-8 opacity-50" />
+                            <p className="font-medium">Nenhuma assinatura encontrada</p>
+                            <p className="text-sm">Tente ajustar os filtros</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -175,6 +197,7 @@ export default function AdminAssinaturas() {
             </Table>
           </ScrollArea>
         </AppCard>
+        </div>
       </div>
     </AdminLayout>
   );

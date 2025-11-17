@@ -22,10 +22,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Eye } from "lucide-react";
+import { Eye, Activity, AlertTriangle } from "lucide-react";
 
 type SubscriptionEvent = {
   id: string;
@@ -84,13 +85,18 @@ export default function AdminEventos() {
   const events: SubscriptionEvent[] = subscriptionsData ?? [];
 
   return (
-    <AdminLayout currentPath="/admin/eventos">
-      <PageHeader
-        title="Eventos"
-        subtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI."
-      />
+    <AdminLayout 
+      currentPath="/admin/eventos"
+      pageTitle="Eventos"
+      pageSubtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI."
+    >
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <PageHeader
+          title="Eventos"
+          subtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI."
+        />
 
-      <div className="space-y-6 mt-8">
+        <div className="space-y-6 mt-8">
         {/* Table */}
         <AppCard className="p-0 overflow-hidden">
           <ScrollArea className="w-full">
@@ -106,16 +112,25 @@ export default function AdminEventos() {
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      Carregando eventos...
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={`skeleton-${i}`}>
+                        <TableCell><Skeleton className="h-6 w-32 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md ml-auto" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-red-600 py-8">
-                      Erro ao carregar eventos. Tente novamente.
+                    <TableCell colSpan={5} className="text-center text-destructive py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        <p>Erro ao carregar eventos. Tente novamente.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -124,11 +139,14 @@ export default function AdminEventos() {
                   if (items.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                          <p className="mb-2">Nenhum evento encontrado</p>
-                          <p className="text-sm">
-                            Os eventos serão exibidos aqui quando as assinaturas gerarem eventos.
-                          </p>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <Activity className="h-8 w-8 opacity-50" />
+                            <p className="font-medium">Nenhum evento encontrado</p>
+                            <p className="text-sm">
+                              Os eventos serão exibidos aqui quando as assinaturas gerarem eventos.
+                            </p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -162,18 +180,20 @@ export default function AdminEventos() {
                               <Eye className="h-4 w-4" />
                             </PremiumButton>
                           </DialogTrigger>
-                          <DialogContent className="rounded-2xl max-w-2xl max-h-[80vh]">
+                          <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
                             <DialogHeader>
                               <DialogTitle>Detalhes do Evento</DialogTitle>
                               <DialogDescription>
                                 Payload completo do evento
                               </DialogDescription>
                             </DialogHeader>
-                            <ScrollArea className="max-h-[60vh]">
-                              <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
-                                {JSON.stringify(selectedEvent?.rawPayload || {}, null, 2)}
-                              </pre>
-                            </ScrollArea>
+                            <div className="py-4">
+                              <ScrollArea className="max-h-[60vh]">
+                                <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
+                                  {JSON.stringify(selectedEvent?.rawPayload || {}, null, 2)}
+                                </pre>
+                              </ScrollArea>
+                            </div>
                           </DialogContent>
                         </Dialog>
                       </TableCell>
@@ -184,6 +204,7 @@ export default function AdminEventos() {
             </Table>
           </ScrollArea>
         </AppCard>
+        </div>
       </div>
     </AdminLayout>
   );

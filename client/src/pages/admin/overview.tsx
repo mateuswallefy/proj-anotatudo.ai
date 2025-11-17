@@ -5,6 +5,7 @@ import { AppCard } from "@/components/design-system/AppCard";
 import { MetricCard } from "@/components/cards/MetricCard";
 import { StatCard } from "@/components/cards/StatCard";
 import { DataBadge } from "@/components/design-system/DataBadge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Users, 
   UserCheck, 
@@ -12,7 +13,8 @@ import {
   XCircle, 
   AlertTriangle,
   TrendingUp,
-  Calendar
+  Calendar,
+  Activity
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -84,89 +86,114 @@ export default function AdminOverview() {
   };
 
   return (
-    <AdminLayout currentPath="/admin">
-      <PageHeader
-        title="Painel Administrativo"
-        subtitle="Acompanhe seus clientes, assinaturas e receita do AnotaTudo.AI."
-      />
+    <AdminLayout 
+      currentPath="/admin"
+      pageTitle="Visão Geral"
+      pageSubtitle="Acompanhe seus clientes, assinaturas e receita do AnotaTudo.AI."
+    >
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <PageHeader
+          title="Painel Administrativo"
+          subtitle="Acompanhe seus clientes, assinaturas e receita do AnotaTudo.AI."
+        />
 
-      <div className="space-y-8 mt-8">
+        <div className="space-y-8 mt-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
-          <StatCard
-            icon={Users}
-            label="Total de Clientes"
-            value={overviewLoading ? "..." : (overview?.totalUsers || 0).toLocaleString()}
-            iconColor="text-blue-600"
-            iconBg="bg-blue-100 dark:bg-blue-900/20"
-          />
-          <StatCard
-            icon={UserCheck}
-            label="Clientes Ativos"
-            value={overviewLoading ? "..." : (overview?.activeUsers || 0).toLocaleString()}
-            subtitle={`${overview?.trialUsers || 0} em teste`}
-            iconColor="text-emerald-600"
-            iconBg="bg-emerald-100 dark:bg-emerald-900/20"
-          />
-          <StatCard
-            icon={XCircle}
-            label="Cancelados"
-            value={overviewLoading ? "..." : (overview?.canceledUsers || 0).toLocaleString()}
-            iconColor="text-red-600"
-            iconBg="bg-red-100 dark:bg-red-900/20"
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="MRR Estimado"
-            value={
-              overviewLoading
-                ? "..."
-                : formatCurrency((overview?.mrrCentsEstimado || 0) / 100)
-            }
-            subtitle={`${overview?.newUsersLast30Days || 0} novos últimos 30 dias`}
-            iconColor="text-purple-600"
-            iconBg="bg-purple-100 dark:bg-purple-900/20"
-          />
+          {overviewLoading ? (
+            <>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+              ))}
+            </>
+          ) : (
+            <>
+              <StatCard
+                icon={Users}
+                label="Total de Clientes"
+                value={(overview?.totalUsers || 0).toLocaleString()}
+                iconColor="text-blue-600"
+                iconBg="bg-blue-100 dark:bg-blue-900/20"
+              />
+              <StatCard
+                icon={UserCheck}
+                label="Clientes Ativos"
+                value={(overview?.activeUsers || 0).toLocaleString()}
+                subtitle={`${overview?.trialUsers || 0} em teste`}
+                iconColor="text-emerald-600"
+                iconBg="bg-emerald-100 dark:bg-emerald-900/20"
+              />
+              <StatCard
+                icon={XCircle}
+                label="Cancelados"
+                value={(overview?.canceledUsers || 0).toLocaleString()}
+                iconColor="text-red-600"
+                iconBg="bg-red-100 dark:bg-red-900/20"
+              />
+              <StatCard
+                icon={TrendingUp}
+                label="MRR Estimado"
+                value={formatCurrency((overview?.mrrCentsEstimado || 0) / 100)}
+                subtitle={`${overview?.newUsersLast30Days || 0} novos últimos 30 dias`}
+                iconColor="text-purple-600"
+                iconBg="bg-purple-100 dark:bg-purple-900/20"
+              />
+            </>
+          )}
         </div>
 
         {/* Secondary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-          <MetricCard
-            icon={Clock}
-            label="Em Teste"
-            value={overviewLoading ? "..." : overview?.trialUsers || 0}
-            iconColor="text-blue-600"
-            iconBg="bg-blue-100 dark:bg-blue-900/20"
-          />
-          <MetricCard
-            icon={AlertTriangle}
-            label="Atrasados"
-            value={overviewLoading ? "..." : overview?.overdueUsers || 0}
-            iconColor="text-orange-600"
-            iconBg="bg-orange-100 dark:bg-orange-900/20"
-          />
-          <MetricCard
-            icon={Calendar}
-            label="Novos (30 dias)"
-            value={overviewLoading ? "..." : overview?.newUsersLast30Days || 0}
-            iconColor="text-purple-600"
-            iconBg="bg-purple-100 dark:bg-purple-900/20"
-          />
+          {overviewLoading ? (
+            <>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+              ))}
+            </>
+          ) : (
+            <>
+              <MetricCard
+                icon={Clock}
+                label="Em Teste"
+                value={overview?.trialUsers || 0}
+                iconColor="text-blue-600"
+                iconBg="bg-blue-100 dark:bg-blue-900/20"
+              />
+              <MetricCard
+                icon={AlertTriangle}
+                label="Atrasados"
+                value={overview?.overdueUsers || 0}
+                iconColor="text-orange-600"
+                iconBg="bg-orange-100 dark:bg-orange-900/20"
+              />
+              <MetricCard
+                icon={Calendar}
+                label="Novos (30 dias)"
+                value={overview?.newUsersLast30Days || 0}
+                iconColor="text-purple-600"
+                iconBg="bg-purple-100 dark:bg-purple-900/20"
+              />
+            </>
+          )}
         </div>
 
         {/* Recent Events */}
         <AppCard className="p-5 md:p-6">
           <h2 className="text-2xl font-bold mb-4">Eventos Recentes</h2>
           {eventsLoading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Carregando eventos...
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
             </div>
           ) : (() => {
             const items = recentEvents ?? [];
             if (items.length === 0) {
               return (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhum evento recente
+                <div className="text-center py-12 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium">Nenhum evento recente</p>
+                  <p className="text-sm mt-1">Os eventos aparecerão aqui quando houver atividade</p>
                 </div>
               );
             }
@@ -201,6 +228,7 @@ export default function AdminOverview() {
             );
           })()}
         </AppCard>
+        </div>
       </div>
     </AdminLayout>
   );

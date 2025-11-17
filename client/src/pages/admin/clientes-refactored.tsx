@@ -107,7 +107,7 @@ type User = {
   id: string;
   firstName?: string | null;
   lastName?: string | null;
-  name?: string; // Backend returns formatted name
+  name?: string;
   email: string;
   whatsappNumber: string | null;
   telefone?: string | null;
@@ -211,23 +211,21 @@ export default function AdminClientes() {
     },
   });
 
-  // Update edit form when user is selected or userDetail is loaded
+  // Update edit form when user is selected
   useEffect(() => {
     if (selectedUser && editDialogOpen) {
-      // Use userDetail if available (has firstName/lastName), otherwise use selectedUser
-      const userData = userDetail?.user || selectedUser;
       editForm.reset({
-        nome: userData.firstName || userData.name?.split(" ")[0] || "",
-        sobrenome: userData.lastName || userData.name?.split(" ").slice(1).join(" ") || "",
-        email: userData.email || "",
-        whatsappNumber: userData.whatsappNumber || userData.telefone || "",
-        plano: userData.plano || "free",
-        planLabel: userData.planLabel || "",
-        billingStatus: (userData.billingStatus || "none") as any,
-        status: userData.billingStatus === "paused" ? "suspended" : "active",
+        nome: selectedUser.firstName || selectedUser.name?.split(" ")[0] || "",
+        sobrenome: selectedUser.lastName || selectedUser.name?.split(" ").slice(1).join(" ") || "",
+        email: selectedUser.email || "",
+        whatsappNumber: selectedUser.whatsappNumber || selectedUser.telefone || "",
+        plano: selectedUser.plano || "free",
+        planLabel: selectedUser.planLabel || "",
+        billingStatus: (selectedUser.billingStatus || "none") as any,
+        status: selectedUser.billingStatus === "paused" ? "suspended" : "active",
       });
     }
-  }, [selectedUser, editDialogOpen, userDetail]);
+  }, [selectedUser, editDialogOpen]);
 
   // Mutations
   const createUserMutation = useMutation({
@@ -442,7 +440,7 @@ export default function AdminClientes() {
       pageTitle="Clientes"
       pageSubtitle="Gerencie todos os clientes do AnotaTudo.AI."
     >
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
         <PageHeader
           title="Clientes"
           subtitle="Gerencie todos os clientes do AnotaTudo.AI."
@@ -671,15 +669,9 @@ export default function AdminClientes() {
                         onClick={() => openEditDialog(user)}
                       >
                         <TableCell className="font-medium">
-                          {(() => {
-                            if (user.firstName && user.lastName) {
-                              return `${user.firstName} ${user.lastName}`;
-                            }
-                            if (user.name) {
-                              return user.name;
-                            }
-                            return user.email?.split("@")[0] || "-";
-                          })()}
+                          {user.firstName && user.lastName
+                            ? `${user.firstName} ${user.lastName}`
+                            : user.name || "-"}
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{user.whatsappNumber || "-"}</TableCell>
@@ -749,47 +741,31 @@ export default function AdminClientes() {
             <DialogHeader>
               <div className="flex items-center gap-4 mb-2">
                 <Avatar className="h-12 w-12 border-2 border-border">
-                  <AvatarImage src={(userDetail?.user || selectedUser)?.profileImageUrl || undefined} />
+                  <AvatarImage src={selectedUser?.profileImageUrl || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
-                    {(() => {
-                      const user = userDetail?.user || selectedUser;
-                      return user?.firstName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
-                    })()}
+                    {selectedUser?.firstName?.[0]?.toUpperCase() || selectedUser?.email?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <DialogTitle className="text-xl font-bold">
-                    {(() => {
-                      const user = userDetail?.user || selectedUser;
-                      if (user?.firstName && user?.lastName) {
-                        return `${user.firstName} ${user.lastName}`;
-                      }
-                      if (user?.name) {
-                        return user.name;
-                      }
-                      return user?.email?.split("@")[0] || "Cliente";
-                    })()}
+                    {selectedUser?.firstName && selectedUser?.lastName
+                      ? `${selectedUser.firstName} ${selectedUser.lastName}`
+                      : selectedUser?.name || "Cliente"}
                   </DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground">
-                    {(userDetail?.user || selectedUser)?.email || "-"}
+                    {selectedUser?.email || "-"}
                   </DialogDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-2">
                 <DataBadge
                   variant="outline"
-                  color={(() => {
-                    const user = userDetail?.user || selectedUser;
-                    return user ? getBillingStatusColor(user.billingStatus) : undefined;
-                  })()}
+                  color={selectedUser ? getBillingStatusColor(selectedUser.billingStatus) : undefined}
                   className="text-xs"
                 >
-                  {(() => {
-                    const user = userDetail?.user || selectedUser;
-                    return user?.billingStatus === "paused" ? "Suspenso" : user?.billingStatus === "active" ? "Ativo" : user?.billingStatus || "N/A";
-                  })()}
+                  {selectedUser?.billingStatus === "paused" ? "Suspenso" : selectedUser?.billingStatus === "active" ? "Ativo" : selectedUser?.billingStatus || "N/A"}
                 </DataBadge>
-                {((userDetail?.user || selectedUser)?.role === "admin") && (
+                {selectedUser?.role === "admin" && (
                   <DataBadge variant="outline" color="hsl(217, 91%, 60%)" className="text-xs">
                     Admin
                   </DataBadge>
@@ -1047,70 +1023,63 @@ export default function AdminClientes() {
 
                 {/* Tab: Acesso */}
                 <TabsContent value="acesso" className="mt-0 space-y-6">
-                    <div className="space-y-4">
-                      <SectionTitle title="Controle de Acesso" />
-                      <AppCard className="p-4">
-                        {(() => {
-                          const user = userDetail?.user || selectedUser;
-                          return (
-                            <>
-                              <div className="flex items-center justify-between mb-4">
-                                <div>
-                                  <p className="font-medium">Status Atual</p>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {user?.billingStatus === "paused"
-                                      ? "Acesso suspenso - Cliente não pode fazer login"
-                                      : "Acesso ativo - Cliente pode usar o sistema normalmente"}
-                                  </p>
-                                </div>
-                                <DataBadge
-                                  variant="outline"
-                                  color={user ? getBillingStatusColor(user.billingStatus) : undefined}
-                                >
-                                  {user?.billingStatus === "paused" ? "Suspenso" : "Ativo"}
-                                </DataBadge>
-                              </div>
+                  <div className="space-y-4">
+                    <SectionTitle title="Controle de Acesso" />
+                    <AppCard className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="font-medium">Status Atual</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {selectedUser?.billingStatus === "paused"
+                              ? "Acesso suspenso - Cliente não pode fazer login"
+                              : "Acesso ativo - Cliente pode usar o sistema normalmente"}
+                          </p>
+                        </div>
+                        <DataBadge
+                          variant="outline"
+                          color={selectedUser ? getBillingStatusColor(selectedUser.billingStatus) : undefined}
+                        >
+                          {selectedUser?.billingStatus === "paused" ? "Suspenso" : "Ativo"}
+                        </DataBadge>
+                      </div>
 
-                              <Separator className="my-4" />
+                      <Separator className="my-4" />
 
-                              <div className="space-y-3">
-                                {user?.billingStatus === "paused" ? (
-                                  <PremiumButton
-                                    onClick={() => setReactivateConfirmOpen(true)}
-                                    className="w-full"
-                                    disabled={reactivateUserMutation.isPending}
-                                  >
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
-                                  </PremiumButton>
-                                ) : (
-                                  <PremiumButton
-                                    variant="secondary"
-                                    onClick={() => setSuspendConfirmOpen(true)}
-                                    className="w-full"
-                                    disabled={suspendUserMutation.isPending}
-                                  >
-                                    <ShieldOff className="h-4 w-4 mr-2" />
-                                    {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
-                                  </PremiumButton>
-                                )}
+                      <div className="space-y-3">
+                        {selectedUser?.billingStatus === "paused" ? (
+                          <PremiumButton
+                            onClick={() => setReactivateConfirmOpen(true)}
+                            className="w-full"
+                            disabled={reactivateUserMutation.isPending}
+                          >
+                            <Shield className="h-4 w-4 mr-2" />
+                            {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
+                          </PremiumButton>
+                        ) : (
+                          <PremiumButton
+                            variant="secondary"
+                            onClick={() => setSuspendConfirmOpen(true)}
+                            className="w-full"
+                            disabled={suspendUserMutation.isPending}
+                          >
+                            <ShieldOff className="h-4 w-4 mr-2" />
+                            {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
+                          </PremiumButton>
+                        )}
 
-                                <PremiumButton
-                                  variant="outline"
-                                  onClick={() => setLogoutConfirmOpen(true)}
-                                  className="w-full"
-                                  disabled={forceLogoutMutation.isPending}
-                                >
-                                  <LogOut className="h-4 w-4 mr-2" />
-                                  {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
-                                </PremiumButton>
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </AppCard>
-                    </div>
-                  </TabsContent>
+                        <PremiumButton
+                          variant="outline"
+                          onClick={() => setLogoutConfirmOpen(true)}
+                          className="w-full"
+                          disabled={forceLogoutMutation.isPending}
+                        >
+                          <LogOut className="h-4 w-4 mr-2" />
+                          {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
+                        </PremiumButton>
+                      </div>
+                    </AppCard>
+                  </div>
+                </TabsContent>
 
                 {/* Tab: Ações */}
                 <TabsContent value="acoes" className="mt-0 space-y-6">
