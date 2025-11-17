@@ -244,7 +244,11 @@ export default function AdminClientes() {
       return await response.json();
     },
     onSuccess: async (data: any) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      // Invalidate both users and subscriptions queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+      ]);
       
       // If temporary password is returned, show it in dialog
       if (data.temporaryPassword) {
@@ -254,7 +258,9 @@ export default function AdminClientes() {
       
       toast({
         title: "Cliente criado!",
-        description: data.temporaryPassword 
+        description: data.subscription 
+          ? "Cliente e assinatura criados com sucesso. A senha temporária está sendo exibida."
+          : data.temporaryPassword 
           ? "Cliente criado com sucesso. A senha temporária está sendo exibida."
           : "O cliente foi criado com sucesso.",
       });
@@ -262,9 +268,11 @@ export default function AdminClientes() {
       createForm.reset();
     },
     onError: (error: any) => {
+      console.error("[Admin] Error creating user:", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Erro ao criar cliente. Verifique os dados e tente novamente.";
       toast({
         title: "Erro ao criar cliente",
-        description: error.message || "Tente novamente",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -277,7 +285,11 @@ export default function AdminClientes() {
       return await response.json();
     },
     onSuccess: async (updatedUser) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      // Invalidate both users and subscriptions queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+      ]);
       setSelectedUser(updatedUser);
       toast({
         title: "Cliente atualizado",
@@ -298,7 +310,10 @@ export default function AdminClientes() {
       await apiRequest("DELETE", `/api/admin/users/${id}`);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+      ]);
       toast({
         title: "Cliente excluído",
         description: "O cliente foi excluído com sucesso.",
@@ -322,7 +337,10 @@ export default function AdminClientes() {
       return await response.json();
     },
     onSuccess: async (updatedUser) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+      ]);
       setSelectedUser(updatedUser);
       setSuspendConfirmOpen(false);
       toast({
@@ -345,7 +363,10 @@ export default function AdminClientes() {
       return await response.json();
     },
     onSuccess: async (updatedUser) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+      ]);
       setSelectedUser(updatedUser);
       setReactivateConfirmOpen(false);
       toast({

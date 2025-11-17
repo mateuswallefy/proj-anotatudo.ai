@@ -240,20 +240,20 @@ export function randomMessage(messages: string[]): string {
 
 // Messages to ask for email (variations)
 export const ASK_EMAIL_MESSAGES = [
-  "Claro! Me diz qual e-mail você usou na compra? 😊",
-  "Perfeito, só preciso do seu e-mail para localizar seu acesso. 📩",
-  "Me manda o e-mail que você usa no AnotaTudo? 🙌",
-  "Ótimo! Qual é o seu e-mail mesmo?",
-  "Para liberar direitinho, me diga o e-mail cadastrado. 😉",
+  "Oi! 😊 Para liberar seu acesso, me manda o e-mail que você usou na compra, por favor.",
+  "Claro! Só preciso do seu e-mail para localizar seu cadastro. 📩",
+  "Me envia seu e-mail que eu libero seu acesso rapidinho! 🙌",
+  "Qual e-mail você usou na compra? Me manda que eu já ativo. 😉",
+  "Perfeito! Me diz qual é o seu e-mail cadastrado?",
 ];
 
 // Messages when email is not found
 export const EMAIL_NOT_FOUND_MESSAGES = [
-  "Hmm… não achei esse e-mail aqui 😕 Pode conferir rapidinho?",
-  "Parece que esse e-mail não está na minha lista… você pode verificar e me mandar novamente?",
-  "Não encontrei esse e-mail. Será que você pode me enviar outro que usa por aí?",
-  "Não consegui achar seu cadastro com esse e-mail. Me manda o correto, por favor. 😊",
-  "Ops! Esse e-mail não está no sistema. Quer tentar outro?",
+  "😕 Não achei esse e-mail aqui. Consegue conferir se digitou certinho?",
+  "Ops! Não encontrei esse e-mail no meu sistema. Pode ver se está igual ao da compra?",
+  "Ainda não localizei esse e-mail. Se quiser, me manda outro que você use com mais frequência. 🙂",
+  "Hmm, esse e-mail não está cadastrado ainda. Pode verificar e me enviar novamente?",
+  "Não consegui encontrar esse e-mail. Tenta me mandar de novo, por favor? 😊",
 ];
 
 // Messages for backend errors
@@ -265,9 +265,10 @@ export const ERROR_MESSAGES = [
 
 // Messages for initial greetings (oi, olá, etc.)
 export const GREETING_RESPONSES = [
-  "Oi! 😊 Tudo bem? Vou te ajudar agora mesmo. Pode me mandar seu e-mail?",
+  "Oi! 😊 Tudo bem? Para liberar seu acesso, me manda o e-mail que você usou na compra, por favor.",
   "Olá! 🙌 Me envia seu e-mail que eu libero seu acesso rapidinho.",
-  "Claro! Vou te ajudar com isso. Qual é o e-mail da compra?",
+  "Oi! Vou te ajudar agora. Qual e-mail você usou na compra?",
+  "Olá! 😊 Para começar, me manda seu e-mail cadastrado, por favor.",
 ];
 
 // Messages for non-text messages while awaiting email

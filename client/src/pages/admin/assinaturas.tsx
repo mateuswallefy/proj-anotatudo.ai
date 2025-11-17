@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CreditCard, AlertTriangle } from "lucide-react";
+import { PremiumButton } from "@/components/design-system/PremiumButton";
 
 type Subscription = {
   id: string;
@@ -58,7 +59,7 @@ export default function AdminAssinaturas() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [providerFilter, setProviderFilter] = useState<string>("all");
 
-  const { data, isLoading, error } = useQuery<Subscription[]>({
+  const { data, isLoading, error, refetch } = useQuery<Subscription[]>({
     queryKey: ["/api/admin/subscriptions", { status: statusFilter === "all" ? undefined : statusFilter, provider: providerFilter === "all" ? undefined : providerFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -66,8 +67,13 @@ export default function AdminAssinaturas() {
       if (providerFilter !== "all") params.append("provider", providerFilter);
       
       const response = await apiRequest("GET", `/api/admin/subscriptions?${params.toString()}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Erro ao carregar assinaturas" }));
+        throw new Error(errorData.message || "Erro ao carregar assinaturas");
+      }
       return await response.json();
     },
+    retry: 1,
   });
 
   return (
@@ -140,9 +146,20 @@ export default function AdminAssinaturas() {
                 {error && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-destructive py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <AlertTriangle className="h-5 w-5" />
-                        <p>Erro ao carregar assinaturas. Tente novamente.</p>
+                      <div className="flex flex-col items-center gap-3">
+                        <AlertTriangle className="h-8 w-8" />
+                        <p className="font-medium">Erro ao carregar assinaturas</p>
+                        <p className="text-sm text-muted-foreground">
+                          {error instanceof Error ? error.message : "Tente novamente"}
+                        </p>
+                        <PremiumButton
+                          variant="outline"
+                          size="sm"
+                          onClick={() => refetch()}
+                          className="mt-2"
+                        >
+                          Tentar novamente
+                        </PremiumButton>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1408,6 +1408,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const userByEmail = await storage.getUserByEmail(extractedEmail);
                   
                   if (userByEmail) {
+                    // Check if user has any subscriptions
+                    const userSubscriptions = await storage.getSubscriptionsByUserId(userByEmail.id);
+                    
+                    // If user exists but has no subscription, create one automatically
+                    if (userSubscriptions.length === 0) {
+                      console.log(`[WhatsApp] User ${userByEmail.id} exists but has no subscription. Creating manual subscription...`);
+                      
+                      const crypto = await import('crypto');
+                      const subscriptionId = crypto.randomUUID();
+                      const now = new Date();
+                      const expiresAt = new Date(now);
+                      expiresAt.setDate(expiresAt.getDate() + 30); // Default to monthly (30 days)
+                      
+                      try {
+                        await storage.createSubscription({
+                          userId: userByEmail.id,
+                          provider: 'manual',
+                          providerSubscriptionId: subscriptionId,
+                          planName: userByEmail.planLabel || 'Premium',
+                          priceCents: 0,
+                          currency: 'BRL',
+                          billingInterval: 'month',
+                          interval: 'monthly',
+                          status: 'active',
+                          currentPeriodEnd: expiresAt,
+                          meta: {
+                            createdBy: 'whatsapp_auto',
+                            createdAt: now.toISOString(),
+                          },
+                        });
+                        
+                        console.log(`[WhatsApp] ✅ Auto-created subscription for user ${userByEmail.id}`);
+                        
+                        // Log system event
+                        await storage.createSystemLog({
+                          level: 'info',
+                          source: 'whatsapp',
+                          message: `Auto-created subscription for user without subscription`,
+                          meta: { userId: userByEmail.id, email: extractedEmail, phoneNumber: fromNumber },
+                        });
+                      } catch (subError: any) {
+                        console.error(`[WhatsApp] ❌ Error auto-creating subscription:`, subError);
+                        // Continue anyway - will show error message below
+                      }
+                    }
+                    
                     // Check subscription status using unified function
                     const subscriptionStatus = await storage.getUserSubscriptionStatus(userByEmail.id);
                     
@@ -1437,11 +1483,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         // Don't mark as sent since we didn't actually send the password
                         // Admin will need to use regenerate-password to send it
                       } else {
-                        // Normal authentication message
-                        await sendWhatsAppReply(
-                          fromNumber,
-                          "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
-                        );
+                        // Normal authentication message - humanized
+                      const authSuccessMessages = [
+                        "Perfeito! ✅ Já encontrei seu cadastro e sua assinatura está ativa.\n\nPode me mandar os registros de hoje. Exemplos:\n• \"Entrada 250 salário\"\n• \"Despesa 80 mercado\"\n• Foto de recibo\n• Áudio descrevendo",
+                        "Ótimo! ✅ Seu acesso está liberado e ativo.\n\nAgora pode enviar suas transações:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Foto ou áudio também funcionam!",
+                        "Tudo certo! ✅ Assinatura ativa confirmada.\n\nPode começar a enviar seus registros financeiros. Me manda texto, foto ou áudio!",
+                      ];
+                      await sendWhatsAppReply(
+                        fromNumber,
+                        randomMessage(authSuccessMessages)
+                      );
                       }
                       
                       // Log WhatsApp authentication event (system log, not admin event)
@@ -1460,9 +1511,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         subscriptionStatus === 'canceled' ? 'cancelada' :
                         'inativa';
                       
+                      // Humanized messages for inactive subscription
+                      const inactiveSubscriptionMessages = [
+                        `😕 Sua assinatura está ${statusMessage} no momento.\n\nPara reativar, entre em contato com o suporte, por favor.`,
+                        `Ops! Sua assinatura está ${statusMessage}.\n\nPrecisa reativar? Fale com o suporte que eles resolvem rapidinho. 😊`,
+                        `Sua assinatura está ${statusMessage}.\n\nEntre em contato com o suporte para reativar seu acesso.`,
+                      ];
+                      
                       await sendWhatsAppReply(
                         fromNumber,
-                        `❌ *Assinatura não ativa.*\n\nSua assinatura está ${statusMessage}. Entre em contato com o suporte para reativar.`
+                        randomMessage(inactiveSubscriptionMessages)
                       );
                     }
                   } else {
@@ -1477,12 +1535,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       console.log(`[WhatsApp] ✅ User authenticated via purchase: ${extractedEmail}`);
                       
+                      // Humanized authentication success message
+                      const authSuccessMessages = [
+                        "Perfeito! ✅ Já encontrei seu cadastro e sua assinatura está ativa.\n\nPode me mandar os registros de hoje. Exemplos:\n• \"Entrada 250 salário\"\n• \"Despesa 80 mercado\"\n• Foto de recibo\n• Áudio descrevendo",
+                        "Ótimo! ✅ Seu acesso está liberado e ativo.\n\nAgora pode enviar suas transações:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Foto ou áudio também funcionam!",
+                        "Tudo certo! ✅ Assinatura ativa confirmada.\n\nPode começar a enviar seus registros financeiros. Me manda texto, foto ou áudio!",
+                      ];
                       await sendWhatsAppReply(
                         fromNumber,
-                        "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
+                        randomMessage(authSuccessMessages)
                       );
                     } else {
                       console.log(`[WhatsApp] ❌ No user or purchase found for ${extractedEmail}`);
+                      
+                      // Log email not found event
+                      await storage.createSystemLog({
+                        level: 'info',
+                        source: 'whatsapp',
+                        message: `Email not found during authentication`,
+                        meta: { email: extractedEmail, phoneNumber: fromNumber, type: 'EMAIL_NOT_FOUND' },
+                      });
                       
                       await sendWhatsAppReply(
                         fromNumber,
@@ -1525,9 +1597,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   subscriptionStatus === 'canceled' ? 'cancelada' :
                   'inativa';
                 
+                // Humanized messages for blocked access
+                const blockedAccessMessages = [
+                  `😕 Sua assinatura está ${statusMessage} no momento.\n\nPara reativar, entre em contato com o suporte, por favor.`,
+                  `Ops! Sua assinatura está ${statusMessage}.\n\nPrecisa reativar? Fale com o suporte que eles resolvem rapidinho. 😊`,
+                  `Sua assinatura está ${statusMessage}.\n\nEntre em contato com o suporte para reativar seu acesso.`,
+                ];
+                
                 await sendWhatsAppReply(
                   fromNumber,
-                  `❌ *Acesso bloqueado.*\n\nSua assinatura está ${statusMessage}. Entre em contato com o suporte para reativar.`
+                  randomMessage(blockedAccessMessages)
                 );
                 return;
               }
@@ -1839,23 +1918,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt.setDate(expiresAt.getDate() + 30); // 30 days from now (monthly)
       }
 
-      const subscription = await storage.createSubscription({
-        userId: user.id,
-        provider: 'manual',
-        providerSubscriptionId: subscriptionId,
-        planName: planLabel || 'Premium',
-        priceCents: 0, // Manual subscriptions are free by default
-        currency: 'BRL',
-        billingInterval: interval === 'yearly' ? 'year' : 'month',
-        interval: interval as 'monthly' | 'yearly',
-        status: 'active',
-        currentPeriodEnd: expiresAt,
-        meta: {
-          createdBy: 'admin',
-          adminId: adminId,
-          createdAt: now.toISOString(),
-        },
-      });
+      // Create active subscription for manually created user
+      let subscription;
+      try {
+        subscription = await storage.createSubscription({
+          userId: user.id,
+          provider: 'manual',
+          providerSubscriptionId: subscriptionId,
+          planName: planLabel || 'Premium',
+          priceCents: 0, // Manual subscriptions are free by default
+          currency: 'BRL',
+          billingInterval: interval === 'yearly' ? 'year' : 'month',
+          interval: interval as 'monthly' | 'yearly',
+          status: 'active',
+          currentPeriodEnd: expiresAt,
+          meta: {
+            createdBy: 'admin',
+            adminId: adminId,
+            createdAt: now.toISOString(),
+          },
+        });
+        console.log(`[Admin] ✅ Subscription created for user ${user.id}: ${subscription.id}`);
+      } catch (subscriptionError: any) {
+        console.error("[Admin] ❌ Error creating subscription:", subscriptionError);
+        console.error("[Admin] Subscription error details:", {
+          message: subscriptionError.message,
+          stack: subscriptionError.stack,
+          userId: user.id,
+          interval,
+          expiresAt: expiresAt.toISOString(),
+        });
+        // Don't fail the entire request, but log the error
+        // The subscription might be created later via PATCH
+        throw new Error(`Failed to create subscription: ${subscriptionError.message}`);
+      }
 
       // Update user billing status
       await storage.updateUser(user.id, {
@@ -1910,9 +2006,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         temporaryPassword: tempPassword, // Return password in plain text for admin
         whatsappSent: whatsappSent,
       });
-    } catch (error) {
-      console.error("Error creating admin user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+    } catch (error: any) {
+      console.error("[Admin] ❌ Error creating admin user:", error);
+      console.error("[Admin] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        body: req.body,
+      });
+      res.status(500).json({ 
+        message: error.message || "Failed to create user",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
     }
   });
 
@@ -2060,6 +2164,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (role !== undefined) {
         updates.role = role;
         metadata.role = role;
+      }
+
+      // Handle interval update (if provided)
+      const interval = req.body.interval;
+      if (interval) {
+        metadata.interval = interval;
+        
+        // Update or create subscription with new interval
+        const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+        const activeSubscription = userSubscriptions.find(s => s.status === 'active' || s.status === 'trial');
+        
+        if (activeSubscription) {
+          // Update existing subscription
+          const now = new Date();
+          const expiresAt = new Date(now);
+          if (interval === 'yearly') {
+            expiresAt.setDate(expiresAt.getDate() + 365);
+          } else {
+            expiresAt.setDate(expiresAt.getDate() + 30);
+          }
+          
+          await storage.updateSubscription(activeSubscription.id, {
+            interval: interval as 'monthly' | 'yearly',
+            billingInterval: interval === 'yearly' ? 'year' : 'month',
+            currentPeriodEnd: expiresAt,
+          });
+        } else if (userSubscriptions.length === 0) {
+          // Create new subscription if none exists
+          const crypto = await import('crypto');
+          const subscriptionId = crypto.randomUUID();
+          const now = new Date();
+          const expiresAt = new Date(now);
+          if (interval === 'yearly') {
+            expiresAt.setDate(expiresAt.getDate() + 365);
+          } else {
+            expiresAt.setDate(expiresAt.getDate() + 30);
+          }
+          
+          await storage.createSubscription({
+            userId: id,
+            provider: 'manual',
+            providerSubscriptionId: subscriptionId,
+            planName: currentUser.planLabel || 'Premium',
+            priceCents: 0,
+            currency: 'BRL',
+            billingInterval: interval === 'yearly' ? 'year' : 'month',
+            interval: interval as 'monthly' | 'yearly',
+            status: billingStatus === 'active' ? 'active' : 'paused',
+            currentPeriodEnd: expiresAt,
+            meta: {
+              createdBy: 'admin',
+              adminId: adminId,
+              createdAt: now.toISOString(),
+            },
+          });
+        }
       }
 
       // Update user
