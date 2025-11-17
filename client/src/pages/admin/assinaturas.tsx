@@ -30,6 +30,7 @@ type Subscription = {
   priceCents: number;
   currency: string;
   billingInterval: "month" | "year";
+  interval?: "monthly" | "yearly";
   status: "trial" | "active" | "paused" | "canceled" | "overdue";
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
@@ -171,7 +172,7 @@ export default function AdminAssinaturas() {
                         {formatCurrency(sub.priceCents / 100)}
                       </TableCell>
                       <TableCell>
-                        {sub.billingInterval === "month" ? "Mensal" : "Anual"}
+                        {sub.interval === "yearly" ? "Anual" : sub.interval === "monthly" ? "Mensal" : (sub.billingInterval === "month" ? "Mensal" : "Anual")}
                       </TableCell>
                       <TableCell>
                         <DataBadge variant="outline" color={getStatusColor(sub.status)}>

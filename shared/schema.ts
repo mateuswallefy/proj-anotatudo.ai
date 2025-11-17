@@ -500,6 +500,7 @@ export const subscriptions = pgTable("subscriptions", {
   priceCents: integer("price_cents").notNull(),
   currency: varchar("currency").default('BRL').notNull(),
   billingInterval: varchar("billing_interval", { enum: ['month', 'year'] }).notNull(),
+  interval: varchar("interval", { enum: ['monthly', 'yearly'] }).default('monthly').notNull(),
   status: varchar("status", { enum: ['trial', 'active', 'paused', 'canceled', 'overdue'] }).notNull(),
   trialEndsAt: timestamp("trial_ends_at"),
   currentPeriodEnd: timestamp("current_period_end"),

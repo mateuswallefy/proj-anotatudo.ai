@@ -86,6 +86,7 @@ const createUserSchema = z.object({
   whatsappNumber: z.string().optional(),
   planLabel: z.string().optional(),
   billingStatus: z.enum(["trial", "active", "paused", "canceled", "overdue", "none"]).optional(),
+  interval: z.enum(["monthly", "yearly"]).optional().default("monthly"),
 });
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
@@ -238,6 +239,7 @@ export default function AdminClientes() {
         whatsappNumber: data.whatsappNumber || null,
         planLabel: data.planLabel || null,
         billingStatus: data.billingStatus || "none",
+        interval: data.interval || "monthly",
       });
       return await response.json();
     },
@@ -586,6 +588,27 @@ export default function AdminClientes() {
                                 <SelectItem value="paused">Pausado</SelectItem>
                                 <SelectItem value="canceled">Cancelado</SelectItem>
                                 <SelectItem value="overdue">Atrasado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={createForm.control}
+                        name="interval"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Intervalo</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value || "monthly"}>
+                              <FormControl>
+                                <SelectTrigger className="h-11 md:h-12 rounded-xl">
+                                  <SelectValue placeholder="Selecione o intervalo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="monthly">Mensal</SelectItem>
+                                <SelectItem value="yearly">Anual</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />

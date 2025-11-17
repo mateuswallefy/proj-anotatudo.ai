@@ -1828,7 +1828,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subscriptionId = crypto.randomUUID();
       const now = new Date();
       const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days from now
+      
+      // Get interval from request body (default to 'monthly')
+      const interval = req.body.interval || 'monthly';
+      
+      // Calculate expiration based on interval
+      if (interval === 'yearly') {
+        expiresAt.setDate(expiresAt.getDate() + 365); // 365 days from now
+      } else {
+        expiresAt.setDate(expiresAt.getDate() + 30); // 30 days from now (monthly)
+      }
 
       const subscription = await storage.createSubscription({
         userId: user.id,
@@ -1837,7 +1846,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         planName: planLabel || 'Premium',
         priceCents: 0, // Manual subscriptions are free by default
         currency: 'BRL',
-        billingInterval: 'month',
+        billingInterval: interval === 'yearly' ? 'year' : 'month',
+        interval: interval as 'monthly' | 'yearly',
         status: 'active',
         currentPeriodEnd: expiresAt,
         meta: {
