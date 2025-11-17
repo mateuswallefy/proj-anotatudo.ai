@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
+import { seedAdmin } from "./seedAdmin.js";
 
 const app = express();
 
@@ -52,6 +53,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Seed admin user in production (before routes are registered)
+  await seedAdmin();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
