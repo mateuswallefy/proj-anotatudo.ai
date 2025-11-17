@@ -1373,6 +1373,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       console.log(`[WhatsApp] ✅ User authenticated: ${extractedEmail}`);
                       
+                      // Check if user is manual and needs password sent
+                      const userMetadata = (userByEmail.metadata as any) || {};
+                      const sentInitialPassword = userMetadata.sentInitialPassword || false;
+                      const hasPassword = !!userByEmail.passwordHash;
+                      
+                      // If user has password but hasn't received it via WhatsApp, inform them
+                      // Note: We can't send the actual password here because we only have the hash
+                      // The admin must use regenerate-password endpoint to generate and send a new password
+                      if (hasPassword && !sentInitialPassword) {
+                        // Inform user that they need to contact support or admin will send password
+                        await sendWhatsAppReply(
+                          fromNumber,
+                          `🎉 *Seu acesso ao AnotaTudo.AI foi liberado!*\n\nSeus dados de login serão enviados em breve.\n\n🔐 Acesse seu painel:\nhttps://anotatudo.com/login\n\nSe você não receber a senha, entre em contato com o suporte.`
+                        );
+                        
+                        // Don't mark as sent since we didn't actually send the password
+                        // Admin will need to use regenerate-password to send it
+                      } else {
+                        // Normal authentication message
+                        await sendWhatsAppReply(
+                          fromNumber,
+                          "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
+                        );
+                      }
+                      
                       // Log WhatsApp authentication event (system log, not admin event)
                       await storage.createSystemLog({
                         level: 'info',
@@ -1380,11 +1405,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         message: `User authenticated via WhatsApp`,
                         meta: { userId: userByEmail.id, email: extractedEmail, phoneNumber: fromNumber },
                       });
-                      
-                      await sendWhatsAppReply(
-                        fromNumber,
-                        "✅ *Acesso liberado!*\n\nAgora você já pode enviar suas transações financeiras.\n\n💡 Exemplos:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Envie foto de um recibo\n• Envie áudio descrevendo a transação"
-                      );
                     } else {
                       console.log(`[WhatsApp] ❌ User subscription status: ${subscriptionStatus}`);
                       
@@ -1733,7 +1753,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [firstName, ...lastNameParts] = name.split(' ');
       const lastName = lastNameParts.join(' ') || null;
 
-      // Create user without password (manual creation)
+      // Generate temporary secure password (10 characters)
+      const crypto = await import('crypto');
+      const tempPassword = crypto.randomBytes(8).toString('base64url').slice(0, 10);
+      
+      // Hash the password
+      const passwordHash = await hashPassword(tempPassword);
+
+      // Create user with password (manual creation)
       const user = await storage.createUser({
         email,
         firstName,
@@ -1743,10 +1770,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingStatus: billingStatus || 'active',
         role: role || 'user',
         status: 'authenticated',
+        passwordHash,
+        metadata: {
+          sentInitialPassword: false,
+          createdBy: 'admin',
+          createdAt: new Date().toISOString(),
+        } as any,
       });
 
       // Create active subscription for manually created user
-      const crypto = await import('crypto');
       const subscriptionId = crypto.randomUUID();
       const now = new Date();
       const expiresAt = new Date(now);
@@ -1775,22 +1807,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         planLabel: planLabel || 'Premium',
       });
 
+      // Send password via WhatsApp if user has WhatsApp number
+      let whatsappSent = false;
+      if (whatsappNumber) {
+        try {
+          const welcomeMessage = `🎉 *Seu acesso ao AnotaTudo.AI foi liberado!*\n\nAqui estão seus dados de login:\n\n• Email: ${email}\n• Senha temporária: ${tempPassword}\n\n🔐 Acesse seu painel:\nhttps://anotatudo.com/login\n\nRecomendamos trocar a senha ao entrar.`;
+          
+          await sendWhatsAppReply(whatsappNumber, welcomeMessage);
+          whatsappSent = true;
+          
+          // Mark as sent - preserve existing metadata
+          const currentMetadata = (user.metadata as any) || {};
+          await storage.updateUser(user.id, {
+            metadata: {
+              ...currentMetadata,
+              sentInitialPassword: true,
+              lastPasswordSentAt: new Date().toISOString(),
+              createdBy: currentMetadata.createdBy || 'admin',
+              createdAt: currentMetadata.createdAt || new Date().toISOString(),
+            },
+          });
+        } catch (whatsappError) {
+          console.error("[Admin] Error sending password via WhatsApp:", whatsappError);
+          // Continue even if WhatsApp fails
+        }
+      }
+
       // Log admin action
       await storage.createAdminEventLog({
         adminId: adminId,
         userId: user.id,
-        type: 'create_user',
+        type: 'create_user_with_password',
         metadata: {
           email,
           whatsappNumber: whatsappNumber || null,
           planLabel: planLabel || 'Premium',
           subscriptionId: subscription.id,
+          passwordGenerated: true,
+          whatsappSent: whatsappSent,
         },
       });
 
       res.status(201).json({
         ...user,
         subscription: subscription,
+        temporaryPassword: tempPassword, // Return password in plain text for admin
+        whatsappSent: whatsappSent,
       });
     } catch (error) {
       console.error("Error creating admin user:", error);
@@ -2189,6 +2251,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error resetting password:", error);
       res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/regenerate-password", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const adminId = req.session.userId;
+      const { id } = req.params;
+      
+      // Check if user exists
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Generate a new random temporary password (10 characters)
+      const crypto = await import('crypto');
+      const tempPassword = crypto.randomBytes(8).toString('base64url').slice(0, 10);
+      
+      // Hash the new password
+      const passwordHash = await hashPassword(tempPassword);
+      
+      // Get current metadata
+      const currentMetadata = (user.metadata as any) || {};
+      
+      // Update user password and reset sent flag
+      await storage.updateUser(id, { 
+        passwordHash,
+        metadata: {
+          ...currentMetadata,
+          sentInitialPassword: false, // Reset flag to allow WhatsApp to send again
+        },
+      });
+
+      // Send password via WhatsApp if user has WhatsApp number
+      let whatsappSent = false;
+      if (user.whatsappNumber) {
+        try {
+          const welcomeMessage = `🎉 *Seu acesso ao AnotaTudo.AI foi liberado!*\n\nAqui estão seus dados de login:\n\n• Email: ${user.email}\n• Senha temporária: ${tempPassword}\n\n🔐 Acesse seu painel:\nhttps://anotatudo.com/login\n\nRecomendamos trocar a senha ao entrar.`;
+          
+          await sendWhatsAppReply(user.whatsappNumber, welcomeMessage);
+          whatsappSent = true;
+          
+          // Mark as sent - get fresh user data to ensure we have latest metadata
+          const updatedUser = await storage.getUser(id);
+          const freshMetadata = (updatedUser?.metadata as any) || currentMetadata;
+          await storage.updateUser(id, {
+            metadata: {
+              ...freshMetadata,
+              sentInitialPassword: true,
+              lastPasswordSentAt: new Date().toISOString(),
+            },
+          });
+        } catch (whatsappError) {
+          console.error("[Admin] Error sending password via WhatsApp:", whatsappError);
+          // Continue even if WhatsApp fails
+        }
+      }
+
+      // Log admin action
+      await storage.createAdminEventLog({
+        adminId: adminId,
+        userId: id,
+        type: 'regenerate_password',
+        metadata: {
+          email: user.email,
+          whatsappSent: whatsappSent,
+        },
+      });
+
+      res.json({ 
+        message: "Password regenerated successfully",
+        temporaryPassword: tempPassword,
+        whatsappSent: whatsappSent,
+      });
+    } catch (error) {
+      console.error("Error regenerating password:", error);
+      res.status(500).json({ message: "Failed to regenerate password" });
     }
   });
 

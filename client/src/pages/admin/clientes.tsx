@@ -231,20 +231,30 @@ export default function AdminClientes() {
 
   // Mutations
   const createUserMutation = useMutation({
-    mutationFn: (data: CreateUserForm) => {
-      return apiRequest("POST", "/api/admin/users", {
+    mutationFn: async (data: CreateUserForm) => {
+      const response = await apiRequest("POST", "/api/admin/users", {
         name: data.name,
         email: data.email,
         whatsappNumber: data.whatsappNumber || null,
         planLabel: data.planLabel || null,
         billingStatus: data.billingStatus || "none",
       });
+      return await response.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data: any) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      
+      // If temporary password is returned, show it in dialog
+      if (data.temporaryPassword) {
+        setTempPassword(data.temporaryPassword);
+        setResetPasswordDialogOpen(true);
+      }
+      
       toast({
         title: "Cliente criado!",
-        description: "O cliente foi criado com sucesso.",
+        description: data.temporaryPassword 
+          ? "Cliente criado com sucesso. A senha temporária está sendo exibida."
+          : "O cliente foi criado com sucesso.",
       });
       setCreateDialogOpen(false);
       createForm.reset();
@@ -393,6 +403,32 @@ export default function AdminClientes() {
     },
   });
 
+  const regeneratePasswordMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/admin/users/${id}/regenerate-password`);
+      return await response.json();
+    },
+    onSuccess: (data: any) => {
+      setTempPassword(data.temporaryPassword);
+      setResetPasswordDialogOpen(true);
+      toast({
+        title: "Senha regenerada",
+        description: data.whatsappSent 
+          ? "Nova senha gerada e enviada via WhatsApp automaticamente!" 
+          : "Nova senha gerada. Envie manualmente via WhatsApp.",
+      });
+      // Refresh user data
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao regenerar senha",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateSubmit = (data: CreateUserForm) => {
     createUserMutation.mutate(data);
   };
@@ -433,6 +469,12 @@ export default function AdminClientes() {
   const handleResetPassword = () => {
     if (selectedUser?.id) {
       resetPasswordMutation.mutate(selectedUser.id);
+    }
+  };
+
+  const handleRegeneratePassword = () => {
+    if (selectedUser?.id) {
+      regeneratePasswordMutation.mutate(selectedUser.id);
     }
   };
 
@@ -1138,6 +1180,16 @@ export default function AdminClientes() {
                       >
                         <Key className="h-4 w-4 mr-2" />
                         {resetPasswordMutation.isPending ? "Resetando..." : "Resetar Senha"}
+                      </PremiumButton>
+
+                      <PremiumButton
+                        onClick={handleRegeneratePassword}
+                        className="w-full"
+                        disabled={regeneratePasswordMutation.isPending}
+                        variant="outline"
+                      >
+                        <Key className="h-4 w-4 mr-2" />
+                        {regeneratePasswordMutation.isPending ? "Gerando..." : "🔑 Gerar Nova Senha"}
                       </PremiumButton>
                     </div>
                   </div>

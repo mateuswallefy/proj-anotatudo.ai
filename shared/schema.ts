@@ -40,6 +40,7 @@ export const users = pgTable("users", {
   whatsappNumber: varchar("whatsapp_number"),
   planLabel: varchar("plan_label"),
   billingStatus: varchar("billing_status", { enum: ['trial', 'active', 'paused', 'canceled', 'overdue', 'none'] }).default('none').notNull(),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
