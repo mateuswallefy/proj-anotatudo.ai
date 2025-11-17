@@ -1454,8 +1454,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
                     }
                     
+                    // Wait a bit to ensure subscription is committed to DB
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
                     // Check subscription status using unified function
                     const subscriptionStatus = await storage.getUserSubscriptionStatus(userByEmail.id);
+                    
+                    console.log(`[WhatsApp] User ${userByEmail.id} subscription status after check: ${subscriptionStatus}`);
                     
                     if (subscriptionStatus === 'active') {
                       // Authenticate user
@@ -1940,17 +1945,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         console.log(`[Admin] ✅ Subscription created for user ${user.id}: ${subscription.id}`);
       } catch (subscriptionError: any) {
-        console.error("[Admin] ❌ Error creating subscription:", subscriptionError);
+        console.error("[Admin] ❌ CRITICAL: Error creating subscription:", subscriptionError);
         console.error("[Admin] Subscription error details:", {
           message: subscriptionError.message,
           stack: subscriptionError.stack,
           userId: user.id,
           interval,
           expiresAt: expiresAt.toISOString(),
+          errorCode: subscriptionError.code,
+          errorName: subscriptionError.name,
         });
-        // Don't fail the entire request, but log the error
-        // The subscription might be created later via PATCH
-        throw new Error(`Failed to create subscription: ${subscriptionError.message}`);
+        // Rollback user creation if subscription fails
+        try {
+          await db.delete(users).where(eq(users.id, user.id));
+          console.log(`[Admin] Rolled back user creation due to subscription error`);
+        } catch (rollbackError) {
+          console.error("[Admin] ❌ Failed to rollback user creation:", rollbackError);
+        }
+        throw new Error(`Falha ao criar assinatura: ${subscriptionError.message || 'Erro desconhecido'}`);
       }
 
       // Update user billing status
@@ -2001,20 +2013,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.status(201).json({
-        ...user,
-        subscription: subscription,
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          whatsappNumber: user.whatsappNumber,
+          billingStatus: user.billingStatus,
+          planLabel: user.planLabel,
+        },
+        subscription: {
+          id: subscription.id,
+          userId: subscription.userId,
+          provider: subscription.provider,
+          status: subscription.status,
+          interval: subscription.interval,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+        },
         temporaryPassword: tempPassword, // Return password in plain text for admin
         whatsappSent: whatsappSent,
       });
     } catch (error: any) {
-      console.error("[Admin] ❌ Error creating admin user:", error);
+      console.error("[Admin] ❌ CRITICAL ERROR creating admin user:", error);
       console.error("[Admin] Error details:", {
         message: error.message,
         stack: error.stack,
         body: req.body,
+        errorCode: error.code,
+        errorName: error.name,
       });
-      res.status(500).json({ 
-        message: error.message || "Failed to create user",
+      const statusCode = error.message?.includes('já está em uso') ? 409 : 
+                        error.message?.includes('inválido') ? 400 : 500;
+      res.status(statusCode).json({ 
+        success: false,
+        message: error.message || "Falha ao criar cliente. Tente novamente.",
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
@@ -2226,21 +2259,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(id, updates);
 
       if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ success: false, message: "Usuário não encontrado" });
       }
 
       // Log admin action
-      await storage.createAdminEventLog({
-        adminId: adminId,
-        userId: id,
-        type: 'update_user',
-        metadata: metadata,
-      });
+      try {
+        await storage.createAdminEventLog({
+          adminId: adminId,
+          userId: id,
+          type: 'update_user',
+          metadata: metadata,
+        });
+      } catch (logError) {
+        console.error("[Admin] Warning: Failed to log admin event:", logError);
+        // Don't fail the request if logging fails
+      }
 
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error updating admin user:", error);
-      res.status(500).json({ message: "Failed to update user" });
+      res.json({
+        success: true,
+        ...updatedUser,
+      });
+    } catch (error: any) {
+      console.error("[Admin] ❌ CRITICAL ERROR updating admin user:", error);
+      console.error("[Admin] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        userId: req.params.id,
+        body: req.body,
+      });
+      const statusCode = error.message?.includes('já está em uso') ? 409 : 
+                        error.message?.includes('inválido') ? 400 : 500;
+      res.status(statusCode).json({ 
+        success: false,
+        message: error.message || "Falha ao atualizar cliente. Tente novamente.",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
     }
   });
 
@@ -2273,16 +2326,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
-      res.json({ message: "User deleted successfully" });
+      res.json({ 
+        success: true,
+        message: "Cliente excluído com sucesso",
+        deletedUserId: id,
+      });
     } catch (error: any) {
-      console.error("[Admin] ❌ Error deleting admin user:", error);
+      console.error("[Admin] ❌ CRITICAL ERROR deleting admin user:", error);
       console.error("[Admin] Error details:", {
         message: error.message,
         stack: error.stack,
         userId: req.params.id,
+        errorCode: error.code,
+        errorName: error.name,
       });
+      
+      // Check if it's a foreign key constraint error
+      const isConstraintError = error.message?.includes('foreign key') || 
+                               error.message?.includes('constraint') ||
+                               error.code === '23503';
+      
       res.status(500).json({ 
-        message: error.message || "Failed to delete user",
+        success: false,
+        message: isConstraintError 
+          ? "Não é possível excluir este cliente pois há dados relacionados. Remova as dependências primeiro."
+          : error.message || "Falha ao excluir cliente. Tente novamente.",
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
@@ -2562,10 +2630,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const subscriptions = await storage.listSubscriptions({ status, provider });
 
+      console.log(`[Admin] ✅ Fetched ${subscriptions.length} subscriptions (status: ${status || 'all'}, provider: ${provider || 'all'})`);
+
       res.json(subscriptions);
-    } catch (error) {
-      console.error("Error fetching admin subscriptions:", error);
-      res.status(500).json({ message: "Failed to fetch subscriptions" });
+    } catch (error: any) {
+      console.error("[Admin] ❌ CRITICAL ERROR fetching admin subscriptions:", error);
+      console.error("[Admin] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        query: req.query,
+      });
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao buscar assinaturas",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
     }
   });
 

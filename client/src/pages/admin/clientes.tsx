@@ -233,28 +233,53 @@ export default function AdminClientes() {
   // Mutations
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUserForm) => {
-      const response = await apiRequest("POST", "/api/admin/users", {
-        name: data.name,
-        email: data.email,
-        whatsappNumber: data.whatsappNumber || null,
-        planLabel: data.planLabel || null,
-        billingStatus: data.billingStatus || "none",
-        interval: data.interval || "monthly",
-      });
-      
-      // Verify response is ok (apiRequest already throws on error, but ensure we have data)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Erro ao criar cliente" }));
-        throw new Error(errorData.message || "Erro ao criar cliente");
+      try {
+        const response = await apiRequest("POST", "/api/admin/users", {
+          name: data.name,
+          email: data.email,
+          whatsappNumber: data.whatsappNumber || null,
+          planLabel: data.planLabel || null,
+          billingStatus: data.billingStatus || "active",
+          interval: data.interval || "monthly",
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success && result.message) {
+          throw new Error(result.message);
+        }
+        
+        return result;
+      } catch (error: any) {
+        // Try to extract error message from response
+        let errorMessage = error?.message || "Erro ao criar cliente";
+        
+        // If error message contains status code, try to parse JSON
+        if (errorMessage.includes(':')) {
+          try {
+            const parts = errorMessage.split(':');
+            if (parts.length > 1) {
+              const jsonPart = parts.slice(1).join(':').trim();
+              const parsed = JSON.parse(jsonPart);
+              if (parsed.message) {
+                errorMessage = parsed.message;
+              }
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
-      
-      return await response.json();
     },
     onSuccess: async (data: any) => {
-      // Invalidate both users and subscriptions queries
+      // Force refetch of all related queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
       ]);
       
       // If temporary password is returned, show it in dialog
@@ -264,7 +289,7 @@ export default function AdminClientes() {
       }
       
       toast({
-        title: "Cliente criado!",
+        title: "✅ Cliente criado!",
         description: data.subscription 
           ? "Cliente e assinatura criados com sucesso. A senha temporária está sendo exibida."
           : data.temporaryPassword 
@@ -275,10 +300,10 @@ export default function AdminClientes() {
       createForm.reset();
     },
     onError: (error: any) => {
-      console.error("[Admin] Error creating user:", error);
-      const errorMessage = error?.message || error?.response?.data?.message || "Erro ao criar cliente. Verifique os dados e tente novamente.";
+      console.error("[Admin] ❌ Error creating user:", error);
+      const errorMessage = error?.message || "Erro ao criar cliente. Verifique os dados e tente novamente.";
       toast({
-        title: "Erro ao criar cliente",
+        title: "❌ Erro ao criar cliente",
         description: errorMessage,
         variant: "destructive",
       });
@@ -287,34 +312,64 @@ export default function AdminClientes() {
 
   const updateUserMutation = useMutation({
     mutationFn: async (data: EditUserForm) => {
-      if (!selectedUser?.id) throw new Error("User not selected");
-      const response = await apiRequest("PATCH", `/api/admin/users/${selectedUser.id}`, data);
+      if (!selectedUser?.id) throw new Error("Usuário não selecionado");
       
-      // Verify response is ok (apiRequest already throws on error, but ensure we have data)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Erro ao atualizar cliente" }));
-        throw new Error(errorData.message || "Erro ao atualizar cliente");
+      try {
+        const response = await apiRequest("PATCH", `/api/admin/users/${selectedUser.id}`, data);
+        const result = await response.json();
+        
+        if (!result.success && result.message) {
+          throw new Error(result.message);
+        }
+        
+        return result;
+      } catch (error: any) {
+        let errorMessage = error?.message || "Erro ao atualizar cliente";
+        
+        // Try to parse error message
+        if (errorMessage.includes(':')) {
+          try {
+            const parts = errorMessage.split(':');
+            if (parts.length > 1) {
+              const jsonPart = parts.slice(1).join(':').trim();
+              const parsed = JSON.parse(jsonPart);
+              if (parsed.message) {
+                errorMessage = parsed.message;
+              }
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
-      
-      return await response.json();
     },
-    onSuccess: async (updatedUser) => {
-      // Invalidate both users and subscriptions queries
+    onSuccess: async (updatedUser: any) => {
+      // Force refetch of all related queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] }),
+        queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
       ]);
-      setSelectedUser(updatedUser);
+      
+      // Update selected user with new data
+      if (updatedUser.id) {
+        setSelectedUser(updatedUser);
+      }
+      
       toast({
-        title: "Cliente atualizado",
+        title: "✅ Cliente atualizado",
         description: "As alterações foram salvas com sucesso.",
       });
     },
     onError: (error: any) => {
-      console.error("[Admin] Error updating user:", error);
-      const errorMessage = error?.message || error?.response?.data?.message || "Erro ao atualizar cliente. Tente novamente.";
+      console.error("[Admin] ❌ Error updating user:", error);
+      const errorMessage = error?.message || "Erro ao atualizar cliente. Tente novamente.";
       toast({
-        title: "Erro ao atualizar cliente",
+        title: "❌ Erro ao atualizar cliente",
         description: errorMessage,
         variant: "destructive",
       });
@@ -323,21 +378,48 @@ export default function AdminClientes() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/admin/users/${id}`);
-      // Verify response is ok (apiRequest already throws on error, but double-check)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Erro ao excluir cliente" }));
-        throw new Error(errorData.message || "Erro ao excluir cliente");
+      try {
+        const response = await apiRequest("DELETE", `/api/admin/users/${id}`);
+        const result = await response.json();
+        
+        if (!result.success && result.message) {
+          throw new Error(result.message);
+        }
+        
+        return result;
+      } catch (error: any) {
+        let errorMessage = error?.message || "Erro ao excluir cliente";
+        
+        // Try to parse error message
+        if (errorMessage.includes(':')) {
+          try {
+            const parts = errorMessage.split(':');
+            if (parts.length > 1) {
+              const jsonPart = parts.slice(1).join(':').trim();
+              const parsed = JSON.parse(jsonPart);
+              if (parsed.message) {
+                errorMessage = parsed.message;
+              }
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
-      return await response.json().catch(() => ({}));
     },
     onSuccess: async () => {
+      // Force refetch of all related queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
       ]);
+      
       toast({
-        title: "Cliente excluído",
+        title: "✅ Cliente excluído",
         description: "O cliente foi excluído com sucesso.",
       });
       setDeleteConfirmOpen(false);
@@ -345,13 +427,14 @@ export default function AdminClientes() {
       setSelectedUser(null);
     },
     onError: (error: any) => {
-      console.error("[Admin] Error deleting user:", error);
-      const errorMessage = error?.message || error?.response?.data?.message || "Erro ao excluir cliente. Tente novamente.";
+      console.error("[Admin] ❌ Error deleting user:", error);
+      const errorMessage = error?.message || "Erro ao excluir cliente. Tente novamente.";
       toast({
-        title: "Erro ao excluir cliente",
+        title: "❌ Erro ao excluir cliente",
         description: errorMessage,
         variant: "destructive",
       });
+      // Don't close dialogs on error
     },
   });
 
