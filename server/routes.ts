@@ -166,11 +166,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plano: user.plano,
       });
     } catch (error: any) {
-      console.error("Error logging in:", error);
+      console.error("LOGIN ERROR:", error);
+      console.error("LOGIN ERROR - Message:", error.message);
+      console.error("LOGIN ERROR - Stack:", error.stack);
+      console.error("LOGIN ERROR - Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
       if (error.name === 'ZodError') {
         res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Erro ao fazer login" });
+        res.status(500).json({ message: error.message || "Erro ao fazer login" });
       }
     }
   });
