@@ -64,6 +64,36 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginCredentials = z.infer<typeof loginSchema>;
 
+// WhatsApp sessions table (tracks conversation state for phone numbers)
+export const whatsappSessions = pgTable("whatsapp_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phoneNumber: varchar("phone_number").notNull().unique(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  email: varchar("email"),
+  status: varchar("status", { enum: ['awaiting_email', 'verified', 'blocked'] }).default('awaiting_email').notNull(),
+  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  failedAttempts: integer("failed_attempts").default(0).notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const whatsappSessionsRelations = relations(whatsappSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [whatsappSessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertWhatsAppSessionSchema = createInsertSchema(whatsappSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhatsAppSession = z.infer<typeof insertWhatsAppSessionSchema>;
+export type WhatsAppSession = typeof whatsappSessions.$inferSelect;
+
 // Transactions table
 export const transacoes = pgTable("transacoes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

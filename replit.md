@@ -6,8 +6,21 @@ AnotaTudo.AI is a SaaS financial management platform that leverages AI to transf
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (November 17, 2025)
-### Admin Panel Bug Fixes
+## Recent Changes (November 18, 2025)
+### WhatsApp Authentication Architecture Redesign
+- **New Session-Based System**: Created `whatsapp_sessions` table to track conversation state independently of user accounts. ANY phone number can now interact with the WhatsApp bot.
+- **Phone Number as Reference Only**: The `whatsapp_number` field in `users` table is now purely for administrative control/reference. It is NOT used for sender authentication or validation.
+- **Email-Based Authentication**: Users authenticate by providing their email during WhatsApp conversation. System validates email exists in database and has active subscription before granting access.
+- **Session States**: Three states track conversation flow:
+  - `awaiting_email`: New/unauthenticated number, bot requests email
+  - `verified`: Email validated, subscription active, transactions enabled
+  - `blocked`: Access denied, contact support
+- **Rate Limiting**: Existing 10 messages/minute per phone number protection preserved.
+- **Subscription Validation**: Changed from phone-based to userId-based lookup. System checks `getUserSubscriptionStatus(userId)` after email validation.
+- **Automatic Cleanup**: Added `cleanupOldWhatsAppSessions()` method to remove inactive sessions (>30 days) preventing database bloat.
+
+### Previous Changes (November 17, 2025)
+#### Admin Panel Bug Fixes
 - **Critical Dialog Fix**: Removed `AlertDialogAction` and `DialogClose` wrappers from mutation buttons in admin panel that were closing dialogs before async operations completed. Delete, Suspend, Reactivate, and Force Logout buttons now execute mutations properly and close dialogs only after successful completion via `onSuccess` callbacks.
 - **Database Schema Sync**: Fixed `subscriptions` table missing 8 columns (`provider_subscription_id`, `plan_name`, `price_cents`, `currency`, `billing_interval`, `trial_ends_at`, `cancel_at`, `meta`). Added columns with proper constraints to match Drizzle schema.
 - **Admin Test User**: Created test admin user (`admin-test@anotatu.do`) with role='admin' for testing purposes.
@@ -38,7 +51,9 @@ Preferred communication style: Simple, everyday language.
 ### Backend
 - **Technology Stack**: Express.js with TypeScript.
 - **API Structure**: RESTful endpoints under `/api`, using session-based authentication.
-- **Authentication Flow**: Email+password for web dashboard, with initial user creation and password management handled via WhatsApp interaction.
+- **Authentication Flow**: 
+  - **Web Dashboard**: Email+password authentication with session-based access control.
+  - **WhatsApp Bot**: Session-based authentication where ANY phone number can send messages. Users authenticate by providing email in conversation. System validates email against `users` table and checks active subscription before granting access. Phone numbers are NOT used for authentication.
 - **AI Processing Pipeline**: Processes WhatsApp messages (transcription, OCR), extracts financial data using GPT-5, and records transactions with confidence scores.
 - **Rate Limiting**: Implemented for WhatsApp messages (10 messages/minute per phone number).
 - **Financial Logic**: 
@@ -50,7 +65,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage
 - **Database**: PostgreSQL via Neon (serverless) with Drizzle ORM.
-- **Schema**: Includes `users`, `purchases`, `transacoes` (financial transactions), `cartoes` (credit cards), `faturas` (invoices), `cartao_transacoes`, and `sessions`.
+- **Schema**: Includes `users`, `purchases`, `transacoes` (financial transactions), `cartoes` (credit cards), `faturas` (invoices), `cartao_transacoes`, `sessions`, and `whatsapp_sessions` (tracks conversation state by phone number independently of user authentication).
 - **Data Access**: Storage abstraction layer with user-scoped queries and transactional operations.
 
 ### Authentication and Authorization

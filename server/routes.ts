@@ -1462,14 +1462,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
               continue;
             }
             
-            // Find or create user by phone number
-            let user = await storage.getUserByPhone(fromNumber);
-            
-            if (!user) {
-              console.log(`[WhatsApp] Creating new user for phone ${fromNumber}`);
-              user = await storage.createUserFromPhone(fromNumber);
-              console.log(`[WhatsApp] User created with status: ${user.status}`);
+            // Cleanup old sessions once per hour (simple in-memory tracking)
+            const lastCleanup = (global as any).lastWhatsAppCleanup || 0;
+            const now = Date.now();
+            if (now - lastCleanup > 3600000) { // 1 hour
+              storage.cleanupOldWhatsAppSessions(30).catch(err => 
+                console.error('[WhatsApp] Cleanup error:', err)
+              );
+              (global as any).lastWhatsAppCleanup = now;
             }
+            
+            // Get or create WhatsApp session
+            let session = await storage.getWhatsAppSession(fromNumber);
+            
+            if (!session) {
+              console.log(`[WhatsApp] Creating new session for phone ${fromNumber}`);
+              session = await storage.createWhatsAppSession({
+                phoneNumber: fromNumber,
+                status: 'awaiting_email',
+                lastMessageAt: new Date(),
+              });
+              console.log(`[WhatsApp] Session created with status: ${session.status}`);
+              // Send welcome message
+              await sendWhatsAppReply(fromNumber, "Olá! 👋 Para começar, me diga seu email cadastrado.");
+              continue;
+            }
+            
+            // Update last message time
+            await storage.updateWhatsAppSession(fromNumber, { lastMessageAt: new Date() });
             
             // Extract message content using safe extraction function
             let messageContent = '';
@@ -1515,13 +1535,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log("⚠️ WhatsApp message ignored because content was empty but message may have data:", JSON.stringify(message, null, 2));
             }
             
-            console.log(`[WhatsApp] User status: ${user.status}, Message: "${messageContent}"`);
+            console.log(`[WhatsApp] Session status: ${session.status}, Message: "${messageContent}"`);
             
             // ========================================
             // AUTHENTICATION FLOW
             // ========================================
             
-            if (user.status === 'awaiting_email') {
+            if (session.status === 'awaiting_email') {
               // User needs to send email to authenticate
               // Tentar extrair email do conteúdo (funciona mesmo com formatações diferentes do WhatsApp)
               const extractedEmail = extractEmail(messageContent);
@@ -1588,12 +1608,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     console.log(`[WhatsApp] User ${userByEmail.id} subscription status after check: ${subscriptionStatus}`);
                     
                     if (subscriptionStatus === 'active') {
-                      // Authenticate user
-                      await storage.updateUserEmail(user.id, extractedEmail);
-                      await storage.updateUserStatus(user.id, 'authenticated');
+                      // Update session to verified
+                      await storage.updateWhatsAppSession(fromNumber, {
+                        userId: userByEmail.id,
+                        email: extractedEmail,
+                        status: 'verified',
+                      });
                       await storage.updatePurchasePhone(extractedEmail, fromNumber);
                       
-                      console.log(`[WhatsApp] ✅ User authenticated: ${extractedEmail}`);
+                      console.log(`[WhatsApp] ✅ Session verified for user: ${extractedEmail}`);
                       
                       // Check if user is manual and needs password sent
                       const userMetadata = (userByEmail.metadata as any) || {};
@@ -1658,12 +1681,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     const purchase = await storage.getPurchaseByEmail(extractedEmail);
                     
                     if (purchase) {
-                      // Authenticate user
-                      await storage.updateUserEmail(user.id, extractedEmail);
-                      await storage.updateUserStatus(user.id, 'authenticated');
+                      // Create or update user for this email (legacy support)
+                      let purchaseUser = await storage.getUserByEmail(extractedEmail);
+                      if (!purchaseUser) {
+                        // Create user from purchase
+                        purchaseUser = await storage.createUser({
+                          email: extractedEmail,
+                          plano: 'premium',
+                          status: 'authenticated',
+                        });
+                      }
+                      
+                      // Update session to verified
+                      await storage.updateWhatsAppSession(fromNumber, {
+                        userId: purchaseUser.id,
+                        email: extractedEmail,
+                        status: 'verified',
+                      });
                       await storage.updatePurchasePhone(extractedEmail, fromNumber);
                       
-                      console.log(`[WhatsApp] ✅ User authenticated via purchase: ${extractedEmail}`);
+                      console.log(`[WhatsApp] ✅ Session verified via purchase: ${extractedEmail}`);
                       
                       // Humanized authentication success message
                       const authSuccessMessages = [
@@ -1711,34 +1748,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } 
             
             // ========================================
-            // TRANSACTION PROCESSING (AUTHENTICATED USERS ONLY)
+            // BLOCKED SESSION HANDLING
             // ========================================
             
-            else if (user.status === 'authenticated') {
-              // Verify subscription status before processing
-              const subscriptionStatus = await storage.getUserSubscriptionStatus(user.id);
-              
+            else if (session.status === 'blocked') {
+              console.log(`[WhatsApp] Blocked session for phone ${fromNumber}`);
+              await sendWhatsAppReply(fromNumber, "⛔ Seu acesso está bloqueado. Entre em contato com o suporte.");
+              continue;
+            }
+            
+            // ========================================
+            // TRANSACTION PROCESSING (VERIFIED SESSIONS ONLY)
+            // ========================================
+            
+            else if (session.status === 'verified') {
+              // Re-validate subscription on every message
+              const subscriptionStatus = await storage.getUserSubscriptionStatus(session.userId!);
               if (subscriptionStatus !== 'active') {
-                console.log(`[WhatsApp] User ${user.id} subscription status: ${subscriptionStatus}`);
-                
-                const statusMessage = 
-                  subscriptionStatus === 'paused' || subscriptionStatus === 'suspended' ? 'suspensa' :
-                  subscriptionStatus === 'expired' ? 'expirada' :
-                  subscriptionStatus === 'canceled' ? 'cancelada' :
-                  'inativa';
-                
-                // Humanized messages for blocked access
-                const blockedAccessMessages = [
-                  `😕 Sua assinatura está ${statusMessage} no momento.\n\nPara reativar, entre em contato com o suporte, por favor.`,
-                  `Ops! Sua assinatura está ${statusMessage}.\n\nPrecisa reativar? Fale com o suporte que eles resolvem rapidinho. 😊`,
-                  `Sua assinatura está ${statusMessage}.\n\nEntre em contato com o suporte para reativar seu acesso.`,
-                ];
-                
-                await sendWhatsAppReply(
-                  fromNumber,
-                  randomMessage(blockedAccessMessages)
-                );
-                return;
+                console.log(`[WhatsApp] Subscription not active for session ${fromNumber}: ${subscriptionStatus}. Resetting session.`);
+                // Update session to awaiting_email to force re-authentication
+                await storage.updateWhatsAppSession(fromNumber, { status: 'awaiting_email', userId: null, email: null });
+                await sendWhatsAppReply(fromNumber, "⚠️ Sua assinatura não está mais ativa. Por favor, entre em contato com o suporte ou forneça seu email para reativar.");
+                continue;
+              }
+              
+              // Fetch user from session
+              const user = await storage.getUser(session.userId!);
+              
+              // Edge case: session has userId but user doesn't exist
+              if (!user) {
+                console.log(`[WhatsApp] User ${session.userId} not found for verified session. Resetting to awaiting_email.`);
+                await storage.updateWhatsAppSession(fromNumber, {
+                  userId: null,
+                  email: null,
+                  status: 'awaiting_email',
+                });
+                await sendWhatsAppReply(fromNumber, "⚠️ Houve um problema com sua sessão. Por favor, me envie seu email novamente.");
+                continue;
               }
               
               console.log(`[WhatsApp] Processing transaction for authenticated user with active subscription`);

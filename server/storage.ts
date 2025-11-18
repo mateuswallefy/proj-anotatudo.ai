@@ -18,6 +18,7 @@ import {
   subscriptionEvents,
   systemLogs,
   adminEventLogs,
+  whatsappSessions,
   type User,
   type UpsertUser,
   type Transacao,
@@ -56,6 +57,8 @@ import {
   type InsertSystemLog,
   type AdminEventLog,
   type InsertAdminEventLog,
+  type WhatsAppSession,
+  type InsertWhatsAppSession,
 } from "@shared/schema";
 import { db } from "./db.js";
 import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray } from "drizzle-orm";
@@ -184,7 +187,14 @@ export interface IStorage {
   }): Promise<SystemLog[]>;
 
   // Subscription status operations
-  getUserSubscriptionStatus(userId: string): Promise<'active' | 'suspended' | 'expired' | 'canceled' | 'none'>;
+  getUserSubscriptionStatus(userId: string): Promise<'active' | 'suspended' | 'paused' | 'expired' | 'canceled' | 'none'>;
+
+  // WhatsApp sessions operations
+  getWhatsAppSession(phoneNumber: string): Promise<WhatsAppSession | undefined>;
+  createWhatsAppSession(session: InsertWhatsAppSession): Promise<WhatsAppSession>;
+  updateWhatsAppSession(phoneNumber: string, data: Partial<WhatsAppSession>): Promise<WhatsAppSession>;
+  incrementFailedAttempts(phoneNumber: string): Promise<void>;
+  cleanupOldWhatsAppSessions(daysOld: number): Promise<number>;
 
   // Admin event logs operations
   createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog>;
@@ -1090,6 +1100,56 @@ export class DatabaseStorage implements IStorage {
 
     // If we have subscriptions but none match the above, return 'suspended' as fallback
     return 'suspended';
+  }
+
+  // WhatsApp sessions operations
+  async getWhatsAppSession(phoneNumber: string): Promise<WhatsAppSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(whatsappSessions)
+      .where(eq(whatsappSessions.phoneNumber, phoneNumber));
+    return session;
+  }
+
+  async createWhatsAppSession(session: InsertWhatsAppSession): Promise<WhatsAppSession> {
+    const [newSession] = await db.insert(whatsappSessions).values(session).returning();
+    return newSession;
+  }
+
+  async updateWhatsAppSession(phoneNumber: string, data: Partial<WhatsAppSession>): Promise<WhatsAppSession> {
+    const [updated] = await db
+      .update(whatsappSessions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(whatsappSessions.phoneNumber, phoneNumber))
+      .returning();
+    return updated;
+  }
+
+  async incrementFailedAttempts(phoneNumber: string): Promise<void> {
+    await db
+      .update(whatsappSessions)
+      .set({ 
+        failedAttempts: sqlOp`${whatsappSessions.failedAttempts} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(whatsappSessions.phoneNumber, phoneNumber));
+  }
+
+  async cleanupOldWhatsAppSessions(daysOld: number = 30): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    
+    const result = await db
+      .delete(whatsappSessions)
+      .where(sqlOp`${whatsappSessions.lastMessageAt} < ${cutoffDate}`)
+      .returning();
+    
+    const deletedCount = result.length;
+    if (deletedCount > 0) {
+      console.log(`[Storage] 🧹 Cleaned up ${deletedCount} old WhatsApp sessions (older than ${daysOld} days)`);
+    }
+    
+    return deletedCount;
   }
 
   // Admin event logs operations
