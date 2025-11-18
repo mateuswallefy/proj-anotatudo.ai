@@ -104,3 +104,8 @@ if (!email) {
 // Executar teste
 testUserStatus(email);
 
+
+
+
+
+

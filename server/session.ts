@@ -11,6 +11,17 @@ export function getSession() {
     tableName: "sessions",
   });
   
+  // In production, only use secure cookies if we're actually on HTTPS
+  // Replit may not always use HTTPS, so we check the environment
+  const isSecure = process.env.NODE_ENV === 'production' && 
+                   (process.env.FORCE_SECURE_COOKIES === 'true' || 
+                    process.env.REPL_SLUG !== undefined);
+  
+  console.log('[SESSION] Configuring session middleware');
+  console.log('[SESSION] NODE_ENV:', process.env.NODE_ENV);
+  console.log('[SESSION] Secure cookies:', isSecure);
+  console.log('[SESSION] Session store:', sessionStore ? 'PostgreSQL' : 'none');
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -18,7 +29,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure, // Only secure in production with HTTPS
       sameSite: 'lax',
       maxAge: sessionTtl,
     },

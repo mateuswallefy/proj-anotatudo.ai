@@ -53,6 +53,22 @@ function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
   return { mes: month, ano: year };
 }
 
+// Função utilitária para extrair texto de mensagens WhatsApp de forma segura
+function extractTextFromMessage(message: any): string {
+  return (
+    message?.text?.body ||
+    message?.image?.caption ||
+    message?.video?.caption ||
+    message?.button?.text ||
+    message?.interactive?.nfm_reply?.response_json ||
+    message?.interactive?.list_reply?.title ||
+    message?.interactive?.button_reply?.title ||
+    message?.extended_text_message?.text ||
+    message?.caption ||
+    ""
+  ).toString().trim();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve static files from server/uploads
   app.use('/uploads/avatars', express.static(pathModule.join(process.cwd(), 'server', 'uploads', 'avatars')));
@@ -68,11 +84,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public endpoint: User status by email (for WhatsApp integration)
   // This endpoint MUST be public and never require authentication
+  // IMPORTANT: This route is registered BEFORE any auth middleware
   app.get('/api/user-status', async (req, res) => {
     try {
+      console.log('[API /user-status] Request received');
+      console.log('[API /user-status] Email:', req.query.email);
+      console.log('[API /user-status] Session exists:', !!req.session);
+      console.log('[API /user-status] This endpoint is PUBLIC - no auth required');
+      
       const email = req.query.email as string;
       
       if (!email) {
+        console.log('[API /user-status] ❌ Email parameter missing');
         return res.status(400).json({ 
           error: 'Email parameter is required',
           userExists: false,
@@ -83,10 +106,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log('[API /user-status] Searching for user with email:', email);
       // Find user by email
       const user = await storage.getUserByEmail(email);
       
       if (!user) {
+        console.log('[API /user-status] User not found for email:', email);
         return res.status(200).json({
           userExists: false,
           subscriptionStatus: 'none',
@@ -96,8 +121,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log('[API /user-status] ✅ User found:', user.id, user.email);
+      
       // Get subscription status
       const subscriptionStatus = await storage.getUserSubscriptionStatus(user.id);
+      console.log('[API /user-status] Subscription status:', subscriptionStatus);
       
       // Get active subscription for plan and next payment
       const subscriptions = await storage.getSubscriptionsByUserId(user.id);
@@ -114,6 +142,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // WhatsApp is allowed if subscription is active
       const whatsappAllowed = subscriptionStatus === 'active';
 
+      console.log('[API /user-status] ✅ Returning response:', {
+        userExists: true,
+        subscriptionStatus,
+        plan,
+        whatsappAllowed,
+      });
+
       return res.status(200).json({
         userExists: true,
         subscriptionStatus,
@@ -122,7 +157,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whatsappAllowed,
       });
     } catch (error: any) {
-      console.error('[User Status] Error:', error);
+      console.error('[API /user-status] ❌ Error:', error);
+      console.error('[API /user-status] Error stack:', error.stack);
       return res.status(500).json({
         error: 'Internal server error',
         userExists: false,
@@ -284,19 +320,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('[API /auth/user] Request received');
+      console.log('[API /auth/user] Session userId:', req.session?.userId);
+      
       const userId = req.session.userId;
+      
+      if (!userId) {
+        console.log('[API /auth/user] ❌ No userId in session');
+        return res.status(401).json({ message: "Unauthorized - no session" });
+      }
+      
+      console.log('[API /auth/user] Fetching user from database:', userId);
       const user = await storage.getUser(userId);
       
       if (!user) {
+        console.log('[API /auth/user] ❌ User not found in database');
         return res.status(404).json({ message: "User not found" });
       }
+      
+      console.log('[API /auth/user] ✅ User found:', user.email);
       
       // Remove sensitive data before sending to client
       const { passwordHash, ...sanitizedUser } = user;
       
       res.json(sanitizedUser);
-    } catch (error) {
-      console.error("Error fetching user:", error);
+    } catch (error: any) {
+      console.error("[API /auth/user] ❌ Error fetching user:", error);
+      console.error("[API /auth/user] Error stack:", error.stack);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
@@ -602,31 +652,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extrair conteúdo baseado no tipo de mensagem
       switch (messageType) {
         case 'text':
-          content = message.text?.body || "";
+          content = extractTextFromMessage(message);
           break;
         case 'audio':
           mediaId = message.audio?.id || "";
+          content = extractTextFromMessage(message);
           break;
         case 'image':
           mediaId = message.image?.id || "";
-          content = message.image?.caption || "";
+          content = extractTextFromMessage(message);
           break;
         case 'video':
+          mediaId = message.video?.id || "";
+          content = extractTextFromMessage(message);
           // Vídeo não suportado ainda - requer extração de frames via ffmpeg
-          await sendWhatsAppReply(
-            phoneNumber,
-            "Vídeos ainda não são suportados.\n\nPor favor, envie:\n• Texto: Almoço R$ 45\n• Áudio com sua transação\n• Foto de nota fiscal ou comprovante"
-          );
-          res.status(200).json({ success: true });
-          return;
+          if (!content) {
+            await sendWhatsAppReply(
+              phoneNumber,
+              "Vídeos ainda não são suportados.\n\nPor favor, envie:\n• Texto: Almoço R$ 45\n• Áudio com sua transação\n• Foto de nota fiscal ou comprovante"
+            );
+            res.status(200).json({ success: true });
+            return;
+          }
+          break;
         default:
-          console.log(`[WhatsApp] Unsupported message type: ${messageType}`);
-          res.status(200).json({ success: true });
-          return;
+          // Tentar extrair texto mesmo para tipos não suportados
+          content = extractTextFromMessage(message);
+          if (!content) {
+            console.log(`[WhatsApp] Unsupported message type: ${messageType}`);
+            res.status(200).json({ success: true });
+            return;
+          }
+          break;
       }
 
-      // Se não tem conteúdo de texto e não tem mídia, ignorar
+      console.log("📩 WhatsApp Email Message Content:", content);
+
+      // Se não tem conteúdo de texto e não tem mídia, logar mas não ignorar completamente
       if (!content && !mediaId) {
+        console.log("⚠️ WhatsApp message ignored because content was empty but message may have data:", JSON.stringify(message, null, 2));
         res.status(200).json({ success: true });
         return;
       }
@@ -657,39 +721,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Se usuário está aguardando email
       if (user.status === 'awaiting_email') {
-        // Check if message is a greeting or short message
-        const normalizedContent = content.toLowerCase().trim();
-        const isGreeting = normalizedContent === 'oi' || 
-                          normalizedContent === 'olá' || 
-                          normalizedContent === 'ola' ||
-                          normalizedContent === 'quero acessar' ||
-                          normalizedContent === 'acessar' ||
-                          normalizedContent.length < 5;
-        
-        // Só aceitar texto para autenticação
-        if (messageType !== 'text' || !content) {
-          await sendWhatsAppReply(
-            phoneNumber,
-            randomMessage(NON_TEXT_WHILE_AWAITING_EMAIL)
-          );
-          res.status(200).json({ success: true });
-          return;
-        }
-        
-        // If it's a greeting or very short message, respond with empathy
-        if (isGreeting) {
-          await sendWhatsAppReply(phoneNumber, randomMessage(GREETING_RESPONSES));
-          res.status(200).json({ success: true });
-          return;
-        }
-
+        // Tentar extrair email do conteúdo (funciona mesmo com formatações diferentes do WhatsApp)
         const email = extractEmail(content);
-
+        
+        // Se não conseguiu extrair email, pedir novamente
         if (!email) {
-          await sendWhatsAppReply(
-            phoneNumber,
-            randomMessage(ASK_EMAIL_MESSAGES)
-          );
+          // Check if message is a greeting or short message
+          const normalizedContent = content.toLowerCase().trim();
+          const isGreeting = ["oi", "olá", "ola"].includes(normalizedContent);
+          
+          // If it's a greeting, respond with empathy
+          if (isGreeting) {
+            await sendWhatsAppReply(phoneNumber, randomMessage(GREETING_RESPONSES));
+          } else {
+            await sendWhatsAppReply(
+              phoneNumber,
+              randomMessage(ASK_EMAIL_MESSAGES)
+            );
+          }
           res.status(200).json({ success: true });
           return;
         }
@@ -1422,24 +1471,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`[WhatsApp] User created with status: ${user.status}`);
             }
             
-            // Extract message content
+            // Extract message content using safe extraction function
             let messageContent = '';
+            const extractedText = extractTextFromMessage(message);
+            
             if (messageType === 'text') {
-              messageContent = message.text.body;
+              messageContent = extractedText;
             } else if (messageType === 'audio') {
               // Download audio file from WhatsApp
               try {
-                messageContent = await downloadWhatsAppMedia(message.audio.id, 'audio');
-                console.log(`[WhatsApp] Audio downloaded: ${messageContent}`);
+                const audioId = message.audio?.id || '';
+                if (audioId) {
+                  messageContent = await downloadWhatsAppMedia(audioId, 'audio');
+                  console.log(`[WhatsApp] Audio downloaded: ${messageContent}`);
+                } else {
+                  // Fallback to extracted text if available
+                  messageContent = extractedText;
+                }
               } catch (error: any) {
                 console.error(`[WhatsApp] Failed to download audio:`, error.message);
-                await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES));
-                continue;
+                // Try to use extracted text as fallback
+                messageContent = extractedText || '';
+                if (!messageContent) {
+                  await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES));
+                  continue;
+                }
               }
             } else if (messageType === 'image') {
-              messageContent = message.image.id;
+              const imageId = message.image?.id || '';
+              messageContent = imageId || extractedText;
             } else if (messageType === 'video') {
-              messageContent = message.video.id;
+              const videoId = message.video?.id || '';
+              messageContent = videoId || extractedText;
+            } else {
+              // For other message types, try to extract text
+              messageContent = extractedText;
+            }
+            
+            console.log("📩 WhatsApp Email Message Content:", messageContent);
+            
+            // Log if content is empty but message has data
+            if (!messageContent) {
+              console.log("⚠️ WhatsApp message ignored because content was empty but message may have data:", JSON.stringify(message, null, 2));
             }
             
             console.log(`[WhatsApp] User status: ${user.status}, Message: "${messageContent}"`);
@@ -1450,26 +1523,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (user.status === 'awaiting_email') {
               // User needs to send email to authenticate
+              // Tentar extrair email do conteúdo (funciona mesmo com formatações diferentes do WhatsApp)
+              const extractedEmail = extractEmail(messageContent);
               
-              // Check if message is a greeting or short message
-              const normalizedContent = messageContent.toLowerCase().trim();
-              const isGreeting = normalizedContent === 'oi' || 
-                                normalizedContent === 'olá' || 
-                                normalizedContent === 'ola' ||
-                                normalizedContent === 'quero acessar' ||
-                                normalizedContent === 'acessar' ||
-                                normalizedContent.length < 5;
-              
-              if (messageType === 'text') {
-                // If it's a greeting or very short message, respond with empathy
-                if (isGreeting) {
-                  await sendWhatsAppReply(fromNumber, randomMessage(GREETING_RESPONSES));
-                  continue;
-                }
-                
-                const extractedEmail = extractEmail(messageContent);
-                
-                if (extractedEmail) {
+              if (extractedEmail) {
                   console.log(`[WhatsApp] Email extracted: ${extractedEmail}`);
                   
                   // Find user by email
@@ -1637,20 +1694,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                 } else {
                   // Not a valid email, prompt again
-                  console.log(`[WhatsApp] Invalid email format in message: "${messageContent}"`);
+                  // Check if message is a greeting or short message
+                  const normalizedContent = messageContent.toLowerCase().trim();
+                  const isGreeting = ["oi", "olá", "ola"].includes(normalizedContent);
                   
-                  await sendWhatsAppReply(
-                    fromNumber,
-                    randomMessage(ASK_EMAIL_MESSAGES)
-                  );
+                  if (isGreeting) {
+                    await sendWhatsAppReply(fromNumber, randomMessage(GREETING_RESPONSES));
+                  } else {
+                    console.log(`[WhatsApp] Invalid email format in message: "${messageContent}"`);
+                    await sendWhatsAppReply(
+                      fromNumber,
+                      randomMessage(ASK_EMAIL_MESSAGES)
+                    );
+                  }
                 }
-              } else {
-                // Non-text message while awaiting email (audio, image, video, emoji)
-                await sendWhatsAppReply(
-                  fromNumber,
-                  randomMessage(NON_TEXT_WHILE_AWAITING_EMAIL)
-                );
-              }
             } 
             
             // ========================================
