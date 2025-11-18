@@ -66,6 +66,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Public endpoint: User status by email (for WhatsApp integration)
+  // This endpoint MUST be public and never require authentication
+  app.get('/api/user-status', async (req, res) => {
+    try {
+      const email = req.query.email as string;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          error: 'Email parameter is required',
+          userExists: false,
+          subscriptionStatus: 'none',
+          plan: null,
+          nextPayment: null,
+          whatsappAllowed: false,
+        });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(200).json({
+          userExists: false,
+          subscriptionStatus: 'none',
+          plan: null,
+          nextPayment: null,
+          whatsappAllowed: false,
+        });
+      }
+
+      // Get subscription status
+      const subscriptionStatus = await storage.getUserSubscriptionStatus(user.id);
+      
+      // Get active subscription for plan and next payment
+      const subscriptions = await storage.getSubscriptionsByUserId(user.id);
+      const activeSubscription = subscriptions.find(
+        sub => (sub.status === 'active' || sub.status === 'trial') && 
+        (!sub.currentPeriodEnd || new Date(sub.currentPeriodEnd) > new Date())
+      );
+
+      const plan = activeSubscription?.planName || user.planLabel || null;
+      const nextPayment = activeSubscription?.currentPeriodEnd 
+        ? new Date(activeSubscription.currentPeriodEnd).toISOString()
+        : null;
+
+      // WhatsApp is allowed if subscription is active
+      const whatsappAllowed = subscriptionStatus === 'active';
+
+      return res.status(200).json({
+        userExists: true,
+        subscriptionStatus,
+        plan,
+        nextPayment,
+        whatsappAllowed,
+      });
+    } catch (error: any) {
+      console.error('[User Status] Error:', error);
+      return res.status(500).json({
+        error: 'Internal server error',
+        userExists: false,
+        subscriptionStatus: 'none',
+        plan: null,
+        nextPayment: null,
+        whatsappAllowed: false,
+      });
+    }
+  });
+
   // Local Auth routes
   app.post('/api/auth/register', async (req, res) => {
     try {
