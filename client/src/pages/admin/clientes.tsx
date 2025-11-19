@@ -289,12 +289,8 @@ export default function AdminClientes() {
       }
       
       toast({
-        title: "✅ Cliente criado!",
-        description: data.subscription 
-          ? "Cliente e assinatura criados com sucesso. A senha temporária está sendo exibida."
-          : data.temporaryPassword 
-          ? "Cliente criado com sucesso. A senha temporária está sendo exibida."
-          : "O cliente foi criado com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       setCreateDialogOpen(false);
       createForm.reset();
@@ -306,10 +302,9 @@ export default function AdminClientes() {
         stack: error?.stack,
         raw: error,
       });
-      const errorMessage = error?.message || "Erro ao criar cliente. Verifique os dados e tente novamente.";
       toast({
-        title: "❌ Erro ao criar cliente",
-        description: errorMessage,
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -366,16 +361,15 @@ export default function AdminClientes() {
       }
       
       toast({
-        title: "✅ Cliente atualizado",
-        description: "As alterações foram salvas com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       console.error("[Admin] ❌ Error updating user:", error);
-      const errorMessage = error?.message || "Erro ao atualizar cliente. Tente novamente.";
       toast({
-        title: "❌ Erro ao atualizar cliente",
-        description: errorMessage,
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -424,8 +418,8 @@ export default function AdminClientes() {
       ]);
       
       toast({
-        title: "✅ Cliente excluído",
-        description: "O cliente foi excluído com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       setDeleteConfirmOpen(false);
       setEditDialogOpen(false);
@@ -438,10 +432,9 @@ export default function AdminClientes() {
         stack: error?.stack,
         raw: error,
       });
-      const errorMessage = error?.message || "Erro ao excluir cliente. Tente novamente.";
       toast({
-        title: "❌ Erro ao excluir cliente",
-        description: errorMessage,
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
       // Don't close dialogs on error
@@ -461,14 +454,14 @@ export default function AdminClientes() {
       setSelectedUser(updatedUser);
       setSuspendConfirmOpen(false);
       toast({
-        title: "Acesso suspenso",
-        description: "O acesso do cliente foi suspenso com sucesso. Todas as sessões foram encerradas.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao suspender acesso",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -487,14 +480,14 @@ export default function AdminClientes() {
       setSelectedUser(updatedUser);
       setReactivateConfirmOpen(false);
       toast({
-        title: "Acesso reativado",
-        description: "O acesso do cliente foi reativado com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao reativar acesso",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -508,14 +501,14 @@ export default function AdminClientes() {
     onSuccess: (data: any) => {
       setLogoutConfirmOpen(false);
       toast({
-        title: "Logout forçado",
-        description: `O cliente foi desconectado. ${data.sessionsDeleted || 0} sessão(ões) encerrada(s).`,
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao forçar logout",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -530,14 +523,14 @@ export default function AdminClientes() {
       setTempPassword(data.temporaryPassword);
       setResetPasswordDialogOpen(true);
       toast({
-        title: "Senha resetada",
-        description: "Uma nova senha foi gerada e está sendo exibida.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao resetar senha",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -552,18 +545,16 @@ export default function AdminClientes() {
       setTempPassword(data.temporaryPassword);
       setResetPasswordDialogOpen(true);
       toast({
-        title: "Senha regenerada",
-        description: data.whatsappSent 
-          ? "Nova senha gerada e enviada via WhatsApp automaticamente!" 
-          : "Nova senha gerada. Envie manualmente via WhatsApp.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       // Refresh user data
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao regenerar senha",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },

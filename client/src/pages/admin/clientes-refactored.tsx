@@ -241,16 +241,16 @@ export default function AdminClientes() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({
-        title: "Cliente criado!",
-        description: "O cliente foi criado com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       setCreateDialogOpen(false);
       createForm.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao criar cliente",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -266,14 +266,14 @@ export default function AdminClientes() {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setSelectedUser(updatedUser);
       toast({
-        title: "Cliente atualizado",
-        description: "As alterações foram salvas com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao atualizar cliente",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -286,8 +286,8 @@ export default function AdminClientes() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({
-        title: "Cliente excluído",
-        description: "O cliente foi excluído com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       setDeleteConfirmOpen(false);
       setEditDialogOpen(false);
@@ -295,8 +295,8 @@ export default function AdminClientes() {
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao excluir cliente",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -312,14 +312,14 @@ export default function AdminClientes() {
       setSelectedUser(updatedUser);
       setSuspendConfirmOpen(false);
       toast({
-        title: "Acesso suspenso",
-        description: "O acesso do cliente foi suspenso com sucesso. Todas as sessões foram encerradas.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao suspender acesso",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -335,14 +335,14 @@ export default function AdminClientes() {
       setSelectedUser(updatedUser);
       setReactivateConfirmOpen(false);
       toast({
-        title: "Acesso reativado",
-        description: "O acesso do cliente foi reativado com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao reativar acesso",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -356,14 +356,14 @@ export default function AdminClientes() {
     onSuccess: (data: any) => {
       setLogoutConfirmOpen(false);
       toast({
-        title: "Logout forçado",
-        description: `O cliente foi desconectado. ${data.sessionsDeleted || 0} sessão(ões) encerrada(s).`,
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao forçar logout",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -378,14 +378,14 @@ export default function AdminClientes() {
       setTempPassword(data.temporaryPassword);
       setResetPasswordDialogOpen(true);
       toast({
-        title: "Senha resetada",
-        description: "Uma nova senha foi gerada e está sendo exibida.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao resetar senha",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },

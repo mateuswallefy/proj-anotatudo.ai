@@ -198,15 +198,15 @@ export default function AdminHealth() {
       queryClient.invalidateQueries({ queryKey: ["admin-health-overview"] });
       queryClient.invalidateQueries({ queryKey: ["admin-health-logs"] });
       toast({
-        title: data.ok ? "Teste bem-sucedido" : "Teste falhou",
-        description: data.details || data.message,
+        title: data.ok ? "Sucesso!" : "Erro!",
+        description: data.ok ? "Operação concluída com êxito." : "Não foi possível completar a ação.",
         variant: data.ok ? "default" : "destructive",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao testar WhatsApp",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -221,15 +221,15 @@ export default function AdminHealth() {
       queryClient.invalidateQueries({ queryKey: ["admin-health-overview"] });
       queryClient.invalidateQueries({ queryKey: ["admin-health-logs"] });
       toast({
-        title: data.ok ? "Teste bem-sucedido" : "Teste falhou",
-        description: data.details || data.message,
+        title: data.ok ? "Sucesso!" : "Erro!",
+        description: data.ok ? "Operação concluída com êxito." : "Não foi possível completar a ação.",
         variant: data.ok ? "default" : "destructive",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao testar IA",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -244,17 +244,17 @@ export default function AdminHealth() {
       queryClient.invalidateQueries({ queryKey: ["admin-health-overview"] });
       queryClient.invalidateQueries({ queryKey: ["admin-health-logs"] });
       toast({
-        title: "Health check realizado",
+        title: data.details?.status === "healthy" ? "Sucesso!" : "Erro!",
         description: data.details?.status === "healthy" 
-          ? `Sistema saudável (DB: ${data.details.dbLatency}ms)`
-          : `Sistema degradado (DB: ${data.details?.dbLatency}ms)`,
+          ? "Operação concluída com êxito."
+          : "Não foi possível completar a ação.",
         variant: data.details?.status === "healthy" ? "default" : "destructive",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao realizar health check",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },

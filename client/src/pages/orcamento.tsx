@@ -111,7 +111,8 @@ export default function Orcamento() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/spending-limits"] });
       toast({
-        title: "Orçamento criado com sucesso!",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       setDialogOpen(false);
       form.reset({
@@ -121,8 +122,8 @@ export default function Orcamento() {
     },
     onError: () => {
       toast({
-        title: "Erro ao criar orçamento",
-        description: "Não foi possível criar o orçamento. Tente novamente.",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },

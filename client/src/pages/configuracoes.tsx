@@ -75,15 +75,15 @@ export default function Configuracoes() {
     },
     onSuccess: () => {
       toast({
-        title: "Senha alterada!",
-        description: "Sua senha foi atualizada com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       passwordForm.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao alterar senha",
-        description: error.message || "Verifique sua senha atual",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -97,15 +97,15 @@ export default function Configuracoes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/account-members"] });
       toast({
-        title: "Membro adicionado!",
-        description: "O membro foi adicionado à sua conta.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
       memberForm.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao adicionar membro",
-        description: error.message || "Usuário não encontrado ou já é membro",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -119,14 +119,14 @@ export default function Configuracoes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/account-members"] });
       toast({
-        title: "Membro removido",
-        description: "O membro foi removido da conta.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao remover membro",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -140,14 +140,14 @@ export default function Configuracoes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notification-preferences"] });
       toast({
-        title: "Preferências atualizadas!",
-        description: "Suas preferências de notificação foram salvas.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao atualizar preferências",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
@@ -207,8 +207,8 @@ export default function Configuracoes() {
       
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
-        title: "Foto atualizada!",
-        description: "Sua foto de perfil foi atualizada com sucesso.",
+        title: "Sucesso!",
+        description: "Operação concluída com êxito.",
       });
     },
     onError: (error: any) => {
@@ -219,8 +219,8 @@ export default function Configuracoes() {
       }
       
       toast({
-        title: "Erro ao fazer upload",
-        description: error.message || "Tente novamente",
+        title: "Erro!",
+        description: "Não foi possível completar a ação.",
         variant: "destructive",
       });
     },
