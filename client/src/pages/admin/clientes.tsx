@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { PageHeader } from "@/components/design-system/PageHeader";
@@ -158,6 +158,7 @@ export default function AdminClientes() {
   const [reactivateConfirmOpen, setReactivateConfirmOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<{ items: User[]; pagination: any }>({
     queryKey: ["/api/admin/users", { search, status: statusFilter === "all" ? undefined : statusFilter, page }],
@@ -275,12 +276,14 @@ export default function AdminClientes() {
     },
     onSuccess: async (data: any) => {
       // Force refetch of all related queries
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
-        queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
-        queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
-      ]);
+      startTransition(() => {
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+          queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
+          queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
+        ]);
+      });
       
       // If temporary password is returned, show it in dialog
       if (data.temporaryPassword) {
@@ -288,12 +291,21 @@ export default function AdminClientes() {
         setResetPasswordDialogOpen(true);
       }
       
+      // Highlight the newly created user
+      if (data.id) {
+        setHighlightedId(data.id);
+        setTimeout(() => {
+          setHighlightedId(null);
+        }, 1200);
+      }
+      
       toast({
         title: "Sucesso!",
         description: "Operação concluída com êxito.",
       });
-      setCreateDialogOpen(false);
-      createForm.reset();
+      setTimeout(() => {
+        setCreateDialogOpen(false);
+      }, 200);
     },
     onError: (error: any) => {
       console.error("[Admin] ❌ Error creating user:", error);
@@ -347,23 +359,33 @@ export default function AdminClientes() {
     },
     onSuccess: async (updatedUser: any) => {
       // Force refetch of all related queries
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] }),
-        queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
-        queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
-      ]);
+      startTransition(() => {
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users", selectedUser?.id] }),
+          queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
+          queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
+        ]);
+      });
       
       // Update selected user with new data
       if (updatedUser.id) {
         setSelectedUser(updatedUser);
+        // Highlight the updated user
+        setHighlightedId(updatedUser.id);
+        setTimeout(() => {
+          setHighlightedId(null);
+        }, 1200);
       }
       
       toast({
         title: "Sucesso!",
         description: "Operação concluída com êxito.",
       });
+      setTimeout(() => {
+        setEditDialogOpen(false);
+      }, 200);
     },
     onError: (error: any) => {
       console.error("[Admin] ❌ Error updating user:", error);
@@ -410,12 +432,14 @@ export default function AdminClientes() {
     },
     onSuccess: async () => {
       // Force refetch of all related queries
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
-        queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
-        queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
-      ]);
+      startTransition(() => {
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] }),
+          queryClient.refetchQueries({ queryKey: ["/api/admin/users"] }),
+          queryClient.refetchQueries({ queryKey: ["/api/admin/subscriptions"] }),
+        ]);
+      });
       
       toast({
         title: "Sucesso!",
@@ -628,7 +652,15 @@ export default function AdminClientes() {
           title="Clientes"
           subtitle="Gerencie todos os clientes do AnotaTudo.AI."
           action={
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <Dialog 
+              open={createDialogOpen} 
+              onOpenChange={(open) => {
+                setCreateDialogOpen(open);
+                if (!open) {
+                  createForm.reset();
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <PremiumButton>
                   <Plus className="h-5 w-5 mr-2" />
@@ -791,7 +823,7 @@ export default function AdminClientes() {
 
         <div className="space-y-6 mt-8">
           {/* Filters */}
-          <AppCard className="p-5 md:p-6">
+          <AppCard className="p-5 md:p-6 cr-card-animate">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
               <div className="flex-1 w-full md:max-w-md">
                 <div className="relative">
@@ -821,7 +853,7 @@ export default function AdminClientes() {
           </AppCard>
 
           {/* Table */}
-          <AppCard className="p-0 overflow-hidden">
+          <AppCard className="p-0 overflow-hidden cr-card-animate">
             <ScrollArea className="w-full">
               <Table>
                 <TableHeader>
@@ -879,7 +911,7 @@ export default function AdminClientes() {
                     return items.map((user) => (
                       <TableRow
                         key={user.id}
-                        className="cursor-pointer hover:bg-muted/40 transition-colors"
+                        className={`cursor-pointer hover:bg-muted/40 transition-colors ${user.id === highlightedId ? "cr-highlight" : ""}`}
                         onClick={() => openEditDialog(user)}
                       >
                         <TableCell className="font-medium">
@@ -956,7 +988,15 @@ export default function AdminClientes() {
         </div>
 
         {/* Edit User Dialog - Premium Modal */}
-        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <Dialog 
+          open={editDialogOpen} 
+          onOpenChange={(open) => {
+            setEditDialogOpen(open);
+            if (!open) {
+              editForm.reset();
+            }
+          }}
+        >
           <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center gap-4 mb-2">

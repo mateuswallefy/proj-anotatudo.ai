@@ -178,7 +178,7 @@ export default function AdminOverview() {
         </div>
 
         {/* Recent Events */}
-        <AppCard className="p-5 md:p-6">
+        <AppCard className="p-5 md:p-6 cr-card-animate">
           <h2 className="text-2xl font-bold mb-4">Eventos Recentes</h2>
           {eventsLoading ? (
             <div className="space-y-3">

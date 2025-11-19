@@ -104,7 +104,7 @@ export default function AdminEventos() {
 
         <div className="space-y-6 mt-8">
         {/* Table */}
-        <AppCard className="p-0 overflow-hidden">
+        <AppCard className="p-0 overflow-hidden cr-card-animate">
           <ScrollArea className="w-full">
             <Table>
               <TableHeader>

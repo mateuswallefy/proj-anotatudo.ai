@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, startTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { PageHeader } from "@/components/design-system/PageHeader";
@@ -90,7 +90,7 @@ export default function AdminAssinaturas() {
 
         <div className="space-y-6 mt-8">
         {/* Filters */}
-        <AppCard className="p-5 md:p-6">
+        <AppCard className="p-5 md:p-6 cr-card-animate">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full md:w-auto">
               <TabsList className="grid w-full md:w-auto grid-cols-3 md:grid-cols-6">
@@ -113,7 +113,7 @@ export default function AdminAssinaturas() {
         </AppCard>
 
         {/* Table */}
-        <AppCard className="p-0 overflow-hidden">
+        <AppCard className="p-0 overflow-hidden cr-card-animate">
           <ScrollArea className="w-full">
             <Table>
               <TableHeader>
@@ -155,7 +155,7 @@ export default function AdminAssinaturas() {
                         <PremiumButton
                           variant="outline"
                           size="sm"
-                          onClick={() => refetch()}
+                          onClick={() => startTransition(() => refetch())}
                           className="mt-2"
                         >
                           Tentar novamente

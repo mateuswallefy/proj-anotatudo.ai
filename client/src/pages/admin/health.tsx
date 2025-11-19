@@ -283,7 +283,7 @@ export default function AdminHealth() {
           ) : (
             <>
               {/* WhatsApp Status */}
-              <AppCard className="p-5 md:p-6">
+              <AppCard className="p-5 md:p-6 cr-card-animate">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/20">
@@ -316,7 +316,7 @@ export default function AdminHealth() {
               </AppCard>
 
               {/* AI Status */}
-              <AppCard className="p-5 md:p-6">
+              <AppCard className="p-5 md:p-6 cr-card-animate">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-purple-100 dark:bg-purple-900/20">
@@ -349,7 +349,7 @@ export default function AdminHealth() {
               </AppCard>
 
               {/* Webhooks Status */}
-              <AppCard className="p-5 md:p-6">
+              <AppCard className="p-5 md:p-6 cr-card-animate">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/20">
@@ -380,7 +380,7 @@ export default function AdminHealth() {
               </AppCard>
 
               {/* System Status */}
-              <AppCard className="p-5 md:p-6">
+              <AppCard className="p-5 md:p-6 cr-card-animate">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-orange-100 dark:bg-orange-900/20">
@@ -416,7 +416,7 @@ export default function AdminHealth() {
         </div>
 
         {/* Activity Summary */}
-        <AppCard className="p-5 md:p-6">
+        <AppCard className="p-5 md:p-6 cr-card-animate">
           <SectionTitle title="Atividade nas últimas 24 horas" />
           {healthLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
@@ -467,7 +467,7 @@ export default function AdminHealth() {
         </AppCard>
 
         {/* Logs */}
-        <AppCard className="p-5 md:p-6">
+        <AppCard className="p-5 md:p-6 cr-card-animate">
           <div className="flex items-center justify-between mb-6">
             <SectionTitle title="Logs recentes" />
             <div className="flex items-center gap-2">
@@ -563,7 +563,7 @@ export default function AdminHealth() {
         </AppCard>
 
         {/* Quick Tools */}
-        <AppCard className="p-5 md:p-6">
+        <AppCard className="p-5 md:p-6 cr-card-animate">
           <SectionTitle title="Ferramentas rápidas" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <PremiumButton

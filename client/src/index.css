@@ -344,3 +344,23 @@
     inset: -1px;
   }
 }
+
+/* Admin Row Highlight Animation */
+@keyframes highlightRow {
+  0% { background-color: #d1fae5; } /* verde claro */
+  100% { background-color: transparent; }
+}
+
+.cr-highlight {
+  animation: highlightRow 1.2s ease-out;
+}
+
+/* Card Fade Up Animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cr-card-animate {
+  animation: fadeUp 0.4s ease-out;
+}
