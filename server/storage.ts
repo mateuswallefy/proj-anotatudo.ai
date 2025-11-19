@@ -887,12 +887,14 @@ export class DatabaseStorage implements IStorage {
         // Suspended users have billingStatus = 'paused' and status = 'authenticated'
         whereConditions.push(
           and(
-            eq(users.billingStatus, 'paused' as any),
-            eq(users.status, 'authenticated' as any)
+            eq(users.status, 'authenticated' as any),
+            eq(users.billingStatus, 'paused' as any)
           )!
         );
-      } else {
-        whereConditions.push(eq(users.status, filters.accessStatus as any));
+      } else if (filters.accessStatus === 'authenticated') {
+        whereConditions.push(eq(users.status, 'authenticated' as any));
+      } else if (filters.accessStatus === 'awaiting_email') {
+        whereConditions.push(eq(users.status, 'awaiting_email' as any));
       }
     }
 

@@ -874,9 +874,9 @@ export default function AdminClientes() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="authenticated">Ativo</SelectItem>
+                    <SelectItem value="awaiting_email">Aguardando e-mail</SelectItem>
                     <SelectItem value="suspended">Suspenso</SelectItem>
-                    <SelectItem value="awaiting_email">Aguardando Email</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
