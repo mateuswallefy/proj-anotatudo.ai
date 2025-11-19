@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { PageHeader } from "@/components/design-system/PageHeader";
@@ -24,9 +24,18 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
+import { PremiumInput } from "@/components/design-system/PremiumInput";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Eye, Activity, AlertTriangle } from "lucide-react";
+import { Eye, Activity, AlertTriangle, Search } from "lucide-react";
 
 type Event = {
   id: string;
@@ -77,12 +86,33 @@ const getEventTypeLabel = (type: string, source: string) => {
 
 export default function AdminEventos() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Fetch all events from the unified endpoint
   const { data: eventsData, isLoading, error } = useQuery<{ events: Event[] }>({
-    queryKey: ["/api/admin/events"],
+    queryKey: ["/api/admin/events", { 
+      q: debouncedSearch,
+      type: typeFilter === "all" ? undefined : typeFilter,
+      severity: severityFilter === "all" ? undefined : severityFilter,
+    }],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/events");
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.append("q", debouncedSearch);
+      if (typeFilter !== "all") params.append("type", typeFilter);
+      if (severityFilter !== "all") params.append("severity", severityFilter);
+      const response = await apiRequest("GET", `/api/admin/events?${params.toString()}`);
       return await response.json();
     },
   });
@@ -103,6 +133,58 @@ export default function AdminEventos() {
         />
 
         <div className="space-y-6 mt-8">
+        {/* Search and Filters */}
+        <AppCard className="p-5 md:p-6 cr-card-animate">
+          <div className="space-y-4">
+            {/* Search */}
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <PremiumInput
+                  placeholder="Buscar por tipo, mensagem ou origem..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-12"
+                />
+              </div>
+            </div>
+            
+            {/* Advanced Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Tipo</Label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="ai">IA</SelectItem>
+                    <SelectItem value="webhook">Webhook</SelectItem>
+                    <SelectItem value="system">Sistema</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Severidade</Label>
+                <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="info">Info</SelectItem>
+                    <SelectItem value="warning">Aviso</SelectItem>
+                    <SelectItem value="error">Erro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </AppCard>
         {/* Table */}
         <AppCard className="p-0 overflow-hidden cr-card-animate">
           <ScrollArea className="w-full">

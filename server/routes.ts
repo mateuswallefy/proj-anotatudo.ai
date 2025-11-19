@@ -1964,12 +1964,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/users", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
-      const search = req.query.search as string | undefined;
+      const q = req.query.q as string | undefined;
+      const search = req.query.search as string | undefined; // Keep for backward compatibility
       const status = req.query.status as string | undefined;
+      const accessStatus = req.query.accessStatus as string | undefined;
+      const plan = req.query.plan as string | undefined;
+      const billingStatus = req.query.billingStatus as string | undefined;
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 50;
 
-      const { items, total } = await storage.listUsers({ search, status, page, pageSize });
+      // Use q if provided, otherwise fall back to search
+      const searchTerm = q || search;
+      const { items, total } = await storage.listUsers({ 
+        search: searchTerm, 
+        status, 
+        accessStatus,
+        plan,
+        billingStatus,
+        page, 
+        pageSize 
+      });
 
       // Format response
       const formattedItems = items.map(user => ({
@@ -2782,10 +2796,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/subscriptions", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
+      const q = req.query.q as string | undefined;
       const status = req.query.status as string | undefined;
       const provider = req.query.provider as string | undefined;
+      const interval = req.query.interval as string | undefined;
+      const period = req.query.period as string | undefined;
 
-      const subscriptions = await storage.listSubscriptions({ status, provider });
+      const subscriptions = await storage.listSubscriptions({ q, status, provider, interval, period });
 
       console.log(`[Admin] ✅ Fetched ${subscriptions.length} subscriptions (status: ${status || 'all'}, provider: ${provider || 'all'})`);
 
@@ -2829,7 +2846,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
   app.get("/api/admin/events", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
-      const allEvents = await storage.getAllEvents();
+      const q = req.query.q as string | undefined;
+      const type = req.query.type as string | undefined;
+      const severity = req.query.severity as string | undefined;
+      const allEvents = await storage.getAllEvents(q, type, severity);
       res.json({ events: allEvents });
     } catch (error: any) {
       console.error("[Admin] Error fetching all events:", error);

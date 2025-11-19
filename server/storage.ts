@@ -161,7 +161,7 @@ export interface IStorage {
   upsertNotificationPreferences(userId: string, preferences: UpdateNotificationPreferences): Promise<NotificationPreferences>;
 
   // Admin operations
-  listUsers(filters?: { search?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }>;
+  listUsers(filters?: { search?: string; status?: string; accessStatus?: string; plan?: string; billingStatus?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User | undefined>;
 
   // Subscription operations
@@ -170,7 +170,7 @@ export interface IStorage {
   getSubscriptionByProviderId(provider: 'caktos' | 'manual', providerSubscriptionId: string): Promise<Subscription | undefined>;
   getSubscriptionsByUserId(userId: string): Promise<Subscription[]>;
   updateSubscription(id: string, updates: Partial<InsertSubscription>): Promise<Subscription | undefined>;
-  listSubscriptions(filters?: { status?: string; provider?: string }): Promise<Subscription[]>;
+  listSubscriptions(filters?: { q?: string; status?: string; provider?: string; interval?: string; period?: string }): Promise<Subscription[]>;
 
   // Subscription events operations
   createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent>;
@@ -200,7 +200,7 @@ export interface IStorage {
   createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog>;
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
-  getAllEvents(): Promise<Array<{
+  getAllEvents(q?: string, type?: string, severity?: string): Promise<Array<{
     id: string;
     type: string;
     message: string;
@@ -855,7 +855,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Admin operations
-  async listUsers(filters?: { search?: string; status?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }> {
+  async listUsers(filters?: { search?: string; status?: string; accessStatus?: string; plan?: string; billingStatus?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }> {
     const page = filters?.page ?? 1;
     const pageSize = filters?.pageSize ?? 50;
     const offset = (page - 1) * pageSize;
@@ -870,13 +870,40 @@ export class DatabaseStorage implements IStorage {
           ilike(users.firstName, searchTerm),
           ilike(users.lastName, searchTerm),
           ilike(users.telefone, searchTerm),
+          ilike(users.planLabel, searchTerm),
           sqlOp`COALESCE(${users.whatsappNumber}::text, '') LIKE ${searchTerm}`
         )!
       );
     }
 
+    // Legacy status filter (maps to billingStatus)
     if (filters?.status) {
       whereConditions.push(eq(users.billingStatus, filters.status as any));
+    }
+
+    // Access status filter (maps to users.status)
+    if (filters?.accessStatus && filters.accessStatus !== 'all') {
+      if (filters.accessStatus === 'suspended') {
+        // Suspended users have billingStatus = 'paused' and status = 'authenticated'
+        whereConditions.push(
+          and(
+            eq(users.billingStatus, 'paused' as any),
+            eq(users.status, 'authenticated' as any)
+          )!
+        );
+      } else {
+        whereConditions.push(eq(users.status, filters.accessStatus as any));
+      }
+    }
+
+    // Plan filter
+    if (filters?.plan && filters.plan !== 'all') {
+      whereConditions.push(eq(users.plano, filters.plan as any));
+    }
+
+    // Billing status filter
+    if (filters?.billingStatus && filters.billingStatus !== 'all') {
+      whereConditions.push(eq(users.billingStatus, filters.billingStatus as any));
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
@@ -962,8 +989,19 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async listSubscriptions(filters?: { status?: string; provider?: string }): Promise<Subscription[]> {
+  async listSubscriptions(filters?: { q?: string; status?: string; provider?: string; interval?: string; period?: string }): Promise<Subscription[]> {
     let whereConditions: any[] = [];
+
+    if (filters?.q) {
+      const searchTerm = `%${filters.q}%`;
+      // Search in planName and status
+      whereConditions.push(
+        or(
+          ilike(subscriptions.planName, searchTerm),
+          ilike(subscriptions.status, searchTerm)
+        )!
+      );
+    }
 
     if (filters?.status) {
       whereConditions.push(eq(subscriptions.status, filters.status as any));
@@ -973,13 +1011,38 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(subscriptions.provider, filters.provider as any));
     }
 
+    if (filters?.interval) {
+      whereConditions.push(eq(subscriptions.interval, filters.interval as any));
+    }
+
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
-    return await db
+    let results = await db
       .select()
       .from(subscriptions)
       .where(whereClause)
       .orderBy(desc(subscriptions.createdAt));
+
+    // Filter by period (applied after query since it's date-based)
+    if (filters?.period) {
+      const now = new Date();
+      const cutoffDate = new Date();
+      
+      if (filters.period === '7days') {
+        cutoffDate.setDate(now.getDate() - 7);
+      } else if (filters.period === '30days') {
+        cutoffDate.setDate(now.getDate() - 30);
+      }
+      
+      if (filters.period !== 'all') {
+        results = results.filter(sub => {
+          const createdAt = new Date(sub.createdAt);
+          return createdAt >= cutoffDate;
+        });
+      }
+    }
+
+    return results;
   }
 
   // Subscription events operations
@@ -1169,7 +1232,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
-  async getAllEvents(): Promise<Array<{
+  async getAllEvents(q?: string, type?: string, severity?: string): Promise<Array<{
     id: string;
     type: string;
     message: string;
@@ -1226,8 +1289,40 @@ export class DatabaseStorage implements IStorage {
     }));
 
     // Unify all arrays
-    const allEvents = [...adminEvents, ...subscriptionEvents, ...systemEvents];
+    let allEvents = [...adminEvents, ...subscriptionEvents, ...systemEvents];
+    
+    // Filter by search term if provided
+    if (q) {
+      const searchTerm = q.toLowerCase();
+      allEvents = allEvents.filter(event => {
+        const eventType = (event.type || "").toLowerCase();
+        const message = (event.message || "").toLowerCase();
+        const source = (event.source || "").toLowerCase();
+        return eventType.includes(searchTerm) || message.includes(searchTerm) || source.includes(searchTerm);
+      });
+    }
 
+    // Filter by type (source)
+    if (type && type !== 'all') {
+      allEvents = allEvents.filter(event => {
+        const source = (event.source || "").toLowerCase();
+        if (type === 'whatsapp') return source.includes('whatsapp');
+        if (type === 'ai') return source.includes('ai') || source.includes('openai') || source.includes('gpt');
+        if (type === 'webhook') return source.includes('webhook') || source.includes('caktos');
+        if (type === 'system') return source === 'system';
+        if (type === 'admin') return source === 'admin';
+        return true;
+      });
+    }
+
+    // Filter by severity (from metadata or type)
+    if (severity && severity !== 'all') {
+      allEvents = allEvents.filter(event => {
+        const eventSeverity = (event.metadata?.severity || event.metadata?.level || event.type || "").toLowerCase();
+        return eventSeverity.includes(severity.toLowerCase());
+      });
+    }
+    
     // Sort by date descending
     allEvents.sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();

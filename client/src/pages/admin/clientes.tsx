@@ -147,7 +147,11 @@ const getBillingStatusColor = (status: string) => {
 export default function AdminClientes() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [accessStatusFilter, setAccessStatusFilter] = useState<string>("all");
+  const [planFilter, setPlanFilter] = useState<string>("all");
+  const [billingStatusFilter, setBillingStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -160,15 +164,35 @@ export default function AdminClientes() {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to page 1 when search changes
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<{ items: User[]; pagination: any }>({
-    queryKey: ["/api/admin/users", { search, status: statusFilter === "all" ? undefined : statusFilter, page }],
+    queryKey: ["/api/admin/users", { 
+      q: debouncedSearch, 
+      status: statusFilter === "all" ? undefined : statusFilter,
+      accessStatus: accessStatusFilter === "all" ? undefined : accessStatusFilter,
+      plan: planFilter === "all" ? undefined : planFilter,
+      billingStatus: billingStatusFilter === "all" ? undefined : billingStatusFilter,
+      page 
+    }],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
         pageSize: "50",
       });
-      if (search) params.append("search", search);
+      if (debouncedSearch) params.append("q", debouncedSearch);
       if (statusFilter !== "all") params.append("status", statusFilter);
+      if (accessStatusFilter !== "all") params.append("accessStatus", accessStatusFilter);
+      if (planFilter !== "all") params.append("plan", planFilter);
+      if (billingStatusFilter !== "all") params.append("billingStatus", billingStatusFilter);
       
       const response = await apiRequest("GET", `/api/admin/users?${params.toString()}`);
       return await response.json();
@@ -829,26 +853,77 @@ export default function AdminClientes() {
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <PremiumInput
-                    placeholder="Buscar por nome, email ou WhatsApp"
+                    placeholder="Buscar por nome, email ou WhatsApp..."
                     value={search}
                     onChange={(e) => {
                       setSearch(e.target.value);
-                      setPage(1);
                     }}
                     className="pl-12"
                   />
                 </div>
               </div>
-              <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full md:w-auto">
-                <TabsList className="grid w-full md:w-auto grid-cols-3 md:grid-cols-6">
-                  <TabsTrigger value="all">Todos</TabsTrigger>
-                  <TabsTrigger value="active">Ativos</TabsTrigger>
-                  <TabsTrigger value="trial">Teste</TabsTrigger>
-                  <TabsTrigger value="overdue">Atrasados</TabsTrigger>
-                  <TabsTrigger value="canceled">Cancelados</TabsTrigger>
-                  <TabsTrigger value="paused">Pausados</TabsTrigger>
-                </TabsList>
-              </Tabs>
+            </div>
+            
+            {/* Advanced Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status de Acesso</Label>
+                <Select value={accessStatusFilter} onValueChange={(value) => { setAccessStatusFilter(value); setPage(1); }}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="suspended">Suspenso</SelectItem>
+                    <SelectItem value="awaiting_email">Aguardando Email</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Plano</Label>
+                <Select value={planFilter} onValueChange={(value) => { setPlanFilter(value); setPage(1); }}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status de Cobrança</Label>
+                <Select value={billingStatusFilter} onValueChange={(value) => { setBillingStatusFilter(value); setPage(1); }}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="trial">Teste</SelectItem>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="paused">Pausado</SelectItem>
+                    <SelectItem value="canceled">Cancelado</SelectItem>
+                    <SelectItem value="overdue">Atrasado</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status (Legado)</Label>
+                <Tabs value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="all">Todos</TabsTrigger>
+                    <TabsTrigger value="active">Ativos</TabsTrigger>
+                    <TabsTrigger value="paused">Pausados</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
           </AppCard>
 

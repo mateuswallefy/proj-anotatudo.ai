@@ -1,10 +1,18 @@
-import { useState, startTransition } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { PageHeader } from "@/components/design-system/PageHeader";
 import { AppCard } from "@/components/design-system/AppCard";
 import { DataBadge } from "@/components/design-system/DataBadge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -17,9 +25,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
+import { PremiumInput } from "@/components/design-system/PremiumInput";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CreditCard, AlertTriangle } from "lucide-react";
+import { CreditCard, AlertTriangle, Search } from "lucide-react";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
 
 type Subscription = {
@@ -56,15 +65,37 @@ const getStatusColor = (status: string) => {
 };
 
 export default function AdminAssinaturas() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [intervalFilter, setIntervalFilter] = useState<string>("all");
+  const [periodFilter, setPeriodFilter] = useState<string>("all");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const { data, isLoading, error, refetch } = useQuery<Subscription[]>({
-    queryKey: ["/api/admin/subscriptions", { status: statusFilter === "all" ? undefined : statusFilter, provider: providerFilter === "all" ? undefined : providerFilter }],
+    queryKey: ["/api/admin/subscriptions", { 
+      q: debouncedSearch, 
+      status: statusFilter === "all" ? undefined : statusFilter, 
+      provider: providerFilter === "all" ? undefined : providerFilter,
+      interval: intervalFilter === "all" ? undefined : intervalFilter,
+      period: periodFilter === "all" ? undefined : periodFilter,
+    }],
     queryFn: async () => {
       const params = new URLSearchParams();
+      if (debouncedSearch) params.append("q", debouncedSearch);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (providerFilter !== "all") params.append("provider", providerFilter);
+      if (intervalFilter !== "all") params.append("interval", intervalFilter);
+      if (periodFilter !== "all") params.append("period", periodFilter);
       
       const response = await apiRequest("GET", `/api/admin/subscriptions?${params.toString()}`);
       if (!response.ok) {
@@ -89,26 +120,78 @@ export default function AdminAssinaturas() {
         />
 
         <div className="space-y-6 mt-8">
-        {/* Filters */}
+        {/* Search and Filters */}
         <AppCard className="p-5 md:p-6 cr-card-animate">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full md:w-auto">
-              <TabsList className="grid w-full md:w-auto grid-cols-3 md:grid-cols-6">
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="active">Ativas</TabsTrigger>
-                <TabsTrigger value="trial">Teste</TabsTrigger>
-                <TabsTrigger value="paused">Pausadas</TabsTrigger>
-                <TabsTrigger value="canceled">Canceladas</TabsTrigger>
-                <TabsTrigger value="overdue">Atrasadas</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Tabs value={providerFilter} onValueChange={setProviderFilter} className="w-full md:w-auto">
-              <TabsList className="grid w-full md:w-auto grid-cols-2">
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="caktos">Caktos</TabsTrigger>
-                <TabsTrigger value="manual">Manual</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex-1 w-full md:max-w-md">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <PremiumInput
+                  placeholder="Buscar por email, plano ou status..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-12"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Advanced Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="active">Ativas</SelectItem>
+                  <SelectItem value="trial">Teste</SelectItem>
+                  <SelectItem value="paused">Pausadas</SelectItem>
+                  <SelectItem value="canceled">Canceladas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Intervalo</Label>
+              <Select value={intervalFilter} onValueChange={setIntervalFilter}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
+                  <SelectItem value="yearly">Anual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Período</Label>
+              <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="7days">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30days">Últimos 30 dias</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Provedor</Label>
+              <Tabs value={providerFilter} onValueChange={setProviderFilter} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="all">Todos</TabsTrigger>
+                  <TabsTrigger value="caktos">Caktos</TabsTrigger>
+                  <TabsTrigger value="manual">Manual</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </AppCard>
 
