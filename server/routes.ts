@@ -2463,37 +2463,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/users/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    const { id } = req.params;
+    const adminId = req.session.userId;
+
     try {
-      const adminId = req.session.userId;
-      const { id } = req.params;
-      
-      // Check if user exists
-      const user = await storage.getUser(id);
-      if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
+      // 1. Buscar subscriptions do usuário
+      const userSubs = await db.select().from(subscriptions).where(eq(subscriptions.userId, id));
+
+      // 2. Remover subscription_events por subscriptionId
+      for (const sub of userSubs) {
+        await db.execute(sql`
+          DELETE FROM subscription_events
+          WHERE subscription_id = ${sub.id}
+        `);
       }
 
-      // Get subscriptions before deletion (for logging)
-      const userSubscriptions = await storage.getSubscriptionsByUserId(id);
+      // 3. Remover subscription_events por userId (caso exista a coluna)
+      try {
+        await db.execute(sql`
+          DELETE FROM subscription_events
+          WHERE (meta::jsonb)->>'userId' = ${id}
+        `);
+      } catch (_) {}
 
-      // Manual CASCADE deletion in correct order
-      await db.delete(subscriptionEvents).where(
-        eq(subscriptionEvents.userId, id)
-      );
-
-      await db.delete(subscriptionEvents).where(
-        inArray(subscriptionEvents.subscriptionId, 
-          db.select({ id: subscriptions.id }).from(subscriptions).where(eq(subscriptions.userId, id))
-        )
-      );
-
+      // 4. Tabelas dependentes (ordem crítica)
       await db.delete(cartaoTransacoes).where(eq(cartaoTransacoes.userId, id));
       await db.delete(faturas).where(eq(faturas.userId, id));
       await db.delete(cartoes).where(eq(cartoes.userId, id));
       await db.delete(transacoes).where(eq(transacoes.userId, id));
-
       await db.delete(subscriptions).where(eq(subscriptions.userId, id));
 
+      // 5. Independentes
       await db.delete(whatsappSessions).where(eq(whatsappSessions.userId, id));
       await db.delete(insights).where(eq(insights.userId, id));
       await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, id));
@@ -2502,54 +2502,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(investimentos).where(eq(investimentos.userId, id));
       await db.delete(goals).where(eq(goals.userId, id));
 
-      await db.execute(
-        sql.raw(`
-          DELETE FROM system_logs
-          WHERE (meta::jsonb)->>'userId' = '${id}'
-        `)
-      );
+      // 6. system_logs (via JSONB)
+      await db.execute(sql`
+        DELETE FROM system_logs
+        WHERE (meta::jsonb)->>'userId' = ${id}
+      `);
 
-      await db.delete(adminEventLogs).where(
-        eq(adminEventLogs.userId, id)
-      );
+      // 7. admin_event_logs
+      await db.delete(adminEventLogs).where(eq(adminEventLogs.userId, id));
 
-      // Finally, delete the user
+      // 8. Remover usuário
       await db.delete(users).where(eq(users.id, id));
 
-      // Log admin action (after successful deletion)
-      try {
-        await storage.createAdminEventLog({
-          adminId: adminId,
-          userId: id,
-          type: 'delete_user',
-          metadata: {
-            email: user.email,
-            whatsappNumber: user.whatsappNumber,
-            subscriptionsCount: userSubscriptions.length,
-            deletedAt: new Date().toISOString(),
-          },
-        });
-      } catch (logError) {
-        console.warn("[Admin] Warning: Could not log admin event (non-critical):", logError);
-      }
+      // Registrar ação
+      await storage.createAdminEventLog({
+        adminId,
+        userId: id,
+        type: "delete_user",
+        metadata: {}
+      });
 
-      res.json({ 
-        success: true,
-      });
+      return res.json({ success: true });
     } catch (error: any) {
-      console.error("[Admin] ❌ CRITICAL ERROR deleting admin user:", error);
-      console.error("[Admin] Error details:", {
-        message: error.message,
-        stack: error.stack,
-        userId: req.params.id,
-        errorCode: error.code,
-        errorName: error.name,
-      });
-      
-      res.status(500).json({ 
+      console.error("[Admin] CRITICAL DELETE ERROR:", error);
+      return res.status(500).json({
         success: false,
-        message: error.message || "Falha ao excluir cliente. Tente novamente.",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        message: "Erro ao excluir usuário",
+        error: error?.message,
       });
     }
   });
