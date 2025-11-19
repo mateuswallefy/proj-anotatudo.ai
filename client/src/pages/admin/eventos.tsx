@@ -245,52 +245,52 @@ export default function AdminEventos() {
                     const source = event.source || "unknown";
                     
                     return (
-                      <TableRow key={event.id}>
-                        <TableCell>
+                    <TableRow key={event.id}>
+                      <TableCell>
                           <DataBadge variant="outline" color={getEventTypeColor(type, message)}>
                             {getEventTypeLabel(type, source)}
-                          </DataBadge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
+                        </DataBadge>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
                           <span className="text-xs text-muted-foreground">{source}</span>
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {message || "-"}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <PremiumButton
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setSelectedEvent(event)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </PremiumButton>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
-                              <DialogHeader>
-                                <DialogTitle>Detalhes do Evento</DialogTitle>
-                                <DialogDescription>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
+                          locale: ptBR,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <PremiumButton
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSelectedEvent(event)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </PremiumButton>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Detalhes do Evento</DialogTitle>
+                              <DialogDescription>
                                   Metadata completo do evento
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="py-4">
-                                <ScrollArea className="max-h-[60vh]">
-                                  <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                              <ScrollArea className="max-h-[60vh]">
+                                <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
                                     {JSON.stringify(selectedEvent?.metadata || {}, null, 2)}
-                                  </pre>
-                                </ScrollArea>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
+                                </pre>
+                              </ScrollArea>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
+                    </TableRow>
                     );
                   });
                 })()}

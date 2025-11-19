@@ -2467,60 +2467,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const adminId = req.session.userId;
 
     try {
-      // 1. Buscar subscriptions do usuário
+      // Buscar subscriptions do usuário para deletar subscriptionEvents
       const userSubs = await db.select().from(subscriptions).where(eq(subscriptions.userId, id));
+      const subscriptionIds = userSubs.map(sub => sub.id);
 
-      // 2. Remover subscription_events por subscriptionId
-      for (const sub of userSubs) {
-        await db.execute(sql`
-          DELETE FROM subscription_events
-          WHERE subscription_id = ${sub.id}
-        `);
+      // a) subscriptionEvents (por userId)
+      try {
+        await db.delete(subscriptionEvents).where(eq(subscriptionEvents.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete subscriptionEvents by userId:", err);
       }
 
-      // 3. Remover subscription_events por userId (caso exista a coluna)
+      // b) subscriptionEvents (por subscriptionId das subscriptions do usuário)
+      if (subscriptionIds.length > 0) {
+        try {
+          await db.delete(subscriptionEvents).where(inArray(subscriptionEvents.subscriptionId, subscriptionIds));
+        } catch (err: any) {
+          console.warn("[Admin] Warning: Could not delete subscriptionEvents by subscriptionId:", err);
+        }
+      }
+
+      // c) cartaoTransacoes
       try {
-        await db.execute(sql`
-          DELETE FROM subscription_events
-          WHERE (meta::jsonb)->>'userId' = ${id}
-        `);
-      } catch (_) {}
+        await db.delete(cartaoTransacoes).where(eq(cartaoTransacoes.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete cartaoTransacoes:", err);
+      }
 
-      // 4. Tabelas dependentes (ordem crítica)
-      await db.delete(cartaoTransacoes).where(eq(cartaoTransacoes.userId, id));
-      await db.delete(faturas).where(eq(faturas.userId, id));
-      await db.delete(cartoes).where(eq(cartoes.userId, id));
-      await db.delete(transacoes).where(eq(transacoes.userId, id));
-      await db.delete(subscriptions).where(eq(subscriptions.userId, id));
+      // d) faturas
+      try {
+        await db.delete(faturas).where(eq(faturas.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete faturas:", err);
+      }
 
-      // 5. Independentes
-      await db.delete(whatsappSessions).where(eq(whatsappSessions.userId, id));
-      await db.delete(insights).where(eq(insights.userId, id));
-      await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, id));
-      await db.delete(categoriasCustomizadas).where(eq(categoriasCustomizadas.userId, id));
-      await db.delete(contas).where(eq(contas.userId, id));
-      await db.delete(investimentos).where(eq(investimentos.userId, id));
-      await db.delete(goals).where(eq(goals.userId, id));
+      // e) cartoes
+      try {
+        await db.delete(cartoes).where(eq(cartoes.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete cartoes:", err);
+      }
 
-      // 6. system_logs (via JSONB)
-      await db.execute(sql`
-        DELETE FROM system_logs
-        WHERE (meta::jsonb)->>'userId' = ${id}
-      `);
+      // f) transacoes
+      try {
+        await db.delete(transacoes).where(eq(transacoes.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete transacoes:", err);
+      }
 
-      // 7. admin_event_logs
-      await db.delete(adminEventLogs).where(eq(adminEventLogs.userId, id));
+      // g) subscriptions
+      try {
+        await db.delete(subscriptions).where(eq(subscriptions.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete subscriptions:", err);
+      }
 
-      // 8. Remover usuário
-      await db.delete(users).where(eq(users.id, id));
+      // h) whatsappSessions
+      try {
+        await db.delete(whatsappSessions).where(eq(whatsappSessions.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete whatsappSessions:", err);
+      }
+
+      // i) insights
+      try {
+        await db.delete(insights).where(eq(insights.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete insights:", err);
+      }
+
+      // j) notificationPreferences
+      try {
+        await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete notificationPreferences:", err);
+      }
+
+      // l) categoriasCustomizadas
+      try {
+        await db.delete(categoriasCustomizadas).where(eq(categoriasCustomizadas.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete categoriasCustomizadas:", err);
+      }
+
+      // m) contas
+      try {
+        await db.delete(contas).where(eq(contas.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete contas:", err);
+      }
+
+      // n) investimentos
+      try {
+        await db.delete(investimentos).where(eq(investimentos.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete investimentos:", err);
+      }
+
+      // o) goals
+      try {
+        await db.delete(goals).where(eq(goals.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete goals:", err);
+      }
+
+      // p) systemLogs (JSONB delete via SQL RAW)
+      try {
+        await db.execute(
+          sql.raw(`
+            DELETE FROM system_logs
+            WHERE (meta::jsonb)->>'userId' = '${id}';
+          `)
+        );
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete systemLogs:", err);
+      }
+
+      // q) adminEventLogs
+      try {
+        await db.delete(adminEventLogs).where(eq(adminEventLogs.userId, id));
+      } catch (err: any) {
+        console.warn("[Admin] Warning: Could not delete adminEventLogs:", err);
+      }
+
+      // r) users
+      try {
+        await db.delete(users).where(eq(users.id, id));
+      } catch (err: any) {
+        console.error("[Admin] CRITICAL: Could not delete user:", err);
+        throw err;
+      }
 
       // Registrar ação
-      await storage.createAdminEventLog({
-        adminId,
-        userId: id,
-        type: "delete_user",
-        metadata: {}
-      });
+      try {
+        await storage.createAdminEventLog({
+          adminId,
+          userId: id,
+          type: "delete_user",
+          metadata: {}
+        });
+      } catch (logError) {
+        console.warn("[Admin] Warning: Could not log admin event (non-critical):", logError);
+      }
 
       return res.json({ success: true });
     } catch (error: any) {

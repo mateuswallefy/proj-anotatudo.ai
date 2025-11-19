@@ -186,11 +186,11 @@ export default function AdminAssinaturas() {
               <Label className="text-sm font-medium">Provedor</Label>
               <Tabs value={providerFilter} onValueChange={setProviderFilter} className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="all">Todos</TabsTrigger>
-                  <TabsTrigger value="caktos">Caktos</TabsTrigger>
-                  <TabsTrigger value="manual">Manual</TabsTrigger>
-                </TabsList>
-              </Tabs>
+                <TabsTrigger value="all">Todos</TabsTrigger>
+                <TabsTrigger value="caktos">Caktos</TabsTrigger>
+                <TabsTrigger value="manual">Manual</TabsTrigger>
+              </TabsList>
+            </Tabs>
             </div>
           </div>
         </AppCard>
