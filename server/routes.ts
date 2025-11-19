@@ -1940,6 +1940,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ⚠️ ROTA TEMPORÁRIA — apagar depois de usar
+  app.post("/api/admin/create-super-admin", async (req: any, res) => {
+    try {
+      // Verificar se o admin já existe
+      const existingAdmin = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, 'matheus.wallefy@gmail.com'))
+        .limit(1);
+
+      if (existingAdmin.length > 0) {
+        return res.json({ 
+          success: true, 
+          message: "Admin já existe" 
+        });
+      }
+
+      // Hash da senha (bcrypt salt 10 rounds)
+      const passwordHash = '$2b$10$GSJAuUEGn0.NyWhSsF8gne45m9LZb9.MLGPRGBTRCG7w/jEVAFu6e';
+
+      // Criar o admin usando Drizzle ORM
+      const [adminUser] = await db
+        .insert(users)
+        .values({
+          email: 'matheus.wallefy@gmail.com',
+          passwordHash: passwordHash,
+          role: 'admin',
+          status: 'authenticated',
+          plano: 'premium',
+          billingStatus: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      return res.json({
+        success: true,
+        message: "Admin criado com sucesso"
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar admin:", error);
+      return res.status(500).json({ 
+        success: false,
+        message: "Erro ao criar admin", 
+        error: error.message 
+      });
+    }
+  });
+
   // Admin routes
   app.get("/api/admin/overview", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
