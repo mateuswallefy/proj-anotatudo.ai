@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
 import { AdminHeader } from "./AdminHeader";
+import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
 interface AdminNavItem {
@@ -71,6 +72,7 @@ export function AdminLayout({ children, currentPath, pageTitle, pageSubtitle }: 
 
   return (
     <div className="min-h-screen bg-background">
+      <Toaster />
       {/* Admin Header - Fixed at top */}
       <AdminHeader title={pageTitle || "Painel Admin"} subtitle={pageSubtitle} />
 
