@@ -2264,7 +2264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const adminId = req.session.userId;
       const { id } = req.params;
-      const { nome, sobrenome, email, whatsappNumber, status, plano, planLabel, billingStatus, role } = req.body;
+      const { nome, sobrenome, email, whatsappNumber, plano, planLabel, billingStatus, interval, role } = req.body;
 
       // Get current user to check for email/phone changes
       const currentUser = await storage.getUser(id);
@@ -2337,34 +2337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Handle status update (active/suspended) - also update subscriptions
-      if (status !== undefined) {
-        if (status === 'suspended') {
-          updates.billingStatus = 'paused';
-          updates.status = 'authenticated';
-          
-          // Update all active subscriptions to paused
-          const userSubscriptions = await storage.getSubscriptionsByUserId(id);
-          for (const sub of userSubscriptions) {
-            if (sub.status === 'active' || sub.status === 'trial') {
-              await storage.updateSubscription(sub.id, { status: 'paused' });
-            }
-          }
-          metadata.status = 'suspended';
-        } else if (status === 'active') {
-          updates.billingStatus = billingStatus || 'active';
-          updates.status = 'authenticated';
-          
-          // Reactivate paused subscriptions
-          const userSubscriptions = await storage.getSubscriptionsByUserId(id);
-          for (const sub of userSubscriptions) {
-            if (sub.status === 'paused') {
-              await storage.updateSubscription(sub.id, { status: 'active' });
-            }
-          }
-          metadata.status = 'active';
-        }
-      }
+      // Status de acesso não pode ser alterado via PATCH - apenas via suspend/reactivate
 
       // Handle plano and planLabel
       if (plano !== undefined) {
@@ -2393,7 +2366,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Handle interval update (if provided)
-      const interval = req.body.interval;
       if (interval) {
         metadata.interval = interval;
         
@@ -2530,8 +2502,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(investimentos).where(eq(investimentos.userId, id));
       await db.delete(goals).where(eq(goals.userId, id));
 
-      await db.delete(systemLogs).where(
-        sql`${systemLogs.meta}::jsonb->>'userId' = ${id}`
+      await db.execute(
+        sql.raw(`
+          DELETE FROM system_logs
+          WHERE (meta::jsonb)->>'userId' = '${id}'
+        `)
       );
 
       await db.delete(adminEventLogs).where(

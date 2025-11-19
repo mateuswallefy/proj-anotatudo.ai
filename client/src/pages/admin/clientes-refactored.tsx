@@ -98,7 +98,7 @@ const editUserSchema = z.object({
   plano: z.string().optional(),
   planLabel: z.string().optional(),
   billingStatus: z.enum(["trial", "active", "paused", "canceled", "overdue", "none"]).optional(),
-  status: z.enum(["active", "suspended"]).optional(),
+  interval: z.enum(["monthly", "yearly"]).optional(),
 });
 
 type EditUserForm = z.infer<typeof editUserSchema>;
@@ -223,7 +223,6 @@ export default function AdminClientes() {
         plano: selectedUser.plano || "free",
         planLabel: selectedUser.planLabel || "",
         billingStatus: (selectedUser.billingStatus || "none") as any,
-        status: selectedUser.billingStatus === "paused" ? "suspended" : "active",
       });
     }
   }, [selectedUser, editDialogOpen]);
@@ -968,27 +967,6 @@ export default function AdminClientes() {
                                     <SelectItem value="paused">Pausado</SelectItem>
                                     <SelectItem value="canceled">Cancelado</SelectItem>
                                     <SelectItem value="overdue">Atrasado</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={editForm.control}
-                            name="status"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Status de Acesso</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-11 md:h-12 rounded-xl">
-                                      <SelectValue placeholder="Selecione o status" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="active">Ativo</SelectItem>
-                                    <SelectItem value="suspended">Suspenso</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 <FormMessage />

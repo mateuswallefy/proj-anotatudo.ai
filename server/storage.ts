@@ -61,7 +61,7 @@ import {
   type InsertWhatsAppSession,
 } from "@shared/schema";
 import { db } from "./db.js";
-import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray } from "drizzle-orm";
+import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray, ne } from "drizzle-orm";
 import { format } from "date-fns";
 
 export interface IStorage {
@@ -892,7 +892,13 @@ export class DatabaseStorage implements IStorage {
           )!
         );
       } else if (filters.accessStatus === 'authenticated') {
-        whereConditions.push(eq(users.status, 'authenticated' as any));
+        // Active users: status = 'authenticated' AND billingStatus != 'paused'
+        whereConditions.push(
+          and(
+            eq(users.status, 'authenticated' as any),
+            ne(users.billingStatus, 'paused' as any)
+          )!
+        );
       } else if (filters.accessStatus === 'awaiting_email') {
         whereConditions.push(eq(users.status, 'awaiting_email' as any));
       }
