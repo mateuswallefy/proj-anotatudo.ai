@@ -244,3 +244,4 @@ Agora você pode:
 **O SSH do Cursor nunca será encerrado pelos scripts!**
 
 
+

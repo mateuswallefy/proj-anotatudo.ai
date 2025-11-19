@@ -198,6 +198,16 @@ export interface IStorage {
 
   // Admin event logs operations
   createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog>;
+
+  // Get all events (unified from admin_event_logs, subscription_events, system_logs)
+  getAllEvents(): Promise<Array<{
+    id: string;
+    type: string;
+    message: string;
+    source: string;
+    createdAt: Date | string;
+    metadata: any;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1156,6 +1166,76 @@ export class DatabaseStorage implements IStorage {
   async createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog> {
     const [newLog] = await db.insert(adminEventLogs).values(log).returning();
     return newLog;
+  }
+
+  // Get all events (unified from admin_event_logs, subscription_events, system_logs)
+  async getAllEvents(): Promise<Array<{
+    id: string;
+    type: string;
+    message: string;
+    source: string;
+    createdAt: Date | string;
+    metadata: any;
+  }>> {
+    // Read all admin_event_logs
+    const adminEventsRaw = await db
+      .select()
+      .from(adminEventLogs)
+      .orderBy(desc(adminEventLogs.createdAt));
+
+    // Read all subscription_events
+    const subscriptionEventsRaw = await db
+      .select()
+      .from(subscriptionEvents)
+      .orderBy(desc(subscriptionEvents.createdAt));
+
+    // Read all system_logs
+    const systemEventsRaw = await db
+      .select()
+      .from(systemLogs)
+      .orderBy(desc(systemLogs.createdAt));
+
+    // Normalize admin_event_logs
+    const adminEvents = adminEventsRaw.map(event => ({
+      id: event.id,
+      type: event.type,
+      message: `Admin action: ${event.type}`,
+      source: 'admin',
+      createdAt: event.createdAt,
+      metadata: event.metadata,
+    }));
+
+    // Normalize subscription_events
+    const subscriptionEvents = subscriptionEventsRaw.map(event => ({
+      id: event.id,
+      type: event.type,
+      message: `Subscription event: ${event.type}`,
+      source: 'subscription',
+      createdAt: event.createdAt,
+      metadata: event.rawPayload,
+    }));
+
+    // Normalize system_logs
+    const systemEvents = systemEventsRaw.map(event => ({
+      id: event.id,
+      type: event.level,
+      message: event.message,
+      source: event.source,
+      createdAt: event.createdAt,
+      metadata: event.meta,
+    }));
+
+    // Unify all arrays
+    const allEvents = [...adminEvents, ...subscriptionEvents, ...systemEvents];
+
+    // Sort by date descending
+    allEvents.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
+
+    return allEvents;
   }
 }
 

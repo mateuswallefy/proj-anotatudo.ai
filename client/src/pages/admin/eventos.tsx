@@ -28,32 +28,32 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Eye, Activity, AlertTriangle } from "lucide-react";
 
-type SubscriptionEvent = {
+type Event = {
   id: string;
-  subscriptionId: string;
   type: string;
-  rawPayload: any;
-  createdAt: string;
-  subscription?: {
-    planName: string;
-    userId: string;
-  };
+  message: string;
+  source: string;
+  createdAt: string | Date;
+  metadata: any;
 };
 
-const getEventTypeColor = (type: string) => {
-  if (type.includes("created") || type.includes("activated")) {
+const getEventTypeColor = (type: string, message: string) => {
+  const typeLower = type.toLowerCase();
+  const messageLower = message.toLowerCase();
+  
+  if (typeLower.includes("created") || typeLower.includes("activated") || messageLower.includes("created") || messageLower.includes("activated")) {
     return "hsl(142, 76%, 36%)";
   }
-  if (type.includes("canceled") || type.includes("failed")) {
+  if (typeLower.includes("canceled") || typeLower.includes("failed") || messageLower.includes("canceled") || messageLower.includes("failed")) {
     return "hsl(0, 72%, 51%)";
   }
-  if (type.includes("renewed") || type.includes("succeeded")) {
+  if (typeLower.includes("renewed") || typeLower.includes("succeeded") || messageLower.includes("renewed") || messageLower.includes("succeeded")) {
     return "hsl(217, 91%, 60%)";
   }
   return "hsl(215, 16%, 47%)";
 };
 
-const getEventTypeLabel = (type: string) => {
+const getEventTypeLabel = (type: string, source: string) => {
   const labels: Record<string, string> = {
     "subscription.created": "Assinatura criada",
     "subscription.activated": "Assinatura ativada",
@@ -62,27 +62,33 @@ const getEventTypeLabel = (type: string) => {
     "subscription.paused": "Assinatura pausada",
     "payment.succeeded": "Pagamento confirmado",
     "payment.failed": "Pagamento falhou",
+    "create_user": "Usuário criado",
+    "update_user": "Usuário atualizado",
+    "suspend_user": "Usuário suspenso",
+    "reactivate_user": "Usuário reativado",
+    "delete_user": "Usuário deletado",
+    "reset_password": "Senha resetada",
+    "info": "Informação",
+    "warning": "Aviso",
+    "error": "Erro",
   };
-  return labels[type] || type;
+  return labels[type] || type || "Evento";
 };
 
 export default function AdminEventos() {
-  const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // Note: We need to get recent events from subscriptions
-  // For now, we'll fetch subscriptions and then get events from a specific subscription
-  // This is a simplified version - in production, you'd want a dedicated endpoint
-  const { data: subscriptionsData, isLoading, error } = useQuery<SubscriptionEvent[]>({
-    queryKey: ["/api/admin/subscriptions"],
+  // Fetch all events from the unified endpoint
+  const { data: eventsData, isLoading, error } = useQuery<{ events: Event[] }>({
+    queryKey: ["/api/admin/events"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/subscriptions");
+      const response = await apiRequest("GET", "/api/admin/events");
       return await response.json();
     },
   });
 
-  // For now, we'll show a placeholder message since we don't have a direct events endpoint
-  // In production, create /api/admin/events endpoint
-  const events: SubscriptionEvent[] = subscriptionsData ?? [];
+  // Ensure events is always an array
+  const safeEvents = Array.isArray(eventsData?.events) ? eventsData.events : [];
 
   return (
     <AdminLayout 
@@ -104,8 +110,8 @@ export default function AdminEventos() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Cliente ID</TableHead>
-                  <TableHead>Plano</TableHead>
+                  <TableHead>Origem</TableHead>
+                  <TableHead>Mensagem</TableHead>
                   <TableHead>Data/Hora</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -135,8 +141,7 @@ export default function AdminEventos() {
                   </TableRow>
                 )}
                 {!isLoading && !error && (() => {
-                  const items = events ?? [];
-                  if (items.length === 0) {
+                  if (safeEvents.length === 0) {
                     return (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
@@ -144,61 +149,68 @@ export default function AdminEventos() {
                             <Activity className="h-8 w-8 opacity-50" />
                             <p className="font-medium">Nenhum evento encontrado</p>
                             <p className="text-sm">
-                              Os eventos serão exibidos aqui quando as assinaturas gerarem eventos.
+                              Os eventos serão exibidos aqui quando ocorrerem ações no sistema.
                             </p>
                           </div>
                         </TableCell>
                       </TableRow>
                     );
                   }
-                  return items.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell>
-                        <DataBadge variant="outline" color={getEventTypeColor(event.type)}>
-                          {getEventTypeLabel(event.type)}
-                        </DataBadge>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {event.subscription?.userId
-                          ? `${event.subscription.userId.slice(0, 8)}...`
-                          : "-"}
-                      </TableCell>
-                      <TableCell>{event.subscription?.planName || "-"}</TableCell>
-                      <TableCell>
-                        {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <PremiumButton
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setSelectedEvent(event)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </PremiumButton>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Detalhes do Evento</DialogTitle>
-                              <DialogDescription>
-                                Payload completo do evento
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4">
-                              <ScrollArea className="max-h-[60vh]">
-                                <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
-                                  {JSON.stringify(selectedEvent?.rawPayload || {}, null, 2)}
-                                </pre>
-                              </ScrollArea>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ));
+                  return safeEvents.map((event) => {
+                    // Ensure type and message exist before using .includes()
+                    const type = event.type || "";
+                    const message = event.message || "";
+                    const source = event.source || "unknown";
+                    
+                    return (
+                      <TableRow key={event.id}>
+                        <TableCell>
+                          <DataBadge variant="outline" color={getEventTypeColor(type, message)}>
+                            {getEventTypeLabel(type, source)}
+                          </DataBadge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          <span className="text-xs text-muted-foreground">{source}</span>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {message || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
+                            locale: ptBR,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <PremiumButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setSelectedEvent(event)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </PremiumButton>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Detalhes do Evento</DialogTitle>
+                                <DialogDescription>
+                                  Metadata completo do evento
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="py-4">
+                                <ScrollArea className="max-h-[60vh]">
+                                  <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
+                                    {JSON.stringify(selectedEvent?.metadata || {}, null, 2)}
+                                  </pre>
+                                </ScrollArea>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
                 })()}
               </TableBody>
             </Table>

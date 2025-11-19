@@ -2840,6 +2840,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all events (unified from admin_event_logs, subscription_events, system_logs)
+  app.get("/api/admin/events", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const allEvents = await storage.getAllEvents();
+      res.json({ events: allEvents });
+    } catch (error: any) {
+      console.error("[Admin] Error fetching all events:", error);
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao buscar eventos",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  });
+
   // Webhook Caktos
   app.post("/api/webhooks/caktos", async (req: any, res) => {
     try {

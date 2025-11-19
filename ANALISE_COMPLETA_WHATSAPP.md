@@ -922,3 +922,4 @@ export const db = drizzle({ client: pool, schema });
 - ✅ **Fluxo:** `awaiting_email` → valida email → busca compra → `authenticated`
 - ✅ **Variáveis de ambiente:** `DATABASE_URL`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `OPENAI_API_KEY`, etc.
 
+
