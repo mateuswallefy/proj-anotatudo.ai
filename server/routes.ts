@@ -6,8 +6,30 @@ import multer from "multer";
 import { storage } from "./storage.js";
 import { isAuthenticated, hashPassword, comparePassword, requireAdmin } from "./auth.js";
 import { db } from "./db.js";
-import { users, transacoes, subscriptionEvents } from "@shared/schema";
-import { eq, and, or, desc, sql as sqlOp } from "drizzle-orm";
+import { 
+  users, 
+  transacoes, 
+  subscriptionEvents,
+  sessions,
+  whatsappSessions,
+  cartoes,
+  faturas,
+  cartaoTransacoes,
+  goals,
+  spendingLimits,
+  accountMembers,
+  purchases,
+  categoriasCustomizadas,
+  contas,
+  investimentos,
+  alertas,
+  insights,
+  notificationPreferences,
+  subscriptions,
+  systemLogs,
+  adminEventLogs,
+} from "@shared/schema";
+import { eq, and, or, desc, sql as sqlOp, sql, inArray } from "drizzle-orm";
 import { 
   insertTransacaoSchema, 
   insertCartaoSchema, 
@@ -2476,31 +2498,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user exists
       const user = await storage.getUser(id);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ success: false, message: "User not found" });
       }
 
       // Get subscriptions before deletion (for logging)
       const userSubscriptions = await storage.getSubscriptionsByUserId(id);
 
-      // Delete user (cascade will handle related data including subscriptions)
+      // Manual CASCADE deletion in correct order
+      await db.delete(subscriptionEvents).where(
+        eq(subscriptionEvents.userId, id)
+      );
+
+      await db.delete(subscriptionEvents).where(
+        inArray(subscriptionEvents.subscriptionId, 
+          db.select({ id: subscriptions.id }).from(subscriptions).where(eq(subscriptions.userId, id))
+        )
+      );
+
+      await db.delete(cartaoTransacoes).where(eq(cartaoTransacoes.userId, id));
+      await db.delete(faturas).where(eq(faturas.userId, id));
+      await db.delete(cartoes).where(eq(cartoes.userId, id));
+      await db.delete(transacoes).where(eq(transacoes.userId, id));
+
+      await db.delete(subscriptions).where(eq(subscriptions.userId, id));
+
+      await db.delete(whatsappSessions).where(eq(whatsappSessions.userId, id));
+      await db.delete(insights).where(eq(insights.userId, id));
+      await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, id));
+      await db.delete(categoriasCustomizadas).where(eq(categoriasCustomizadas.userId, id));
+      await db.delete(contas).where(eq(contas.userId, id));
+      await db.delete(investimentos).where(eq(investimentos.userId, id));
+      await db.delete(goals).where(eq(goals.userId, id));
+
+      await db.delete(systemLogs).where(
+        sql`${systemLogs.meta}::jsonb->>'userId' = ${id}`
+      );
+
+      await db.delete(adminEventLogs).where(
+        eq(adminEventLogs.userId, id)
+      );
+
+      // Finally, delete the user
       await db.delete(users).where(eq(users.id, id));
 
-      // Log admin action (before deletion, so we have user data)
-      await storage.createAdminEventLog({
-        adminId: adminId,
-        userId: id,
-        type: 'delete_user',
-        metadata: {
-          email: user.email,
-          whatsappNumber: user.whatsappNumber,
-          subscriptionsCount: userSubscriptions.length,
-        },
-      });
+      // Log admin action (after successful deletion)
+      try {
+        await storage.createAdminEventLog({
+          adminId: adminId,
+          userId: id,
+          type: 'delete_user',
+          metadata: {
+            email: user.email,
+            whatsappNumber: user.whatsappNumber,
+            subscriptionsCount: userSubscriptions.length,
+            deletedAt: new Date().toISOString(),
+          },
+        });
+      } catch (logError) {
+        console.warn("[Admin] Warning: Could not log admin event (non-critical):", logError);
+      }
 
       res.json({ 
         success: true,
-        message: "Cliente excluído com sucesso",
-        deletedUserId: id,
       });
     } catch (error: any) {
       console.error("[Admin] ❌ CRITICAL ERROR deleting admin user:", error);
@@ -2512,16 +2571,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorName: error.name,
       });
       
-      // Check if it's a foreign key constraint error
-      const isConstraintError = error.message?.includes('foreign key') || 
-                               error.message?.includes('constraint') ||
-                               error.code === '23503';
-      
       res.status(500).json({ 
         success: false,
-        message: isConstraintError 
-          ? "Não é possível excluir este cliente pois há dados relacionados. Remova as dependências primeiro."
-          : error.message || "Falha ao excluir cliente. Tente novamente.",
+        message: error.message || "Falha ao excluir cliente. Tente novamente.",
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
@@ -2555,13 +2607,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allSessions = await db.select().from(sessions);
       for (const session of allSessions) {
         try {
-          const sessData = session.sess as any;
-          if (sessData?.userId === id || sessData?.user?.id === id) {
+          const data = session.sess as any;
+          if (data?.userId === id || data?.user?.id === id) {
             await db.delete(sessions).where(eq(sessions.sid, session.sid));
-            console.log(`[Admin] Deleted session ${session.sid} for user ${id} (suspended)`);
           }
         } catch (err) {
-          // Ignore invalid session data
+          console.log("[Admin] Sessão inválida ignorada.");
         }
       }
 
