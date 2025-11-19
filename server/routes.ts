@@ -2274,20 +2274,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`[Admin] Updated WhatsApp mapping: ${email} -> ${phoneNumber}`);
           }
         }
-
-        // Force logout: Delete all sessions for this user
-        const allSessions = await db.select().from(sessions);
-        for (const session of allSessions) {
-          try {
-            const sessData = session.sess as any;
-            if (sessData?.userId === id || sessData?.user?.id === id) {
-              await db.delete(sessions).where(eq(sessions.sid, session.sid));
-              console.log(`[Admin] Deleted session ${session.sid} for user ${id} (email change)`);
-            }
-          } catch (err) {
-            // Ignore invalid session data
-          }
-        }
       }
 
       // Handle WhatsApp number update
