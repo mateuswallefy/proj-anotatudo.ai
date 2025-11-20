@@ -66,6 +66,11 @@ import {
   GREETING_RESPONSES,
   NON_TEXT_WHILE_AWAITING_EMAIL,
 } from "./whatsapp.js";
+import {
+  canDeleteUser,
+  canUpdateAdminRootFields,
+  isAdminRootUser,
+} from "./adminRootProtection.js";
 
 function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
   if (!period || !/^\d{4}-\d{2}$/.test(period)) {
@@ -2313,12 +2318,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const adminId = req.session.userId;
       const { id } = req.params;
-      const { nome, sobrenome, email, whatsappNumber, plano, planLabel, billingStatus, interval, role } = req.body;
+      const { nome, sobrenome, email, whatsappNumber, plano, planLabel, billingStatus, interval, role, password } = req.body;
 
       // Get current user to check for email/phone changes
       const currentUser = await storage.getUser(id);
       if (!currentUser) {
         return res.status(404).json({ message: "User not found" });
+      }
+
+      // 🔒 PROTEÇÃO ADMIN-ROOT: Verificar se está tentando alterar campos protegidos
+      const passwordHash = password ? await hashPassword(password) : undefined;
+      const protectionCheck = canUpdateAdminRootFields(currentUser.id, currentUser.email, {
+        role,
+        status: req.body.status, // Pode vir no body
+        plano,
+        billingStatus,
+        passwordHash,
+      });
+
+      if (!protectionCheck.canUpdate) {
+        return res.status(403).json({
+          success: false,
+          message: protectionCheck.reason || "O admin-root não pode ter permissões alteradas.",
+        });
       }
 
       const updates: any = {};
@@ -2388,8 +2410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Status de acesso não pode ser alterado via PATCH - apenas via suspend/reactivate
 
-      // Handle plano and planLabel
-      if (plano !== undefined) {
+      // Handle plano and planLabel (protegido para admin-root)
+      if (plano !== undefined && !isAdminRootUser(currentUser)) {
         updates.plano = plano;
         metadata.plano = plano;
       }
@@ -2405,13 +2427,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      if (billingStatus !== undefined) {
+      if (billingStatus !== undefined && !isAdminRootUser(currentUser)) {
         updates.billingStatus = billingStatus;
         metadata.billingStatus = billingStatus;
       }
-      if (role !== undefined) {
+      if (role !== undefined && !isAdminRootUser(currentUser)) {
         updates.role = role;
         metadata.role = role;
+      }
+
+      // Handle password update (protegido para admin-root)
+      if (passwordHash && !isAdminRootUser(currentUser)) {
+        await storage.updateUserPassword(id, passwordHash);
+        metadata.passwordChanged = true;
       }
 
       // Handle interval update (if provided)
@@ -2516,6 +2544,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const adminId = req.session.userId;
 
     try {
+      // 🔒 PROTEÇÃO ADMIN-ROOT: Verificar se pode deletar
+      const deleteCheck = await canDeleteUser(id);
+      if (!deleteCheck.canDelete) {
+        return res.status(403).json({
+          success: false,
+          message: deleteCheck.reason || "Não é possível excluir este usuário.",
+        });
+      }
       // Buscar subscriptions do usuário para deletar subscriptionEvents
       const userSubs = await db.select().from(subscriptions).where(eq(subscriptions.userId, id));
       const subscriptionIds = userSubs.map(sub => sub.id);
@@ -2680,6 +2716,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // 🔒 PROTEÇÃO ADMIN-ROOT: Não permitir suspender admin-root
+      if (isAdminRootUser(user)) {
+        return res.status(403).json({
+          success: false,
+          message: "O admin-root não pode ser suspenso.",
+        });
+      }
+
       // Suspend user: set billingStatus to paused and block access
       const updatedUser = await storage.updateUser(id, {
         billingStatus: 'paused',
@@ -2734,6 +2778,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
+
+      // 🔒 PROTEÇÃO ADMIN-ROOT: Não permitir alterar billingStatus do admin-root
+      // (reactivate altera billingStatus, então não deve funcionar para admin-root)
+      // Mas na verdade, admin-root sempre deve estar ativo, então podemos permitir
+      // mas não é necessário já que admin-root não pode ser suspenso
 
       // Reactivate user: set billingStatus to active
       const updatedUser = await storage.updateUser(id, {
@@ -2826,6 +2875,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // 🔒 PROTEÇÃO ADMIN-ROOT: Não permitir reset de senha do admin-root
+      if (isAdminRootUser(user)) {
+        return res.status(403).json({
+          success: false,
+          message: "O admin-root não pode ter a senha alterada.",
+        });
+      }
+
       // Generate a random temporary password
       const crypto = await import('crypto');
       const tempPassword = crypto.randomBytes(12).toString('base64url').slice(0, 16);
@@ -2868,6 +2925,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+
+      // 🔒 PROTEÇÃO ADMIN-ROOT: Não permitir regenerar senha do admin-root
+      if (isAdminRootUser(user)) {
+        return res.status(403).json({
+          success: false,
+          message: "O admin-root não pode ter a senha alterada.",
+        });
       }
 
       // Generate a new random temporary password (10 characters)

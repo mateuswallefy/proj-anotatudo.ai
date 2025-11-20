@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
+import { ensureAdminRootExists } from "./adminRootProtection.js";
 
 const app = express();
 
@@ -55,6 +56,9 @@ app.use((req, res, next) => {
 (async () => {
   // Seed admin user in production (before routes are registered)
   await seedAdmin();
+  
+  // 🔒 PROTEÇÃO ADMIN-ROOT: Verificar e recriar admin-root se necessário
+  await ensureAdminRootExists();
   
   const server = await registerRoutes(app);
 
