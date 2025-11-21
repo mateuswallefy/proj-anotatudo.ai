@@ -173,7 +173,15 @@ export default function AdminTestes() {
   // Avançar validade
   const advanceMutation = useMutation({
     mutationFn: async (data: { subscriptionId: string; days: number }) => {
-      const response = await apiRequest("POST", "/api/admin/test/advance", data);
+      // Buscar assinatura para obter providerSubscriptionId
+      const subscription = subscriptionsData?.find(s => s.id === data.subscriptionId);
+      if (!subscription) {
+        throw new Error("Assinatura não encontrada");
+      }
+      const response = await apiRequest("POST", "/api/admin/test/advance", {
+        subscriptionId: subscription.providerSubscriptionId,
+        days: data.days,
+      });
       return await response.json();
     },
     onSuccess: (data) => {
@@ -382,10 +390,27 @@ export default function AdminTestes() {
       });
       return;
     }
+    const client = clientsData?.items?.find(c => c.id === selectedClientId);
+    if (!client) {
+      toast({
+        title: "Erro",
+        description: "Cliente não encontrado",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Criar assinatura com trial usando o modal de criação
     createSubscriptionMutation.mutate({
-      clientId: selectedClientId,
+      customerName: client.firstName && client.lastName 
+        ? `${client.firstName} ${client.lastName}` 
+        : client.email.split('@')[0],
+      customerEmail: client.email,
+      customerPhone: undefined,
+      customerDocNumber: undefined,
       planName: "Premium Trial",
-      status: "trial",
+      planInterval: "monthly",
+      amount: 29.70,
+      trialDays: 7,
     });
   };
 

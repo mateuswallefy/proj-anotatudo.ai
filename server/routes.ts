@@ -3713,14 +3713,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = testSubscriptionSchema.parse(req.body);
       
-      // Gerar IDs únicos para o teste (ou usar os fornecidos)
-      const testProviderId = data.providerId || `test_provider_${uuidv4()}`;
-      const testSubscriptionId = data.subscriptionId || `test_sub_${uuidv4()}`;
+      // Gerar IDs únicos para o teste - TODOS devem usar o MESMO UUID
+      const testSubscriptionId = data.subscriptionId || uuidv4();
+      const testProviderId = data.providerId || testSubscriptionId;
       const testOrderId = data.orderId || `test_order_${uuidv4()}`;
       const testOfferId = data.offerId || `test_offer_${uuidv4()}`;
       const testProductId = data.productId || data.planName;
       
-      // providerSubscriptionId deve ser o mesmo que subscription.id no payload
+      // providerSubscriptionId DEVE ser exatamente o mesmo que subscription.id
+      // Este é o ID que será usado em TODOS os lugares
       const providerSubscriptionId = testSubscriptionId;
       
       // Calcular datas
@@ -3756,9 +3757,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         event: "subscription_created",
         data: {
           subscription: {
-            id: providerSubscriptionId, // Este é o providerSubscriptionId
-            providerId: providerSubscriptionId, // Para compatibilidade
-            providerSubscriptionId: providerSubscriptionId, // Para garantir
+            id: providerSubscriptionId, // ID principal - usado em TODOS os lugares
+            providerId: providerSubscriptionId, // Mesmo ID
+            providerSubscriptionId: providerSubscriptionId, // Mesmo ID
             status: status,
             offer_id: testOfferId,
             product_id: testProductId,
@@ -3770,7 +3771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             payment_method: "credit_card",
             created_at: now.toISOString(),
             updated_at: now.toISOString(),
-            provider: 'caktos',
+            provider: 'manual', // Testes usam provider 'manual'
             isTest: true,
           },
           customer: {
@@ -3812,6 +3813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isTest: true,
             createdBy: req.session.userId,
             providerId: testProviderId,
+            subscriptionId: providerSubscriptionId, // Garantir que meta também tem o ID
           },
         },
       };
@@ -3834,10 +3836,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar cliente criado pelo email
       const createdClient = await storage.getUserByEmail(data.customerEmail);
       
-      // Buscar assinatura criada
-      let createdSubscription = await storage.getSubscriptionByProviderId('caktos', testSubscriptionId);
+      // Buscar assinatura criada pelo providerSubscriptionId
+      let createdSubscription = await storage.getSubscriptionByProviderId('manual', providerSubscriptionId);
       if (!createdSubscription) {
-        createdSubscription = await storage.getSubscriptionByProviderId('manual', testSubscriptionId);
+        // Fallback para caktos (caso tenha sido criado com provider errado)
+        createdSubscription = await storage.getSubscriptionByProviderId('caktos', providerSubscriptionId);
       }
       
       res.json({ 
@@ -3873,12 +3876,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Assinatura não encontrada" });
       }
       
+      // Usar o ID interno da assinatura encontrada para atualizar
+      const subscriptionInternalId = subscription.id;
+      
       const currentEnd = subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : new Date();
       const newEnd = new Date(currentEnd);
       newEnd.setDate(newEnd.getDate() + data.days);
       
-      // Atualizar assinatura
-      await storage.updateSubscription(data.subscriptionId, {
+      // Atualizar assinatura usando o ID interno
+      await storage.updateSubscription(subscriptionInternalId, {
         currentPeriodEnd: newEnd,
       });
       
@@ -3891,7 +3897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Registrar evento de expiração
         await storage.logSubscriptionEvent({
-          subscriptionId: data.subscriptionId,
+          subscriptionId: subscriptionInternalId,
           clientId: subscription.userId,
           type: 'subscription_expired',
           provider: subscription.provider,
@@ -3903,7 +3909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Registrar evento de atualização
         await storage.logSubscriptionEvent({
-          subscriptionId: data.subscriptionId,
+          subscriptionId: subscriptionInternalId,
           clientId: subscription.userId,
           type: 'subscription_updated',
           provider: subscription.provider,
@@ -3914,7 +3920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const updated = await storage.getSubscriptionById(data.subscriptionId);
+      const updated = await storage.getSubscriptionById(subscriptionInternalId);
       
       res.json({ 
         success: true,
@@ -3950,13 +3956,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const amount = data.amount || subscription.priceCents;
       
-      // Criar payload fake de webhook
+      // Criar payload fake de webhook idêntico ao da Cakto
       const webhookPayload = {
         event: data.type,
         data: {
           subscription: {
-            id: subscription.providerSubscriptionId,
+            id: subscription.providerSubscriptionId, // Usar providerSubscriptionId (mesmo que foi usado na criação)
+            providerId: subscription.providerSubscriptionId,
+            providerSubscriptionId: subscription.providerSubscriptionId,
             status: subscription.status,
+            provider: subscription.provider,
           },
           order: {
             id: `test_order_${uuidv4()}`,
@@ -3965,6 +3974,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    data.type === 'payment_failed' ? 'failed' :
                    data.type === 'payment_refunded' ? 'refunded' : 'chargeback',
             paid_at: data.type === 'payment_succeeded' ? new Date().toISOString() : undefined,
+          },
+          meta: {
+            isTest: true,
           },
         },
       };

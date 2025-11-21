@@ -144,7 +144,9 @@ async function upsertSubscription(
   console.log(`[WEBHOOK] Processando assinatura: ${subscriptionData.id}`);
 
   // Determinar provider baseado no payload ou usar 'caktos' como padrão
-  const provider = (subscriptionData as any).provider || 'caktos';
+  // Se isTest estiver presente, usar 'manual' para testes
+  const isTest = (subscriptionData as any).isTest || false;
+  const provider = isTest ? 'manual' : ((subscriptionData as any).provider || 'caktos');
   
   // Extrair meta do payload (pode estar em payload.data.meta)
   const payloadMeta = (subscriptionData as any).meta || {};
