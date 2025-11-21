@@ -560,8 +560,8 @@ export type Subscription = typeof subscriptions.$inferSelect;
 // Subscription events table (eventos de assinatura)
 export const subscriptionEvents = pgTable("subscription_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  subscriptionId: varchar("subscription_id").notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
-  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id, { onDelete: 'set null' }),
+  clientId: varchar("client_id").references(() => users.id, { onDelete: 'set null' }),
   type: varchar("type").notNull(),
   provider: varchar("provider").notNull(),
   severity: varchar("severity", { enum: ['info', 'warning', 'error'] }).default('info').notNull(),

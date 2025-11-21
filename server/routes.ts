@@ -3696,57 +3696,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/admin/test/subscription - Cria assinatura fake
+  // POST /api/admin/test/subscription - Cria assinatura fake via webhook
   app.post("/api/admin/test/subscription", isAuthenticated, requireAdminRoot, async (req: any, res) => {
     try {
       const data = testSubscriptionSchema.parse(req.body);
       
-      // Verificar se cliente existe
+      // Verificar se cliente existe para obter dados
       const client = await storage.getUser(data.clientId);
       if (!client) {
         return res.status(404).json({ message: "Cliente não encontrado" });
       }
       
-      // Criar assinatura fake
-      const subscription = await storage.createSubscription({
-        userId: data.clientId,
-        provider: 'manual',
-        providerSubscriptionId: `test_${uuidv4()}`,
-        planName: data.planName,
-        priceCents: 2970, // R$ 29,70
-        currency: 'BRL',
-        billingInterval: 'month',
-        interval: 'monthly',
-        status: data.status,
-        currentPeriodEnd: data.validUntil ? new Date(data.validUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        meta: {
-          isTest: true,
-          createdBy: 'admin-test',
+      // Gerar IDs únicos para o teste
+      const testSubscriptionId = `test_${uuidv4()}`;
+      const testOrderId = `test_order_${uuidv4()}`;
+      
+      // Calcular datas
+      const now = new Date();
+      const expiresAt = data.validUntil ? new Date(data.validUntil) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const nextPaymentDate = expiresAt.toISOString().split('T')[0];
+      
+      // Gerar payload fake idêntico ao webhook da Cakto
+      const webhookPayload = {
+        event: "subscription_created",
+        data: {
+          subscription: {
+            id: testSubscriptionId,
+            status: data.status,
+            offer_id: `test_offer_${uuidv4()}`,
+            product_id: data.planName,
+            amount: 29.70, // R$ 29,70
+            trial_days: data.status === 'trial' ? 7 : 0,
+            next_payment_date: nextPaymentDate,
+            current_period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+            recurrence_period: 30, // Mensal
+            payment_method: "credit_card",
+            created_at: now.toISOString(),
+            updated_at: now.toISOString(),
+            provider: 'caktos', // Usar caktos para usar o fluxo padrão
+            isTest: true, // Marcar como teste
+          },
+          customer: {
+            name: client.firstName && client.lastName 
+              ? `${client.firstName} ${client.lastName}` 
+              : client.email?.split('@')[0] || "Cliente Teste",
+            email: client.email!,
+            phone: client.telefone || client.whatsappNumber || undefined,
+            doc_number: (client.metadata as any)?.docNumber || undefined,
+            status: "active",
+          },
+          order: {
+            id: testOrderId,
+            amount: 29.70,
+            status: data.status === 'trial' ? 'pending' : 'paid',
+            paid_at: data.status === 'trial' ? undefined : now.toISOString(),
+            due_date: nextPaymentDate,
+            payment_method: "credit_card",
+            installments: 1,
+            card_brand: "visa",
+            card_last_digits: "4242",
+          },
         },
+      };
+      
+      // Processar webhook usando o mesmo fluxo real
+      const { processWebhook } = await import("./webhooks/webhookProcessor.js");
+      const webhookId = uuidv4();
+      
+      // Registrar webhook primeiro
+      const webhookRecord = await storage.createWebhookEvent({
+        event: webhookPayload.event,
+        type: webhookPayload.event,
+        payload: webhookPayload,
+        status: 'pending',
+        processed: false,
       });
       
-      // Registrar evento
-      await storage.logSubscriptionEvent({
-        subscriptionId: subscription.id,
-        clientId: data.clientId,
-        type: 'subscription_created',
-        provider: 'manual',
-        severity: 'info',
-        message: `Assinatura de teste criada - ${data.planName}`,
-        payload: { test: true, ...data },
-        origin: 'system',
-      });
+      // Processar webhook usando o ID correto
+      await processWebhook(webhookRecord.id, webhookPayload);
       
-      // Logar em clientLogs
-      await logClientEvent(data.clientId, EventTypes.SUBSCRIPTION_CREATED, `Assinatura de teste criada: ${subscription.id}`, {
-        subscriptionId: subscription.id,
-        planName: data.planName,
-        status: data.status,
-      });
+      // Buscar assinatura criada (pode ser caktos ou manual dependendo do provider usado)
+      let createdSubscription = await storage.getSubscriptionByProviderId('caktos', testSubscriptionId);
+      if (!createdSubscription) {
+        // Se não encontrou com caktos, buscar manual
+        createdSubscription = await storage.getSubscriptionByProviderId('manual', testSubscriptionId);
+      }
       
       res.json({ 
         success: true,
-        subscription,
+        subscription: createdSubscription,
+        webhookId: webhookRecord.id,
       });
     } catch (error: any) {
       console.error("[TEST] Erro ao criar assinatura de teste:", error);
@@ -3871,9 +3910,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Processar webhook
       const { processWebhook } = await import("./webhooks/webhookProcessor.js");
-      const webhookId = uuidv4();
       
-      await storage.createWebhookEvent({
+      // Registrar webhook primeiro
+      const webhookRecord = await storage.createWebhookEvent({
         event: data.type,
         type: data.type,
         payload: webhookPayload,
@@ -3881,7 +3920,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processed: false,
       });
       
-      await processWebhook(webhookId, webhookPayload);
+      // Processar webhook usando o ID correto
+      await processWebhook(webhookRecord.id, webhookPayload);
       
       res.json({ 
         success: true,

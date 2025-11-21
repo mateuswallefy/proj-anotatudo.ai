@@ -49,6 +49,7 @@ type Subscription = {
   status: string;
   currentPeriodEnd?: string;
   provider: string;
+  providerSubscriptionId: string;
 };
 
 export default function AdminTestes() {
@@ -204,13 +205,16 @@ export default function AdminTestes() {
   // Reativar assinatura
   const reactivateSubscriptionMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
+      const subscription = subscriptionsData?.find(s => s.id === subscriptionId);
+      if (!subscription) {
+        throw new Error("Assinatura não encontrada");
+      }
+      
       const payload = {
         event: "subscription_resumed",
         data: {
           subscription: {
-            id: subscriptionsData?.find(s => s.id === subscriptionId)?.provider === 'caktos'
-              ? subscriptionsData.find(s => s.id === subscriptionId)?.id
-              : `test_${subscriptionId}`,
+            id: subscription.providerSubscriptionId,
             status: "active",
           },
         },
