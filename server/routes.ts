@@ -3635,10 +3635,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const testSubscriptionSchema = z.object({
-    clientId: z.string(),
+    // Dados do cliente
+    customerName: z.string().min(1, "Nome é obrigatório"),
+    customerEmail: z.string().email("Email inválido"),
+    customerPhone: z.string().optional(),
+    customerDocNumber: z.string().optional(),
+    // Dados da assinatura
     planName: z.string().default("Premium Test"),
-    status: z.enum(['trial', 'active', 'paused', 'canceled', 'overdue']).default('active'),
-    validUntil: z.string().optional(), // ISO date string
+    planInterval: z.enum(['monthly', 'quarterly', 'semiannual', 'annual']).default('monthly'),
+    amount: z.number().positive("Valor deve ser positivo"),
+    trialDays: z.number().int().min(0).optional(),
+    // IDs fake (opcionais, serão gerados se não fornecidos)
+    providerId: z.string().optional(),
+    subscriptionId: z.string().optional(),
+    orderId: z.string().optional(),
+    offerId: z.string().optional(),
+    productId: z.string().optional(),
   });
 
   const testAdvanceSchema = z.object({
@@ -3701,20 +3713,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = testSubscriptionSchema.parse(req.body);
       
-      // Verificar se cliente existe para obter dados
-      const client = await storage.getUser(data.clientId);
-      if (!client) {
-        return res.status(404).json({ message: "Cliente não encontrado" });
-      }
-      
-      // Gerar IDs únicos para o teste
-      const testSubscriptionId = `test_${uuidv4()}`;
-      const testOrderId = `test_order_${uuidv4()}`;
+      // Gerar IDs únicos para o teste (ou usar os fornecidos)
+      const testProviderId = data.providerId || `test_provider_${uuidv4()}`;
+      const testSubscriptionId = data.subscriptionId || `test_sub_${uuidv4()}`;
+      const testOrderId = data.orderId || `test_order_${uuidv4()}`;
+      const testOfferId = data.offerId || `test_offer_${uuidv4()}`;
+      const testProductId = data.productId || data.planName;
       
       // Calcular datas
       const now = new Date();
-      const expiresAt = data.validUntil ? new Date(data.validUntil) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      // Mapear intervalo para dias
+      const intervalDays: Record<string, number> = {
+        monthly: 30,
+        quarterly: 90,
+        semiannual: 180,
+        annual: 365,
+      };
+      const daysToAdd = intervalDays[data.planInterval] || 30;
+      const expiresAt = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
       const nextPaymentDate = expiresAt.toISOString().split('T')[0];
+      
+      // Determinar status (trial se trialDays > 0, senão active)
+      const status = (data.trialDays && data.trialDays > 0) ? 'trial' : 'active';
+      
+      // Mapear intervalo para recurrence_period
+      const recurrencePeriod: Record<string, number> = {
+        monthly: 30,
+        quarterly: 90,
+        semiannual: 180,
+        annual: 365,
+      };
+      
+      // Gerar docNumber fake se não fornecido
+      const docNumber = data.customerDocNumber || `1234567890${Math.floor(Math.random() * 100)}`;
       
       // Gerar payload fake idêntico ao webhook da Cakto
       const webhookPayload = {
@@ -3722,46 +3754,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: {
           subscription: {
             id: testSubscriptionId,
-            status: data.status,
-            offer_id: `test_offer_${uuidv4()}`,
-            product_id: data.planName,
-            amount: 29.70, // R$ 29,70
-            trial_days: data.status === 'trial' ? 7 : 0,
+            status: status,
+            offer_id: testOfferId,
+            product_id: testProductId,
+            amount: data.amount,
+            trial_days: data.trialDays || 0,
             next_payment_date: nextPaymentDate,
             current_period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
-            recurrence_period: 30, // Mensal
+            recurrence_period: recurrencePeriod[data.planInterval] || 30,
             payment_method: "credit_card",
             created_at: now.toISOString(),
             updated_at: now.toISOString(),
-            provider: 'caktos', // Usar caktos para usar o fluxo padrão
-            isTest: true, // Marcar como teste
+            provider: 'caktos',
+            isTest: true,
           },
           customer: {
-            name: client.firstName && client.lastName 
-              ? `${client.firstName} ${client.lastName}` 
-              : client.email?.split('@')[0] || "Cliente Teste",
-            email: client.email!,
-            phone: client.telefone || client.whatsappNumber || undefined,
-            doc_number: (client.metadata as any)?.docNumber || undefined,
+            name: data.customerName,
+            email: data.customerEmail,
+            phone: data.customerPhone || undefined,
+            doc_number: docNumber,
             status: "active",
           },
           order: {
             id: testOrderId,
-            amount: 29.70,
-            status: data.status === 'trial' ? 'pending' : 'paid',
-            paid_at: data.status === 'trial' ? undefined : now.toISOString(),
+            amount: data.amount,
+            status: status === 'trial' ? 'pending' : 'paid',
+            paid_at: status === 'trial' ? undefined : now.toISOString(),
             due_date: nextPaymentDate,
             payment_method: "credit_card",
             installments: 1,
             card_brand: "visa",
             card_last_digits: "4242",
           },
+          product: {
+            id: testProductId,
+            name: data.planName,
+            price: data.amount,
+          },
+          paymentMethod: {
+            type: "credit_card",
+            card_brand: "visa",
+            card_last_digits: "4242",
+          },
+          utm: {
+            source: "test",
+            medium: "admin",
+            campaign: "fake_subscription",
+            term: "test",
+            content: "admin_panel",
+          },
+          meta: {
+            isTest: true,
+            createdBy: req.session.userId,
+            providerId: testProviderId,
+          },
         },
       };
       
       // Processar webhook usando o mesmo fluxo real
       const { processWebhook } = await import("./webhooks/webhookProcessor.js");
-      const webhookId = uuidv4();
       
       // Registrar webhook primeiro
       const webhookRecord = await storage.createWebhookEvent({
@@ -3775,15 +3826,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Processar webhook usando o ID correto
       await processWebhook(webhookRecord.id, webhookPayload);
       
-      // Buscar assinatura criada (pode ser caktos ou manual dependendo do provider usado)
+      // Buscar cliente criado pelo email
+      const createdClient = await storage.getUserByEmail(data.customerEmail);
+      
+      // Buscar assinatura criada
       let createdSubscription = await storage.getSubscriptionByProviderId('caktos', testSubscriptionId);
       if (!createdSubscription) {
-        // Se não encontrou com caktos, buscar manual
         createdSubscription = await storage.getSubscriptionByProviderId('manual', testSubscriptionId);
       }
       
       res.json({ 
         success: true,
+        client: createdClient,
         subscription: createdSubscription,
         webhookId: webhookRecord.id,
       });

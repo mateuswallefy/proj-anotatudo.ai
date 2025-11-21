@@ -146,6 +146,9 @@ async function upsertSubscription(
   // Determinar provider baseado no payload ou usar 'caktos' como padrão
   const provider = (subscriptionData as any).provider || 'caktos';
   
+  // Extrair meta do payload (pode estar em payload.data.meta)
+  const payloadMeta = (subscriptionData as any).meta || {};
+  
   const existingSubscription = await storage.getSubscriptionByProviderId(
     provider as 'caktos' | 'manual',
     subscriptionData.id
@@ -240,7 +243,10 @@ async function upsertSubscription(
       caktoCreatedAt: subscriptionData.created_at,
       caktoUpdatedAt: subscriptionData.updated_at,
       isTest: (subscriptionData as any).isTest || false,
-      createdBy: (subscriptionData as any).isTest ? 'admin-test' : undefined,
+      createdBy: (subscriptionData as any).isTest 
+        ? (payloadMeta.createdBy || 'admin-test')
+        : undefined,
+      providerId: payloadMeta.providerId,
     },
   };
 
@@ -333,7 +339,18 @@ async function processSubscriptionCreated(payload: CaktoPayload) {
   // 1. Criar/atualizar cliente
   const user = await upsertCustomer(customer);
 
-  // 2. Criar/atualizar assinatura
+  // 2. Criar/atualizar assinatura (passar meta do payload se disponível)
+  const payloadMeta = (payload.data as any).meta || {};
+  if (payloadMeta.createdBy || payloadMeta.providerId) {
+    // Adicionar meta ao subscription se não estiver presente
+    if (!(subscription as any).meta) {
+      (subscription as any).meta = {};
+    }
+    (subscription as any).meta = {
+      ...(subscription as any).meta,
+      ...payloadMeta,
+    };
+  }
   const subscriptionRecord = await upsertSubscription(user.id, subscription);
 
   // 3. Se houver order, criar order

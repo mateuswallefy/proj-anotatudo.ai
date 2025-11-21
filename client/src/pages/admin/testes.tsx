@@ -58,9 +58,22 @@ export default function AdminTestes() {
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string>("");
   const [customWebhookPayload, setCustomWebhookPayload] = useState<string>("");
   const [showCustomWebhook, setShowCustomWebhook] = useState(false);
+  const [showCreateSubscription, setShowCreateSubscription] = useState(false);
+  
+  // Form state para criar assinatura fake
+  const [formData, setFormData] = useState({
+    customerName: "",
+    customerEmail: "",
+    customerPhone: "",
+    customerDocNumber: "",
+    planName: "Premium Test",
+    planInterval: "monthly" as "monthly" | "quarterly" | "semiannual" | "annual",
+    amount: 29.70,
+    trialDays: 0,
+  });
 
   // Buscar clientes
-  const { data: clientsData } = useQuery<{ items: User[] }>({
+  const { data: clientsData, refetch: refetchClients } = useQuery<{ items: User[] }>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/admin/users?limit=1000");
@@ -81,16 +94,47 @@ export default function AdminTestes() {
 
   // Criar assinatura fake
   const createSubscriptionMutation = useMutation({
-    mutationFn: async (data: { clientId: string; planName: string; status: string }) => {
+    mutationFn: async (data: {
+      customerName: string;
+      customerEmail: string;
+      customerPhone?: string;
+      customerDocNumber?: string;
+      planName: string;
+      planInterval: "monthly" | "quarterly" | "semiannual" | "annual";
+      amount: number;
+      trialDays?: number;
+    }) => {
       const response = await apiRequest("POST", "/api/admin/test/subscription", data);
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Sucesso!",
-        description: "Assinatura de teste criada com sucesso!",
+        description: "Cliente e assinatura de teste criados com sucesso!",
       });
-      refetchSubscriptions();
+      // Fechar modal
+      setShowCreateSubscription(false);
+      // Resetar form
+      setFormData({
+        customerName: "",
+        customerEmail: "",
+        customerPhone: "",
+        customerDocNumber: "",
+        planName: "Premium Test",
+        planInterval: "monthly",
+        amount: 29.70,
+        trialDays: 0,
+      });
+      // Recarregar dados
+      refetchClients();
+      // Selecionar cliente recém-criado
+      if (data.client?.id) {
+        setSelectedClientId(data.client.id);
+      }
+      // Recarregar assinaturas após um delay para garantir que o cliente foi criado
+      setTimeout(() => {
+        refetchSubscriptions();
+      }, 500);
     },
     onError: (error: any) => {
       toast({
@@ -239,18 +283,23 @@ export default function AdminTestes() {
   });
 
   const handleCreateSubscription = () => {
-    if (!selectedClientId) {
+    if (!formData.customerName || !formData.customerEmail) {
       toast({
         title: "Atenção",
-        description: "Selecione um cliente primeiro",
+        description: "Preencha nome e email do cliente",
         variant: "destructive",
       });
       return;
     }
     createSubscriptionMutation.mutate({
-      clientId: selectedClientId,
-      planName: "Premium Test",
-      status: "active",
+      customerName: formData.customerName,
+      customerEmail: formData.customerEmail,
+      customerPhone: formData.customerPhone || undefined,
+      customerDocNumber: formData.customerDocNumber || undefined,
+      planName: formData.planName,
+      planInterval: formData.planInterval,
+      amount: formData.amount,
+      trialDays: formData.trialDays > 0 ? formData.trialDays : undefined,
     });
   };
 
@@ -378,14 +427,151 @@ export default function AdminTestes() {
         <StripeSectionCard>
           <h3 className="text-lg font-semibold mb-4">Ações de Assinatura</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <PremiumButton
-              onClick={handleCreateSubscription}
-              disabled={!selectedClientId || createSubscriptionMutation.isPending}
-              variant="outline"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Criar Assinatura Fake
-            </PremiumButton>
+            <Dialog open={showCreateSubscription} onOpenChange={setShowCreateSubscription}>
+              <DialogTrigger asChild>
+                <PremiumButton variant="outline">
+                  <Play className="h-4 w-4 mr-2" />
+                  Criar Assinatura Fake
+                </PremiumButton>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Criar Assinatura Fake</DialogTitle>
+                  <DialogDescription>
+                    Cria um cliente fake completo, assinatura e order através do fluxo de webhook real
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="customerName">Nome do Cliente *</Label>
+                      <PremiumInput
+                        id="customerName"
+                        value={formData.customerName}
+                        onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                        placeholder="João Silva"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerEmail">Email *</Label>
+                      <PremiumInput
+                        id="customerEmail"
+                        type="email"
+                        value={formData.customerEmail}
+                        onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+                        placeholder="joao@example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerPhone">Telefone</Label>
+                      <PremiumInput
+                        id="customerPhone"
+                        value={formData.customerPhone}
+                        onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                        placeholder="5511999999999"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerDocNumber">CPF/CNPJ</Label>
+                      <PremiumInput
+                        id="customerDocNumber"
+                        value={formData.customerDocNumber}
+                        onChange={(e) => setFormData({ ...formData, customerDocNumber: e.target.value })}
+                        placeholder="12345678900"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="planName">Nome do Plano</Label>
+                      <PremiumInput
+                        id="planName"
+                        value={formData.planName}
+                        onChange={(e) => setFormData({ ...formData, planName: e.target.value })}
+                        placeholder="Premium Test"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="planInterval">Intervalo</Label>
+                      <Select
+                        value={formData.planInterval}
+                        onValueChange={(value: "monthly" | "quarterly" | "semiannual" | "annual") =>
+                          setFormData({ ...formData, planInterval: value })
+                        }
+                      >
+                        <SelectTrigger className="h-11 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="monthly">Mensal</SelectItem>
+                          <SelectItem value="quarterly">Trimestral</SelectItem>
+                          <SelectItem value="semiannual">Semestral</SelectItem>
+                          <SelectItem value="annual">Anual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Valor (R$)</Label>
+                      <PremiumInput
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                        placeholder="29.70"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="trialDays">Dias de Trial (0 = sem trial)</Label>
+                      <PremiumInput
+                        id="trialDays"
+                        type="number"
+                        min="0"
+                        value={formData.trialDays}
+                        onChange={(e) => setFormData({ ...formData, trialDays: parseInt(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 pt-4">
+                    <PremiumButton
+                      variant="outline"
+                      onClick={() => {
+                        setShowCreateSubscription(false);
+                        setFormData({
+                          customerName: "",
+                          customerEmail: "",
+                          customerPhone: "",
+                          customerDocNumber: "",
+                          planName: "Premium Test",
+                          planInterval: "monthly",
+                          amount: 29.70,
+                          trialDays: 0,
+                        });
+                      }}
+                    >
+                      Cancelar
+                    </PremiumButton>
+                    <PremiumButton
+                      onClick={handleCreateSubscription}
+                      disabled={createSubscriptionMutation.isPending || !formData.customerName || !formData.customerEmail}
+                    >
+                      {createSubscriptionMutation.isPending ? (
+                        <>Processando...</>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-2" />
+                          Criar
+                        </>
+                      )}
+                    </PremiumButton>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <PremiumButton
               onClick={handleStartTrial}
