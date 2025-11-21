@@ -41,8 +41,10 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
         await storage.updateWebhookStatus(webhookId, {
           status: 'processed',
           processedAt: new Date(),
+          errorMessage: null,
         });
         
+        console.log(`[WEBHOOK-PROCESSOR] ✅ Webhook marcado como processado (idempotência): ${webhookId}`);
         return; // Não processar novamente
       }
     }
@@ -76,6 +78,7 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
     await storage.updateWebhookStatus(webhookId, {
       status: 'processed',
       processedAt: new Date(),
+      errorMessage: null,
     });
 
     console.log(`[WEBHOOK-PROCESSOR] ✅ Webhook processado com sucesso: ${webhookId}`);
@@ -100,6 +103,9 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
       lastRetryAt: new Date(),
     });
 
+    console.log(`[WEBHOOK-PROCESSOR] ❌ Webhook marcado como falhado: ${webhookId}`);
+    console.log(`[WEBHOOK-PROCESSOR] Retry count: ${currentRetryCount + 1}`);
+    
     // Re-lançar erro para que o endpoint possa logar mas ainda retornar 200
     throw error;
   }

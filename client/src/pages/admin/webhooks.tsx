@@ -33,9 +33,12 @@ import {
   Eye, 
   Webhook,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  User,
+  ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type WebhookEvent = {
   id: string;
@@ -51,17 +54,33 @@ type WebhookEvent = {
   processed: boolean;
 };
 
+type WebhookGroup = {
+  eventId: string;
+  eventType: string;
+  attempts: WebhookEvent[];
+  lastAttempt: WebhookEvent;
+  firstAttempt: WebhookEvent;
+  successCount: number;
+  failureCount: number;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  customerId: string | null;
+  subscriptionId: string | null;
+};
+
 const WEBHOOK_URL = "https://anotatudo.com/api/webhooks/subscriptions";
 
 export default function AdminWebhooks() {
   const [copied, setCopied] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<WebhookEvent | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<WebhookGroup | null>(null);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: webhooks, isLoading, refetch } = useQuery<WebhookEvent[]>({
-    queryKey: ["/api/admin/webhooks"],
+  const { data: webhookGroups, isLoading, refetch } = useQuery<WebhookGroup[]>({
+    queryKey: ["/api/admin/webhooks/grouped"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/webhooks");
+      const response = await apiRequest("GET", "/api/admin/webhooks/grouped");
       if (!response.ok) {
         throw new Error("Erro ao carregar webhooks");
       }
@@ -92,6 +111,12 @@ export default function AdminWebhooks() {
       });
     },
   });
+
+  const formatSubscriptionId = (id: string | null): string => {
+    if (!id) return "—";
+    // Mostrar apenas últimos 6 caracteres
+    return id.length > 6 ? `...${id.slice(-6)}` : id;
+  };
 
   const handleCopyUrl = async () => {
     try {
@@ -348,10 +373,12 @@ export default function AdminWebhooks() {
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Evento</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Cliente</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Email</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Assinatura</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Recebido em</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Processado em</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tentativas</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Último Processamento</TableHead>
                   <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -361,18 +388,20 @@ export default function AdminWebhooks() {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={`skeleton-${i}`}>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
                 )}
-                {!isLoading && (!webhooks || webhooks.length === 0) && (
+                {!isLoading && (!webhookGroups || webhookGroups.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={6} className="p-0">
+                    <TableCell colSpan={8} className="p-0">
                       <StripeEmptyState
                         icon={Webhook}
                         title="Nenhum webhook recebido"
@@ -381,8 +410,8 @@ export default function AdminWebhooks() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoading && webhooks && webhooks.length > 0 && webhooks.map((webhook) => {
-                  const status = webhook.status || (webhook.processed ? 'processed' : 'pending');
+                {!isLoading && webhookGroups && webhookGroups.length > 0 && webhookGroups.map((group) => {
+                  const status = group.lastAttempt.status || (group.lastAttempt.processed ? 'processed' : 'pending');
                   const getStatusBadge = () => {
                     if (status === 'processed') {
                       return (
@@ -408,27 +437,54 @@ export default function AdminWebhooks() {
                     }
                   };
 
+                  const customerName = group.customerName || "Desconhecido";
+                  const customerEmail = group.customerEmail || "Desconhecido";
+                  const subscriptionId = formatSubscriptionId(group.subscriptionId);
+
                   return (
-                    <TableRow key={webhook.id}>
+                    <TableRow key={group.eventId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell>
                         <span className="font-mono text-sm text-gray-900 dark:text-gray-50">
-                          {webhook.event || webhook.type}
+                          {group.eventType}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-900 dark:text-gray-50">
+                            {customerName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {customerEmail}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
+                          {subscriptionId}
                         </span>
                       </TableCell>
                       <TableCell>
                         {getStatusBadge()}
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {format(new Date(webhook.receivedAt), "dd/MM/yyyy 'às' HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {group.successCount} sucesso
+                          </span>
+                          {group.failureCount > 0 && (
+                            <span className="text-xs text-red-600 dark:text-red-400">
+                              {group.failureCount} falha
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {webhook.processedAt ? (
+                        {group.lastAttempt.processedAt ? (
                           <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {format(new Date(webhook.processedAt), "dd/MM/yyyy 'às' HH:mm", {
+                            {format(new Date(group.lastAttempt.processedAt), "dd/MM/yyyy 'às' HH:mm", {
                               locale: ptBR,
                             })}
                           </span>
@@ -436,27 +492,22 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {webhook.retryCount || 0}
-                        </span>
-                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedEvent(webhook)}
+                            onClick={() => setSelectedGroup(group)}
                             className="gap-2"
                           >
                             <Eye className="h-4 w-4" />
-                            Ver Payload
+                            Detalhes
                           </Button>
                           {status !== 'processed' && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => reprocessMutation.mutate(webhook.id)}
+                              onClick={() => reprocessMutation.mutate(group.lastAttempt.id)}
                               disabled={reprocessMutation.isPending}
                               className="gap-2"
                             >
@@ -475,20 +526,189 @@ export default function AdminWebhooks() {
         </StripeSectionCard>
       </div>
 
-      {/* Payload Dialog */}
-      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh]">
+      {/* Webhook Group Details Dialog */}
+      <Dialog open={!!selectedGroup} onOpenChange={() => setSelectedGroup(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Payload do Webhook</DialogTitle>
+            <DialogTitle>Detalhes do Webhook</DialogTitle>
             <DialogDescription>
-              Dados completos recebidos do webhook
+              Informações completas do evento e tentativas
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] mt-4">
-            <pre className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-xs overflow-auto">
-              {JSON.stringify(selectedEvent?.payload || {}, null, 2)}
-            </pre>
-          </ScrollArea>
+          
+          {selectedGroup && (
+            <div className="space-y-6 mt-4">
+              {/* Customer Information */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                  Informações do Cliente
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Nome
+                    </p>
+                    <p className="text-sm text-gray-900 dark:text-gray-50">
+                      {selectedGroup.customerName || "Desconhecido"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Email
+                    </p>
+                    <p className="text-sm text-gray-900 dark:text-gray-50">
+                      {selectedGroup.customerEmail || "Desconhecido"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Telefone
+                    </p>
+                    <p className="text-sm text-gray-900 dark:text-gray-50">
+                      {selectedGroup.customerPhone || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Subscription ID
+                    </p>
+                    <p className="text-sm font-mono text-gray-900 dark:text-gray-50">
+                      {selectedGroup.subscriptionId || "—"}
+                    </p>
+                  </div>
+                  {selectedGroup.customerId && (
+                    <div className="col-span-2 flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                          Customer ID (interno)
+                        </p>
+                        <p className="text-sm font-mono text-gray-900 dark:text-gray-50">
+                          {selectedGroup.customerId}
+                        </p>
+                      </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (selectedGroup.customerId) {
+                                setLocation(`/admin/clientes?highlight=${selectedGroup.customerId}`);
+                              } else {
+                                setLocation(`/admin/clientes`);
+                              }
+                              setSelectedGroup(null);
+                            }}
+                            className="gap-2"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Ver Cliente
+                          </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Event Summary */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                  Resumo do Evento
+                </h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Tipo
+                    </p>
+                    <p className="text-sm font-mono text-gray-900 dark:text-gray-50">
+                      {selectedGroup.eventType}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Sucessos
+                    </p>
+                    <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
+                      {selectedGroup.successCount}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      Falhas
+                    </p>
+                    <p className="text-sm text-red-600 dark:text-red-400 font-semibold">
+                      {selectedGroup.failureCount}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attempts List */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                  Tentativas ({selectedGroup.attempts.length})
+                </h3>
+                <ScrollArea className="max-h-[40vh]">
+                  <div className="space-y-2">
+                    {selectedGroup.attempts.map((attempt, index) => (
+                      <div
+                        key={attempt.id}
+                        className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              #{index + 1}
+                            </span>
+                            {attempt.status === 'processed' && (
+                              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                            )}
+                            {attempt.status === 'failed' && (
+                              <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                            )}
+                            {attempt.status === 'pending' && (
+                              <div className="h-2 w-2 rounded-full bg-orange-500"></div>
+                            )}
+                            <span className="text-sm text-gray-900 dark:text-gray-50">
+                              {attempt.status === 'processed' ? 'Processado' : 
+                               attempt.status === 'failed' ? 'Falhou' : 'Pendente'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {format(new Date(attempt.receivedAt), "dd/MM/yyyy HH:mm", {
+                              locale: ptBR,
+                            })}
+                          </span>
+                        </div>
+                        {attempt.errorMessage && (
+                          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-xs text-red-700 dark:text-red-400">
+                            {attempt.errorMessage.substring(0, 200)}
+                            {attempt.errorMessage.length > 200 && "..."}
+                          </div>
+                        )}
+                        {attempt.processedAt && (
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Processado em: {format(new Date(attempt.processedAt), "dd/MM/yyyy HH:mm", {
+                              locale: ptBR,
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Payload */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                  Payload (Última Tentativa)
+                </h3>
+                <ScrollArea className="max-h-[30vh]">
+                  <pre className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-xs overflow-auto border border-gray-200 dark:border-gray-700">
+                    {JSON.stringify(selectedGroup.lastAttempt.payload || {}, null, 2)}
+                  </pre>
+                </ScrollArea>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AdminLayout>

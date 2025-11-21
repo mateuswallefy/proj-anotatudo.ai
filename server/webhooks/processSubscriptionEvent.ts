@@ -631,30 +631,15 @@ export async function handleWebhookEvent(payload: CaktoPayload): Promise<void> {
         console.log(`[WEBHOOK] Evento não processado: ${event}`);
     }
 
-    // Registrar evento de webhook como processado
-    await storage.createWebhookEvent({
-      type: event,
-      payload: data as any,
-      processed: true,
-    });
-
+    // NÃO criar novo webhook event aqui - isso já foi feito no endpoint
+    // Apenas processar o evento
     console.log(`[WEBHOOK] ✅ Evento ${event} processado com sucesso`);
   } catch (error: any) {
     console.error(`[WEBHOOK] ❌ Erro ao processar evento ${event}:`, error);
     console.error(`[WEBHOOK] Stack:`, error.stack);
 
-    // Registrar evento de webhook como não processado
-    try {
-      await storage.createWebhookEvent({
-        type: event,
-        payload: data as any,
-        processed: false,
-      });
-    } catch (logError) {
-      console.error(`[WEBHOOK] ❌ Erro ao registrar evento de erro:`, logError);
-    }
-
-    // Re-lançar erro para que o endpoint possa logar mas ainda retornar 200
+    // NÃO criar novo webhook event aqui - o processWebhook já cuida disso
+    // Re-lançar erro para que processWebhook possa atualizar o status
     throw error;
   }
 }

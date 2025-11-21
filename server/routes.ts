@@ -3474,6 +3474,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/webhooks/grouped", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit || "100");
+      const groups = await storage.getWebhookGroups(limit);
+      res.json(groups);
+    } catch (error: any) {
+      console.error("Error fetching webhook groups:", error);
+      res.status(500).json({ message: "Failed to fetch webhook groups" });
+    }
+  });
+
   app.post("/api/admin/webhooks/:id/reprocess", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;

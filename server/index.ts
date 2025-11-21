@@ -62,14 +62,22 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
 
     // 2. Processar webhook usando o processador completo
     console.log(`[WEBHOOK] 🔄 Iniciando processamento do webhook ${webhookId}...`);
-    await processWebhook(webhookId, rawPayload);
-
-    console.log(`[WEBHOOK] ✅ Webhook ${webhookId} processado com sucesso`);
+    
+    try {
+      await processWebhook(webhookId, rawPayload);
+      console.log(`[WEBHOOK] ✅ Webhook ${webhookId} processado com sucesso`);
+    } catch (processError: any) {
+      // O processWebhook já atualizou o status como 'failed' no catch interno
+      // Apenas logar o erro, mas não quebrar o fluxo
+      console.error(`[WEBHOOK] ⚠️  Erro no processamento (já marcado como failed):`, processError.message);
+    }
+    
+    // Sempre retornar 200 OK, independente de sucesso ou erro
     return res.status(200).json({ success: true });
 
   } catch (err: any) {
     console.error("[WEBHOOK] ========================================");
-    console.error("[WEBHOOK] ❌ ERRO CRÍTICO NO WEBHOOK");
+    console.error("[WEBHOOK] ❌ ERRO CRÍTICO NO WEBHOOK (fora do processamento)");
     console.error("[WEBHOOK] Erro:", err);
     console.error("[WEBHOOK] Stack:", err.stack);
     console.error("[WEBHOOK] Body recebido:", JSON.stringify(req.body, null, 2));
@@ -87,6 +95,7 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
           retryCount: currentRetryCount + 1,
           lastRetryAt: new Date(),
         });
+        console.log(`[WEBHOOK] ⚠️  Webhook ${webhookId} marcado como failed devido a erro crítico`);
       } catch (updateError) {
         console.error("[WEBHOOK] ❌ Falha ao atualizar status do webhook:", updateError);
       }
@@ -103,6 +112,7 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
           lastRetryAt: new Date(),
           processed: false,
         });
+        console.log(`[WEBHOOK] ⚠️  Webhook registrado como failed devido a erro crítico`);
       } catch (logError) {
         console.error("[WEBHOOK] ❌ Falha ao registrar evento de erro:", logError);
       }

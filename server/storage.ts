@@ -215,6 +215,20 @@ export interface IStorage {
   updateWebhookStatus(id: string, updates: { status: 'pending' | 'processed' | 'failed'; processedAt?: Date; errorMessage?: string; retryCount?: number; lastRetryAt?: Date }): Promise<WebhookEvent | undefined>;
   reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined>;
   getFailedWebhooks(maxRetries?: number): Promise<WebhookEvent[]>;
+  getWebhookGroups(limit?: number): Promise<Array<{
+    eventId: string;
+    eventType: string;
+    attempts: WebhookEvent[];
+    lastAttempt: WebhookEvent;
+    firstAttempt: WebhookEvent;
+    successCount: number;
+    failureCount: number;
+    customerName: string | null;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    customerId: string | null;
+    subscriptionId: string | null;
+  }>>;
   
   // Webhook processed events (idempotência)
   checkEventProcessed(eventId: string): Promise<WebhookProcessedEvent | undefined>;
@@ -1298,10 +1312,10 @@ export class DatabaseStorage implements IStorage {
     id: string,
     updates: {
       status: 'pending' | 'processed' | 'failed';
-      processedAt?: Date;
-      errorMessage?: string;
+      processedAt?: Date | null;
+      errorMessage?: string | null;
       retryCount?: number;
-      lastRetryAt?: Date;
+      lastRetryAt?: Date | null;
     }
   ): Promise<WebhookEvent | undefined> {
     const updateData: any = {
@@ -1309,7 +1323,7 @@ export class DatabaseStorage implements IStorage {
       processed: updates.status === 'processed',
     };
 
-    if (updates.processedAt) {
+    if (updates.processedAt !== undefined) {
       updateData.processedAt = updates.processedAt;
     }
     if (updates.errorMessage !== undefined) {
@@ -1355,6 +1369,168 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(webhookEvents.receivedAt));
+  }
+
+  /**
+   * Extrai eventId único do payload para agrupamento
+   */
+  private extractEventIdFromPayload(payload: any): string | null {
+    if (payload?.data?.subscription?.id) {
+      return `subscription_${payload.data.subscription.id}`;
+    }
+    if (payload?.data?.order?.id) {
+      return `order_${payload.data.order.id}`;
+    }
+    if (payload?.data?.customer?.id) {
+      return `customer_${payload.data.customer.id}`;
+    }
+    return null;
+  }
+
+  /**
+   * Busca dados do cliente do payload ou do banco
+   */
+  private async enrichWebhookGroupWithCustomerData(
+    attempts: WebhookEvent[]
+  ): Promise<{
+    customerName: string | null;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    customerId: string | null;
+    subscriptionId: string | null;
+  }> {
+    // Tentar extrair dados do primeiro payload válido
+    let customerEmail: string | null = null;
+    let customerName: string | null = null;
+    let customerPhone: string | null = null;
+    let subscriptionId: string | null = null;
+
+    for (const attempt of attempts) {
+      const payload = attempt.payload as any;
+      if (payload?.data?.customer?.email) {
+        customerEmail = payload.data.customer.email;
+        customerName = payload.data.customer.name || null;
+        customerPhone = payload.data.customer.phone || null;
+      }
+      if (payload?.data?.subscription?.id) {
+        subscriptionId = payload.data.subscription.id;
+      }
+      // Se encontrou todos os dados, parar
+      if (customerEmail && subscriptionId) break;
+    }
+
+    // Se encontrou subscriptionId, buscar dados atualizados do banco
+    let customerId: string | null = null;
+    if (subscriptionId) {
+      try {
+        const subscription = await this.getSubscriptionByProviderId('caktos', subscriptionId);
+        if (subscription) {
+          // Buscar cliente do banco
+          const user = await this.getUser(subscription.userId);
+          if (user) {
+            customerId = user.id;
+            // Priorizar dados do banco (mais atualizados)
+            customerName = user.firstName && user.lastName 
+              ? `${user.firstName} ${user.lastName}`.trim()
+              : customerName;
+            customerEmail = user.email || customerEmail;
+            customerPhone = user.whatsappNumber || user.telefone || customerPhone;
+          }
+        }
+      } catch (error) {
+        console.warn(`[Storage] Erro ao buscar dados do cliente para subscription ${subscriptionId}:`, error);
+      }
+    } else if (customerEmail) {
+      // Se não tem subscriptionId mas tem email, buscar cliente pelo email
+      try {
+        const user = await this.getUserByEmail(customerEmail);
+        if (user) {
+          customerId = user.id;
+          customerName = user.firstName && user.lastName 
+            ? `${user.firstName} ${user.lastName}`.trim()
+            : customerName;
+          customerPhone = user.whatsappNumber || user.telefone || customerPhone;
+        }
+      } catch (error) {
+        console.warn(`[Storage] Erro ao buscar cliente por email ${customerEmail}:`, error);
+      }
+    }
+
+    return {
+      customerName: customerName || null,
+      customerEmail: customerEmail || null,
+      customerPhone: customerPhone || null,
+      customerId: customerId || null,
+      subscriptionId: subscriptionId || null,
+    };
+  }
+
+  async getWebhookGroups(limit: number = 100): Promise<Array<{
+    eventId: string;
+    eventType: string;
+    attempts: WebhookEvent[];
+    lastAttempt: WebhookEvent;
+    firstAttempt: WebhookEvent;
+    successCount: number;
+    failureCount: number;
+    customerName: string | null;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    customerId: string | null;
+    subscriptionId: string | null;
+  }>> {
+    // Buscar todos os webhooks recentes
+    const allWebhooks = await db
+      .select()
+      .from(webhookEvents)
+      .orderBy(desc(webhookEvents.receivedAt))
+      .limit(limit * 2); // Buscar mais para garantir agrupamento correto
+
+    // Agrupar por eventId
+    const groupsMap = new Map<string, WebhookEvent[]>();
+
+    for (const webhook of allWebhooks) {
+      const eventId = this.extractEventIdFromPayload(webhook.payload);
+      if (eventId) {
+        if (!groupsMap.has(eventId)) {
+          groupsMap.set(eventId, []);
+        }
+        groupsMap.get(eventId)!.push(webhook);
+      }
+    }
+
+    // Converter para array e enriquecer com dados do cliente
+    const groups = await Promise.all(
+      Array.from(groupsMap.entries())
+        .slice(0, limit)
+        .map(async ([eventId, attempts]) => {
+          // Ordenar attempts por data (mais recente primeiro)
+          attempts.sort((a, b) => 
+            new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+          );
+
+          const lastAttempt = attempts[0];
+          const firstAttempt = attempts[attempts.length - 1];
+          const successCount = attempts.filter(a => a.status === 'processed').length;
+          const failureCount = attempts.filter(a => a.status === 'failed').length;
+
+          // Enriquecer com dados do cliente
+          const customerData = await this.enrichWebhookGroupWithCustomerData(attempts);
+
+          return {
+            eventId,
+            eventType: lastAttempt.event || lastAttempt.type,
+            attempts,
+            lastAttempt,
+            firstAttempt,
+            successCount,
+            failureCount,
+            ...customerData,
+          };
+        })
+    );
+
+    return groups;
   }
 
   // Webhook processed events (idempotência)
