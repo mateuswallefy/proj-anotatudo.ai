@@ -24,6 +24,7 @@ import AdminAssinaturas from "@/pages/admin/assinaturas";
 import AdminEventos from "@/pages/admin/eventos";
 import AdminWebhooks from "@/pages/admin/webhooks";
 import AdminHealth from "@/pages/admin/health";
+import AdminTestes from "@/pages/admin/testes";
 
 function AuthenticatedShell() {
   const { activeTab } = useTab();
@@ -141,6 +142,9 @@ function AppContent() {
     }
     if (location === "/admin/health") {
       return <AdminHealth />;
+    }
+    if (location === "/admin/testes") {
+      return <AdminTestes />;
     }
     // Default to overview
     return <AdminPage />;

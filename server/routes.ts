@@ -3119,6 +3119,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get subscriptions for a specific user
+  app.get("/api/admin/users/:userId/subscriptions", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const subscriptions = await storage.getSubscriptionsByUserId(userId);
+      res.json(subscriptions);
+    } catch (error: any) {
+      console.error("Error fetching user subscriptions:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch subscriptions" });
+    }
+  });
+
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
   app.get("/api/admin/events", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
@@ -3591,6 +3603,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error retrying failed webhooks:", error);
       res.status(500).json({ message: "Failed to retry failed webhooks" });
+    }
+  });
+
+  // ============================================
+  // ROTAS DE TESTE - Apenas Admin Root
+  // ============================================
+  
+  // Middleware para verificar se é admin root
+  async function requireAdminRoot(req: any, res: any, next: any) {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    
+    if (!isAdminRootUser(user)) {
+      return res.status(403).json({ message: "Apenas admin-root pode acessar esta rota" });
+    }
+    
+    next();
+  }
+
+  // Schemas Zod para validação
+  const testWebhookSchema = z.object({
+    event: z.string(),
+    data: z.any(),
+  });
+
+  const testSubscriptionSchema = z.object({
+    clientId: z.string(),
+    planName: z.string().default("Premium Test"),
+    status: z.enum(['trial', 'active', 'paused', 'canceled', 'overdue']).default('active'),
+    validUntil: z.string().optional(), // ISO date string
+  });
+
+  const testAdvanceSchema = z.object({
+    subscriptionId: z.string(),
+    days: z.number().int().positive(),
+  });
+
+  const testPaymentSchema = z.object({
+    subscriptionId: z.string(),
+    type: z.enum(['payment_succeeded', 'payment_failed', 'payment_refunded', 'payment_chargeback']),
+    amount: z.number().positive().optional(),
+  });
+
+  // POST /api/admin/test/webhook - Simula webhook da Cakto
+  app.post("/api/admin/test/webhook", isAuthenticated, requireAdminRoot, async (req: any, res) => {
+    try {
+      const payload = testWebhookSchema.parse(req.body);
+      
+      console.log("[TEST] Simulando webhook:", payload.event);
+      
+      // Processar webhook usando o mesmo fluxo real
+      const { processWebhook } = await import("./webhooks/webhookProcessor.js");
+      const webhookId = uuidv4();
+      
+      // Registrar webhook primeiro
+      const webhookRecord = await storage.createWebhookEvent({
+        event: payload.event,
+        type: payload.event,
+        payload: payload,
+        status: 'pending',
+        processed: false,
+      });
+      
+      // Processar webhook usando o ID correto
+      await processWebhook(webhookRecord.id, payload);
+      
+      res.json({ 
+        success: true, 
+        message: `Webhook ${payload.event} processado com sucesso`,
+        webhookId: webhookRecord.id,
+      });
+    } catch (error: any) {
+      console.error("[TEST] Erro ao simular webhook:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Payload inválido",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao processar webhook de teste",
+      });
+    }
+  });
+
+  // POST /api/admin/test/subscription - Cria assinatura fake
+  app.post("/api/admin/test/subscription", isAuthenticated, requireAdminRoot, async (req: any, res) => {
+    try {
+      const data = testSubscriptionSchema.parse(req.body);
+      
+      // Verificar se cliente existe
+      const client = await storage.getUser(data.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      
+      // Criar assinatura fake
+      const subscription = await storage.createSubscription({
+        userId: data.clientId,
+        provider: 'manual',
+        providerSubscriptionId: `test_${uuidv4()}`,
+        planName: data.planName,
+        priceCents: 2970, // R$ 29,70
+        currency: 'BRL',
+        billingInterval: 'month',
+        interval: 'monthly',
+        status: data.status,
+        currentPeriodEnd: data.validUntil ? new Date(data.validUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        meta: {
+          isTest: true,
+          createdBy: 'admin-test',
+        },
+      });
+      
+      // Registrar evento
+      await storage.logSubscriptionEvent({
+        subscriptionId: subscription.id,
+        clientId: data.clientId,
+        type: 'subscription_created',
+        provider: 'manual',
+        severity: 'info',
+        message: `Assinatura de teste criada - ${data.planName}`,
+        payload: { test: true, ...data },
+        origin: 'system',
+      });
+      
+      // Logar em clientLogs
+      await logClientEvent(data.clientId, EventTypes.SUBSCRIPTION_CREATED, `Assinatura de teste criada: ${subscription.id}`, {
+        subscriptionId: subscription.id,
+        planName: data.planName,
+        status: data.status,
+      });
+      
+      res.json({ 
+        success: true,
+        subscription,
+      });
+    } catch (error: any) {
+      console.error("[TEST] Erro ao criar assinatura de teste:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Dados inválidos",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao criar assinatura de teste",
+      });
+    }
+  });
+
+  // POST /api/admin/test/advance - Avança validade da assinatura
+  app.post("/api/admin/test/advance", isAuthenticated, requireAdminRoot, async (req: any, res) => {
+    try {
+      const data = testAdvanceSchema.parse(req.body);
+      
+      const subscription = await storage.getSubscriptionById(data.subscriptionId);
+      if (!subscription) {
+        return res.status(404).json({ message: "Assinatura não encontrada" });
+      }
+      
+      const currentEnd = subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : new Date();
+      const newEnd = new Date(currentEnd);
+      newEnd.setDate(newEnd.getDate() + data.days);
+      
+      // Atualizar assinatura
+      await storage.updateSubscription(data.subscriptionId, {
+        currentPeriodEnd: newEnd,
+      });
+      
+      // Verificar se expirou
+      const now = new Date();
+      if (newEnd < now && subscription.status !== 'expired') {
+        await storage.updateSubscription(data.subscriptionId, {
+          status: 'overdue',
+        });
+        
+        // Registrar evento de expiração
+        await storage.logSubscriptionEvent({
+          subscriptionId: data.subscriptionId,
+          clientId: subscription.userId,
+          type: 'subscription_expired',
+          provider: subscription.provider,
+          severity: 'warning',
+          message: `Assinatura expirada após avanço de ${data.days} dias`,
+          payload: { days: data.days, newEnd: newEnd.toISOString() },
+          origin: 'system',
+        });
+      } else {
+        // Registrar evento de atualização
+        await storage.logSubscriptionEvent({
+          subscriptionId: data.subscriptionId,
+          clientId: subscription.userId,
+          type: 'subscription_updated',
+          provider: subscription.provider,
+          severity: 'info',
+          message: `Validade avançada em ${data.days} dias`,
+          payload: { days: data.days, newEnd: newEnd.toISOString() },
+          origin: 'system',
+        });
+      }
+      
+      const updated = await storage.getSubscriptionById(data.subscriptionId);
+      
+      res.json({ 
+        success: true,
+        subscription: updated,
+        newEndDate: newEnd.toISOString(),
+      });
+    } catch (error: any) {
+      console.error("[TEST] Erro ao avançar validade:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Dados inválidos",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao avançar validade",
+      });
+    }
+  });
+
+  // POST /api/admin/test/payment - Simula pagamentos
+  app.post("/api/admin/test/payment", isAuthenticated, requireAdminRoot, async (req: any, res) => {
+    try {
+      const data = testPaymentSchema.parse(req.body);
+      
+      const subscription = await storage.getSubscriptionById(data.subscriptionId);
+      if (!subscription) {
+        return res.status(404).json({ message: "Assinatura não encontrada" });
+      }
+      
+      const amount = data.amount || subscription.priceCents;
+      
+      // Criar payload fake de webhook
+      const webhookPayload = {
+        event: data.type,
+        data: {
+          subscription: {
+            id: subscription.providerSubscriptionId,
+            status: subscription.status,
+          },
+          order: {
+            id: `test_order_${uuidv4()}`,
+            amount: amount / 100, // Converter centavos para reais
+            status: data.type === 'payment_succeeded' ? 'paid' : 
+                   data.type === 'payment_failed' ? 'failed' :
+                   data.type === 'payment_refunded' ? 'refunded' : 'chargeback',
+            paid_at: data.type === 'payment_succeeded' ? new Date().toISOString() : undefined,
+          },
+        },
+      };
+      
+      // Processar webhook
+      const { processWebhook } = await import("./webhooks/webhookProcessor.js");
+      const webhookId = uuidv4();
+      
+      await storage.createWebhookEvent({
+        event: data.type,
+        type: data.type,
+        payload: webhookPayload,
+        status: 'pending',
+        processed: false,
+      });
+      
+      await processWebhook(webhookId, webhookPayload);
+      
+      res.json({ 
+        success: true,
+        message: `Pagamento ${data.type} simulado com sucesso`,
+        webhookPayload,
+      });
+    } catch (error: any) {
+      console.error("[TEST] Erro ao simular pagamento:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Dados inválidos",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao simular pagamento",
+      });
     }
   });
 

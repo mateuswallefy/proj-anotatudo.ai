@@ -8,7 +8,8 @@ import {
   Menu,
   HeartPulse,
   LogOut,
-  Webhook
+  Webhook,
+  TestTube
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -30,6 +31,7 @@ const navItems: AdminNavItem[] = [
   { id: "events", label: "Eventos", icon: Activity, path: "/admin/eventos" },
   { id: "webhooks", label: "Webhooks", icon: Webhook, path: "/admin/webhooks" },
   { id: "health", label: "Health Center", icon: HeartPulse, path: "/admin/health" },
+  { id: "testes", label: "Testes", icon: TestTube, path: "/admin/testes" },
 ];
 
 interface AdminLayoutProps {
