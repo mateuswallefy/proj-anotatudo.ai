@@ -16,7 +16,7 @@ export const PremiumInput = forwardRef<HTMLInputElement, PremiumInputProps>(
           <Input
             ref={ref}
             className={cn(
-              "pl-12 h-14 text-base border-2 focus:border-primary/50 transition-colors rounded-xl shadow-sm",
+              "pl-12 h-14 text-base border-2 focus:border-blue-500 focus:ring-blue-500 transition-colors rounded-xl shadow-sm",
               className
             )}
             {...props}
@@ -29,7 +29,7 @@ export const PremiumInput = forwardRef<HTMLInputElement, PremiumInputProps>(
       <Input
         ref={ref}
         className={cn(
-          "h-11 md:h-12 rounded-xl border-2 text-base transition-colors",
+          "h-11 md:h-12 rounded-xl border-2 text-base transition-colors focus:border-blue-500 focus:ring-blue-500",
           className
         )}
         {...props}

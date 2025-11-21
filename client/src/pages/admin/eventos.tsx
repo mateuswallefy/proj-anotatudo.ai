@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { PageHeader } from "@/components/design-system/PageHeader";
-import { AppCard } from "@/components/design-system/AppCard";
-import { DataBadge } from "@/components/design-system/DataBadge";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StripeSectionCard } from "@/components/admin/StripeSectionCard";
+import { StripeStatusBadge } from "@/components/admin/StripeStatusBadge";
+import { StripeEmptyState } from "@/components/admin/StripeEmptyState";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
 import {
   Dialog,
@@ -126,15 +127,14 @@ export default function AdminEventos() {
       pageTitle="Eventos"
       pageSubtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI."
     >
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
-        <PageHeader
-          title="Eventos"
-          subtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI."
-        />
+      <AdminPageHeader
+        title="Eventos"
+        subtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI"
+      />
 
-        <div className="space-y-6 mt-8">
+      <div className="space-y-6">
         {/* Search and Filters */}
-        <AppCard className="p-5 md:p-6 cr-card-animate">
+        <StripeSectionCard>
           <div className="space-y-4">
             {/* Search */}
             <div className="flex-1 w-full">
@@ -184,18 +184,18 @@ export default function AdminEventos() {
               </div>
             </div>
           </div>
-        </AppCard>
+        </StripeSectionCard>
         {/* Table */}
-        <AppCard className="p-0 overflow-hidden cr-card-animate">
+        <StripeSectionCard className="p-0 overflow-hidden">
           <ScrollArea className="w-full">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Mensagem</TableHead>
-                  <TableHead>Data/Hora</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                <TableHeader>
+                <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tipo</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Origem</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Mensagem</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Data/Hora</TableHead>
+                  <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -226,14 +226,12 @@ export default function AdminEventos() {
                   if (safeEvents.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
-                          <div className="flex flex-col items-center gap-2">
-                            <Activity className="h-8 w-8 opacity-50" />
-                            <p className="font-medium">Nenhum evento encontrado</p>
-                            <p className="text-sm">
-                              Os eventos serão exibidos aqui quando ocorrerem ações no sistema.
-                            </p>
-                          </div>
+                        <TableCell colSpan={5} className="p-0">
+                          <StripeEmptyState
+                            icon={Activity}
+                            title="Nenhum evento encontrado"
+                            subtitle="Os eventos serão exibidos aqui quando ocorrerem ações no sistema"
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -247,9 +245,10 @@ export default function AdminEventos() {
                     return (
                     <TableRow key={event.id}>
                       <TableCell>
-                          <DataBadge variant="outline" color={getEventTypeColor(type, message)}>
-                            {getEventTypeLabel(type, source)}
-                        </DataBadge>
+                        <StripeStatusBadge
+                          status={type.toLowerCase().includes("error") || message.toLowerCase().includes("error") ? "error" : type.toLowerCase().includes("warning") || message.toLowerCase().includes("warning") ? "warning" : "info"}
+                          label={getEventTypeLabel(type, source)}
+                        />
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                           <span className="text-xs text-muted-foreground">{source}</span>
@@ -297,8 +296,7 @@ export default function AdminEventos() {
               </TableBody>
             </Table>
           </ScrollArea>
-        </AppCard>
-        </div>
+        </StripeSectionCard>
       </div>
     </AdminLayout>
   );

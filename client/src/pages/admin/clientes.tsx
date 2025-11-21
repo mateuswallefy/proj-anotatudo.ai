@@ -1,10 +1,13 @@
 import { useState, useEffect, startTransition } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { PageHeader } from "@/components/design-system/PageHeader";
-import { AppCard } from "@/components/design-system/AppCard";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StripeSectionCard } from "@/components/admin/StripeSectionCard";
+import { StripeStatusBadge } from "@/components/admin/StripeStatusBadge";
+import { StripeEmptyState } from "@/components/admin/StripeEmptyState";
 import { PremiumInput } from "@/components/design-system/PremiumInput";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
+import { Button } from "@/components/ui/button";
 import { DataBadge } from "@/components/design-system/DataBadge";
 import { SectionTitle } from "@/components/design-system/SectionTitle";
 import { 
@@ -670,26 +673,25 @@ export default function AdminClientes() {
       pageTitle="Clientes"
       pageSubtitle="Gerencie todos os clientes do AnotaTudo.AI."
     >
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
-        <PageHeader
-          title="Clientes"
-          subtitle="Gerencie todos os clientes do AnotaTudo.AI."
-          action={
-            <Dialog 
-              open={createDialogOpen} 
-              onOpenChange={(open) => {
-                setCreateDialogOpen(open);
-                if (!open) {
-                  createForm.reset();
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <PremiumButton>
-                  <Plus className="h-5 w-5 mr-2" />
-                  Novo cliente
-                </PremiumButton>
-              </DialogTrigger>
+      <AdminPageHeader
+        title="Clientes"
+        subtitle="Gerencie assinaturas, status e acesso dos seus clientes."
+        actions={
+          <Dialog 
+            open={createDialogOpen} 
+            onOpenChange={(open) => {
+              setCreateDialogOpen(open);
+              if (!open) {
+                createForm.reset();
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Novo cliente
+              </Button>
+            </DialogTrigger>
               <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-bold">Novo Cliente</DialogTitle>
@@ -846,25 +848,26 @@ export default function AdminClientes() {
 
         <div className="space-y-6 mt-8">
           {/* Filters */}
-          <AppCard className="p-5 md:p-6 cr-card-animate">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div className="flex-1 w-full md:max-w-md">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <PremiumInput
-                    placeholder="Buscar por nome, email ou WhatsApp..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                    }}
-                    className="pl-12"
-                  />
+          <StripeSectionCard>
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                <div className="flex-1 w-full md:max-w-md">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <PremiumInput
+                      placeholder="Buscar por nome, email ou WhatsApp..."
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                      }}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Advanced Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+              
+              {/* Advanced Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Status de Acesso</Label>
                 <Select value={accessStatusFilter} onValueChange={(value) => { setAccessStatusFilter(value); setPage(1); }}>
@@ -923,22 +926,23 @@ export default function AdminClientes() {
                   </TabsList>
                 </Tabs>
               </div>
+              </div>
             </div>
-          </AppCard>
+          </StripeSectionCard>
 
           {/* Table */}
-          <AppCard className="p-0 overflow-hidden cr-card-animate">
+          <StripeSectionCard className="p-0 overflow-hidden">
             <ScrollArea className="w-full">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>WhatsApp</TableHead>
-                    <TableHead>Plano</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Criado em</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                  <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Nome</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Email</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">WhatsApp</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Plano</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Criado em</TableHead>
+                    <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -972,12 +976,12 @@ export default function AdminClientes() {
                     if (items.length === 0) {
                       return (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                            <div className="flex flex-col items-center gap-2">
-                              <Users className="h-8 w-8 opacity-50" />
-                              <p className="font-medium">Nenhum cliente encontrado</p>
-                              <p className="text-sm">Tente ajustar os filtros de busca</p>
-                            </div>
+                          <TableCell colSpan={7} className="p-0">
+                            <StripeEmptyState
+                              icon={Users}
+                              title="Nenhum cliente encontrado"
+                              subtitle="Tente ajustar os filtros de busca"
+                            />
                           </TableCell>
                         </TableRow>
                       );
@@ -985,7 +989,7 @@ export default function AdminClientes() {
                     return items.map((user) => (
                       <TableRow
                         key={user.id}
-                        className={`cursor-pointer hover:bg-muted/40 transition-colors ${user.id === highlightedId ? "cr-highlight" : ""}`}
+                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${user.id === highlightedId ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                         onClick={() => openEditDialog(user)}
                       >
                         <TableCell className="font-medium">
@@ -1003,12 +1007,9 @@ export default function AdminClientes() {
                         <TableCell>{user.whatsappNumber || "-"}</TableCell>
                         <TableCell>{user.planLabel || "-"}</TableCell>
                         <TableCell>
-                          <DataBadge
-                            variant="outline"
-                            color={getBillingStatusColor(user.billingStatus)}
-                          >
-                            {user.billingStatus}
-                          </DataBadge>
+                          <StripeStatusBadge
+                            status={user.billingStatus}
+                          />
                         </TableCell>
                         <TableCell>
                           {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: ptBR })}
@@ -1031,7 +1032,7 @@ export default function AdminClientes() {
                 </TableBody>
               </Table>
             </ScrollArea>
-          </AppCard>
+          </StripeSectionCard>
 
           {/* Pagination */}
           {data && data.pagination.totalPages > 1 && (
@@ -1071,75 +1072,82 @@ export default function AdminClientes() {
             }
           }}
         >
-          <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-center gap-4 mb-2">
-                <Avatar className="h-12 w-12 border-2 border-border">
-                  <AvatarImage src={(userDetail?.user || selectedUser)?.profileImageUrl || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
-                    {(() => {
-                      const user = userDetail?.user || selectedUser;
-                      return user?.firstName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
-                    })()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <DialogTitle className="text-xl font-bold">
-                    {(() => {
-                      const user = userDetail?.user || selectedUser;
-                      if (user?.firstName && user?.lastName) {
-                        return `${user.firstName} ${user.lastName}`;
-                      }
-                      if (user?.name) {
-                        return user.name;
-                      }
-                      return user?.email?.split("@")[0] || "Cliente";
-                    })()}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-muted-foreground">
-                    {(userDetail?.user || selectedUser)?.email || "-"}
-                  </DialogDescription>
+          <DialogContent className="max-w-[90%] sm:max-w-[700px] rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="pb-4 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Avatar className="h-10 w-10 border border-gray-200 dark:border-gray-800">
+                    <AvatarImage src={(userDetail?.user || selectedUser)?.profileImageUrl || undefined} />
+                    <AvatarFallback className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-semibold">
+                      {(() => {
+                        const user = userDetail?.user || selectedUser;
+                        return user?.firstName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
+                      })()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-1">
+                      {(() => {
+                        const user = userDetail?.user || selectedUser;
+                        if (user?.firstName && user?.lastName) {
+                          return `${user.firstName} ${user.lastName}`;
+                        }
+                        if (user?.name) {
+                          return user.name;
+                        }
+                        return user?.email?.split("@")[0] || "Cliente";
+                      })()}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+                      {(userDetail?.user || selectedUser)?.email || "-"}
+                    </DialogDescription>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <DataBadge
-                  variant="outline"
-                  color={(() => {
-                    const user = userDetail?.user || selectedUser;
-                    return user ? getBillingStatusColor(user.billingStatus) : undefined;
-                  })()}
-                  className="text-xs"
-                >
-                  {(() => {
-                    const user = userDetail?.user || selectedUser;
-                    return user?.billingStatus === "paused" ? "Suspenso" : user?.billingStatus === "active" ? "Ativo" : user?.billingStatus || "N/A";
-                  })()}
-                </DataBadge>
-                {((userDetail?.user || selectedUser)?.role === "admin") && (
-                  <DataBadge variant="outline" color="hsl(217, 91%, 60%)" className="text-xs">
-                    Admin
-                  </DataBadge>
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <StripeStatusBadge
+                    status={(() => {
+                      const user = userDetail?.user || selectedUser;
+                      return user?.billingStatus || "none";
+                    })()}
+                  />
+                  {((userDetail?.user || selectedUser)?.role === "admin") && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                      Admin
+                    </span>
+                  )}
+                </div>
               </div>
             </DialogHeader>
 
-            <div className="space-y-4 md:space-y-6 py-4">
+            <div className="py-6">
               <Tabs defaultValue="informacoes" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-6">
-                  <TabsTrigger value="informacoes" className="text-xs sm:text-sm">
-                    <UserIcon className="h-4 w-4 mr-1 sm:mr-2" />
+                <TabsList className="grid w-full grid-cols-4 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                  <TabsTrigger 
+                    value="informacoes" 
+                    className="text-xs sm:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
+                  >
+                    <UserIcon className="h-4 w-4 mr-1.5 sm:mr-2" />
                     <span className="hidden sm:inline">Info</span>
                   </TabsTrigger>
-                  <TabsTrigger value="assinatura" className="text-xs sm:text-sm">
-                    <CreditCard className="h-4 w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger 
+                    value="assinatura" 
+                    className="text-xs sm:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
+                  >
+                    <CreditCard className="h-4 w-4 mr-1.5 sm:mr-2" />
                     <span className="hidden sm:inline">Assinatura</span>
                   </TabsTrigger>
-                  <TabsTrigger value="acesso" className="text-xs sm:text-sm">
-                    <Lock className="h-4 w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger 
+                    value="acesso" 
+                    className="text-xs sm:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
+                  >
+                    <Lock className="h-4 w-4 mr-1.5 sm:mr-2" />
                     <span className="hidden sm:inline">Acesso</span>
                   </TabsTrigger>
-                  <TabsTrigger value="acoes" className="text-xs sm:text-sm">
-                    <AlertTriangle className="h-4 w-4 mr-1 sm:mr-2" />
+                  <TabsTrigger 
+                    value="acoes" 
+                    className="text-xs sm:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:shadow-sm"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-1.5 sm:mr-2" />
                     <span className="hidden sm:inline">Ações</span>
                   </TabsTrigger>
                 </TabsList>
@@ -1158,16 +1166,18 @@ export default function AdminClientes() {
                       className="space-y-6"
                     >
                       <div className="space-y-4">
-                        <SectionTitle title="Dados Pessoais" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                          Dados Pessoais
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField
                             control={editForm.control}
                             name="nome"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Nome *</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome *</FormLabel>
                                 <FormControl>
-                                  <PremiumInput {...field} placeholder="Nome" />
+                                  <PremiumInput {...field} placeholder="Nome" className="h-10" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1178,9 +1188,9 @@ export default function AdminClientes() {
                             name="sobrenome"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Sobrenome</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">Sobrenome</FormLabel>
                                 <FormControl>
-                                  <PremiumInput {...field} placeholder="Sobrenome" />
+                                  <PremiumInput {...field} placeholder="Sobrenome" className="h-10" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1190,19 +1200,21 @@ export default function AdminClientes() {
                       </div>
 
                       <div className="space-y-4">
-                        <SectionTitle title="Contato" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                          Contato
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField
                             control={editForm.control}
                             name="email"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Email *</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">Email *</FormLabel>
                                 <FormControl>
-                                  <PremiumInput type="email" {...field} placeholder="email@exemplo.com" />
+                                  <PremiumInput type="email" {...field} placeholder="email@exemplo.com" className="h-10" />
                                 </FormControl>
                                 <FormMessage />
-                                <p className="text-xs text-muted-foreground mt-1">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
                                   Alterar email irá desconectar o cliente.
                                 </p>
                               </FormItem>
@@ -1213,9 +1225,9 @@ export default function AdminClientes() {
                             name="whatsappNumber"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>WhatsApp</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">WhatsApp</FormLabel>
                                 <FormControl>
-                                  <PremiumInput {...field} placeholder="+55 11 99999-9999" />
+                                  <PremiumInput {...field} placeholder="+55 11 99999-9999" className="h-10" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1225,17 +1237,19 @@ export default function AdminClientes() {
                       </div>
 
                       <div className="space-y-4">
-                        <SectionTitle title="Plano e Status" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                          Plano e Status
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField
                             control={editForm.control}
                             name="plano"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Plano</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">Plano</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
-                                    <SelectTrigger className="h-11 md:h-12 rounded-xl">
+                                    <SelectTrigger className="h-10 rounded-lg border-gray-300 dark:border-gray-700">
                                       <SelectValue placeholder="Selecione o plano" />
                                     </SelectTrigger>
                                   </FormControl>
@@ -1254,9 +1268,9 @@ export default function AdminClientes() {
                             name="planLabel"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Rótulo do Plano</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">Rótulo do Plano</FormLabel>
                                 <FormControl>
-                                  <PremiumInput {...field} placeholder="Ex: Plano Anual" />
+                                  <PremiumInput {...field} placeholder="Ex: Plano Anual" className="h-10" />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1267,10 +1281,10 @@ export default function AdminClientes() {
                             name="billingStatus"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Status de Cobrança</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">Status de Cobrança</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
-                                    <SelectTrigger className="h-11 md:h-12 rounded-xl">
+                                    <SelectTrigger className="h-10 rounded-lg border-gray-300 dark:border-gray-700">
                                       <SelectValue placeholder="Selecione o status" />
                                     </SelectTrigger>
                                   </FormControl>
@@ -1290,8 +1304,8 @@ export default function AdminClientes() {
                         </div>
                       </div>
 
-                      <DialogFooter className="flex flex-col md:flex-row gap-3 md:justify-end mt-6 px-0">
-                        <PremiumButton
+                      <DialogFooter className="flex flex-col md:flex-row gap-3 md:justify-end mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+                        <Button
                           type="button"
                           variant="outline"
                           onClick={() => setEditDialogOpen(false)}
@@ -1299,14 +1313,14 @@ export default function AdminClientes() {
                           className="w-full md:w-auto"
                         >
                           Cancelar
-                        </PremiumButton>
-                        <PremiumButton
+                        </Button>
+                        <Button
                           type="submit"
                           disabled={updateUserMutation.isPending}
-                          className="w-full md:w-auto"
+                          className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white"
                         >
                           {updateUserMutation.isPending ? "Salvando..." : "Salvar alterações"}
-                        </PremiumButton>
+                        </Button>
                       </DialogFooter>
                     </form>
                   </Form>
@@ -1315,7 +1329,9 @@ export default function AdminClientes() {
                 {/* Tab: Assinatura */}
                 <TabsContent value="assinatura" className="mt-0 space-y-6">
                   <div className="space-y-4">
-                    <SectionTitle title="Assinaturas" />
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                      Assinaturas
+                    </h3>
                     {detailLoading ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Skeleton className="h-4 w-32 mx-auto mb-2" />
@@ -1324,16 +1340,16 @@ export default function AdminClientes() {
                     ) : userDetail?.subscriptions && userDetail.subscriptions.length > 0 ? (
                       <div className="space-y-3">
                         {userDetail.subscriptions.map((sub: any) => (
-                          <AppCard key={sub.id} className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <p className="font-semibold text-base">{sub.planName}</p>
-                                <p className="text-sm text-muted-foreground mt-1">
+                          <div key={sub.id} className="p-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-sm transition-shadow">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-base text-gray-900 dark:text-gray-50 mb-1">{sub.planName}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
                                   {formatCurrency(sub.priceCents / 100)} /{" "}
                                   {sub.billingInterval === "month" ? "mês" : "ano"}
                                 </p>
                                 {sub.currentPeriodEnd && (
-                                  <p className="text-xs text-muted-foreground mt-2">
+                                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                                     Próximo vencimento:{" "}
                                     {format(new Date(sub.currentPeriodEnd), "dd/MM/yyyy", {
                                       locale: ptBR,
@@ -1341,96 +1357,98 @@ export default function AdminClientes() {
                                   </p>
                                 )}
                               </div>
-                              <DataBadge
-                                variant="outline"
-                                color={getBillingStatusColor(sub.status)}
-                              >
-                                {sub.status}
-                              </DataBadge>
+                              <div className="flex-shrink-0">
+                                <StripeStatusBadge status={sub.status} />
+                              </div>
                             </div>
-                          </AppCard>
+                          </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center py-8">
-                        Nenhuma assinatura encontrada
-                      </p>
+                      <div className="text-center py-12">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Nenhuma assinatura encontrada
+                        </p>
+                      </div>
                     )}
                   </div>
                 </TabsContent>
 
                 {/* Tab: Acesso */}
                 <TabsContent value="acesso" className="mt-0 space-y-6">
-                    <div className="space-y-4">
-                      <SectionTitle title="Controle de Acesso" />
-                      <AppCard className="p-4">
-                        {(() => {
-                          const user = userDetail?.user || selectedUser;
-                          return (
-                            <>
-                              <div className="flex items-center justify-between mb-4">
-                                <div>
-                                  <p className="font-medium">Status Atual</p>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {user?.billingStatus === "paused"
-                                      ? "Acesso suspenso - Cliente não pode fazer login"
-                                      : "Acesso ativo - Cliente pode usar o sistema normalmente"}
-                                  </p>
-                                </div>
-                                <DataBadge
-                                  variant="outline"
-                                  color={user ? getBillingStatusColor(user.billingStatus) : undefined}
-                                >
-                                  {user?.billingStatus === "paused" ? "Suspenso" : "Ativo"}
-                                </DataBadge>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
+                      Controle de Acesso
+                    </h3>
+                    <div className="p-5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+                      {(() => {
+                        const user = userDetail?.user || selectedUser;
+                        return (
+                          <>
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex-1">
+                                <p className="font-semibold text-sm text-gray-900 dark:text-gray-50 mb-1">Status Atual</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  {user?.billingStatus === "paused"
+                                    ? "Acesso suspenso - Cliente não pode fazer login"
+                                    : "Acesso ativo - Cliente pode usar o sistema normalmente"}
+                                </p>
                               </div>
+                              <div className="flex-shrink-0 ml-4">
+                                <StripeStatusBadge
+                                  status={user?.billingStatus === "paused" ? "suspended" : user?.billingStatus || "none"}
+                                />
+                              </div>
+                            </div>
 
-                              <Separator className="my-4" />
+                            <Separator className="my-4" />
 
-                              <div className="space-y-3">
-                                {user?.billingStatus === "paused" ? (
-                                  <PremiumButton
-                                    onClick={() => setReactivateConfirmOpen(true)}
-                                    className="w-full"
-                                    disabled={reactivateUserMutation.isPending}
-                                  >
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
-                                  </PremiumButton>
-                                ) : (
-                                  <PremiumButton
-                                    variant="secondary"
-                                    onClick={() => setSuspendConfirmOpen(true)}
-                                    className="w-full"
-                                    disabled={suspendUserMutation.isPending}
-                                  >
-                                    <ShieldOff className="h-4 w-4 mr-2" />
-                                    {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
-                                  </PremiumButton>
-                                )}
-
+                            <div className="space-y-3">
+                              {user?.billingStatus === "paused" ? (
                                 <PremiumButton
-                                  variant="outline"
-                                  onClick={() => setLogoutConfirmOpen(true)}
+                                  onClick={() => setReactivateConfirmOpen(true)}
                                   className="w-full"
-                                  disabled={forceLogoutMutation.isPending}
+                                  disabled={reactivateUserMutation.isPending}
                                 >
-                                  <LogOut className="h-4 w-4 mr-2" />
-                                  {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
                                 </PremiumButton>
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </AppCard>
+                              ) : (
+                                <PremiumButton
+                                  variant="secondary"
+                                  onClick={() => setSuspendConfirmOpen(true)}
+                                  className="w-full"
+                                  disabled={suspendUserMutation.isPending}
+                                >
+                                  <ShieldOff className="h-4 w-4 mr-2" />
+                                  {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
+                                </PremiumButton>
+                              )}
+
+                              <PremiumButton
+                                variant="outline"
+                                onClick={() => setLogoutConfirmOpen(true)}
+                                className="w-full"
+                                disabled={forceLogoutMutation.isPending}
+                              >
+                                <LogOut className="h-4 w-4 mr-2" />
+                                {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
+                              </PremiumButton>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
-                  </TabsContent>
+                  </div>
+                </TabsContent>
 
                 {/* Tab: Ações */}
                 <TabsContent value="acoes" className="mt-0 space-y-6">
                   <div className="space-y-4">
-                    <SectionTitle title="Ações Administrativas" />
-                    <p className="text-sm text-muted-foreground">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-2">
+                      Ações Administrativas
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       Ações críticas que afetam o cliente. Use com cuidado.
                     </p>
 
@@ -1641,7 +1659,6 @@ export default function AdminClientes() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
     </AdminLayout>
   );
 }

@@ -1,9 +1,10 @@
 import { useState, useEffect, startTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { PageHeader } from "@/components/design-system/PageHeader";
-import { AppCard } from "@/components/design-system/AppCard";
-import { DataBadge } from "@/components/design-system/DataBadge";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StripeSectionCard } from "@/components/admin/StripeSectionCard";
+import { StripeStatusBadge } from "@/components/admin/StripeStatusBadge";
+import { StripeEmptyState } from "@/components/admin/StripeEmptyState";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -113,15 +114,14 @@ export default function AdminAssinaturas() {
       pageTitle="Assinaturas"
       pageSubtitle="Gerencie todas as assinaturas do AnotaTudo.AI."
     >
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
-        <PageHeader
-          title="Assinaturas"
-          subtitle="Gerencie todas as assinaturas do AnotaTudo.AI."
-        />
+      <AdminPageHeader
+        title="Assinaturas"
+        subtitle="Controle de planos, status e cobrança"
+      />
 
-        <div className="space-y-6 mt-8">
+      <div className="space-y-6">
         {/* Search and Filters */}
-        <AppCard className="p-5 md:p-6 cr-card-animate">
+        <StripeSectionCard>
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div className="flex-1 w-full md:max-w-md">
               <div className="relative">
@@ -193,21 +193,21 @@ export default function AdminAssinaturas() {
             </Tabs>
             </div>
           </div>
-        </AppCard>
+        </StripeSectionCard>
 
         {/* Table */}
-        <AppCard className="p-0 overflow-hidden cr-card-animate">
+        <StripeSectionCard className="p-0 overflow-hidden">
           <ScrollArea className="w-full">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente ID</TableHead>
-                  <TableHead>Plano</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Intervalo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Próximo Vencimento</TableHead>
-                  <TableHead>Origem</TableHead>
+                <TableHeader>
+                <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Cliente ID</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Plano</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Valor</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Intervalo</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Próximo Vencimento</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Origem</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -252,12 +252,12 @@ export default function AdminAssinaturas() {
                   if (items.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                          <div className="flex flex-col items-center gap-2">
-                            <CreditCard className="h-8 w-8 opacity-50" />
-                            <p className="font-medium">Nenhuma assinatura encontrada</p>
-                            <p className="text-sm">Tente ajustar os filtros</p>
-                          </div>
+                        <TableCell colSpan={7} className="p-0">
+                          <StripeEmptyState
+                            icon={CreditCard}
+                            title="Nenhuma assinatura encontrada"
+                            subtitle="Tente ajustar os filtros"
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -275,9 +275,7 @@ export default function AdminAssinaturas() {
                         {sub.interval === "yearly" ? "Anual" : sub.interval === "monthly" ? "Mensal" : (sub.billingInterval === "month" ? "Mensal" : "Anual")}
                       </TableCell>
                       <TableCell>
-                        <DataBadge variant="outline" color={getStatusColor(sub.status)}>
-                          {sub.status}
-                        </DataBadge>
+                        <StripeStatusBadge status={sub.status} />
                       </TableCell>
                       <TableCell>
                         {sub.currentPeriodEnd
@@ -287,9 +285,9 @@ export default function AdminAssinaturas() {
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <DataBadge variant="outline">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                           {sub.provider === "caktos" ? "Caktos" : "Manual"}
-                        </DataBadge>
+                        </span>
                       </TableCell>
                     </TableRow>
                   ));
@@ -297,8 +295,7 @@ export default function AdminAssinaturas() {
               </TableBody>
             </Table>
           </ScrollArea>
-        </AppCard>
-        </div>
+        </StripeSectionCard>
       </div>
     </AdminLayout>
   );

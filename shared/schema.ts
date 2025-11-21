@@ -10,6 +10,7 @@ import {
   text,
   integer,
   date,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -615,3 +616,20 @@ export const insertAdminEventLogSchema = createInsertSchema(adminEventLogs).omit
 
 export type InsertAdminEventLog = z.infer<typeof insertAdminEventLogSchema>;
 export type AdminEventLog = typeof adminEventLogs.$inferSelect;
+
+// Webhook events table (eventos de webhook recebidos)
+export const webhookEvents = pgTable("webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type").notNull(),
+  payload: jsonb("payload").notNull(),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  processed: boolean("processed").default(true).notNull(),
+});
+
+export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({
+  id: true,
+  receivedAt: true,
+});
+
+export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
+export type WebhookEvent = typeof webhookEvents.$inferSelect;

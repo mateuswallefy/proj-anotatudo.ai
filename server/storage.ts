@@ -19,6 +19,7 @@ import {
   systemLogs,
   adminEventLogs,
   whatsappSessions,
+  webhookEvents,
   type User,
   type UpsertUser,
   type Transacao,
@@ -59,6 +60,8 @@ import {
   type InsertAdminEventLog,
   type WhatsAppSession,
   type InsertWhatsAppSession,
+  type WebhookEvent,
+  type InsertWebhookEvent,
 } from "@shared/schema";
 import { db } from "./db.js";
 import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray, ne } from "drizzle-orm";
@@ -198,6 +201,12 @@ export interface IStorage {
 
   // Admin event logs operations
   createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog>;
+
+  // Webhook events operations
+  createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
+  getWebhookEvents(limit?: number): Promise<WebhookEvent[]>;
+  getWebhookEventById(id: string): Promise<WebhookEvent | undefined>;
+  reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined>;
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
   getAllEvents(q?: string, type?: string, severity?: string): Promise<Array<{
@@ -1237,6 +1246,38 @@ export class DatabaseStorage implements IStorage {
   async createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog> {
     const [newLog] = await db.insert(adminEventLogs).values(log).returning();
     return newLog;
+  }
+
+  // Webhook events operations
+  async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
+    const [newEvent] = await db.insert(webhookEvents).values(event).returning();
+    return newEvent;
+  }
+
+  async getWebhookEvents(limit: number = 100): Promise<WebhookEvent[]> {
+    return await db
+      .select()
+      .from(webhookEvents)
+      .orderBy(desc(webhookEvents.receivedAt))
+      .limit(limit);
+  }
+
+  async getWebhookEventById(id: string): Promise<WebhookEvent | undefined> {
+    const [event] = await db
+      .select()
+      .from(webhookEvents)
+      .where(eq(webhookEvents.id, id))
+      .limit(1);
+    return event;
+  }
+
+  async reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined> {
+    const [updated] = await db
+      .update(webhookEvents)
+      .set({ processed: false })
+      .where(eq(webhookEvents.id, id))
+      .returning();
+    return updated;
   }
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)

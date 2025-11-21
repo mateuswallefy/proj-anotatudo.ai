@@ -28,6 +28,7 @@ import {
   subscriptions,
   systemLogs,
   adminEventLogs,
+  webhookEvents,
 } from "@shared/schema";
 import { eq, and, or, desc, sql as sqlOp, sql, inArray } from "drizzle-orm";
 import { 
@@ -3455,6 +3456,234 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error performing health check:", error);
       res.status(500).json({ message: "Failed to perform health check" });
+    }
+  });
+
+  // ============================================
+  // ADMIN - Webhooks Management
+  // ============================================
+
+  app.get("/api/admin/webhooks", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit || "100");
+      const webhooks = await storage.getWebhookEvents(limit);
+      res.json(webhooks);
+    } catch (error: any) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ message: "Failed to fetch webhooks" });
+    }
+  });
+
+  app.post("/api/admin/webhooks/:id/reprocess", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const webhook = await storage.reprocessWebhookEvent(id);
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+      res.json({ success: true, webhook });
+    } catch (error: any) {
+      console.error("Error reprocessing webhook:", error);
+      res.status(500).json({ message: "Failed to reprocess webhook" });
+    }
+  });
+
+  // ============================================
+  // WEBHOOKS - Integração Externa
+  // ============================================
+  
+  /**
+   * POST /api/webhooks/subscriptions
+   * Recebe webhooks de plataformas externas (Stripe, Chargebee, Hotmart, etc.)
+   * Normaliza o payload e cria/atualiza cliente e assinatura
+   */
+  app.post("/api/webhooks/subscriptions", express.json(), async (req, res) => {
+    try {
+      const rawPayload = req.body;
+
+      // Normalizar payload para formato interno
+      const normalizePayload = (payload: any): {
+        event: string;
+        name: string;
+        email: string;
+        whatsapp: string;
+        plan: string;
+        status: string;
+        externalId: string | null;
+        rawPayload: any;
+      } => {
+        // Tentar diferentes formatos de payload
+        let event = payload.event || payload.type || payload.action || "subscription_created";
+        let email = payload.email || payload.customer?.email || payload.user?.email || payload.data?.email;
+        let name = payload.name || payload.customer?.name || payload.user?.name || payload.data?.name || "";
+        let whatsapp = payload.whatsapp || payload.phone || payload.customer?.phone || payload.data?.whatsapp || "";
+        let plan = payload.plan || payload.product?.name || payload.subscription?.plan || payload.data?.plan || "premium";
+        let status = payload.status || payload.subscription?.status || payload.data?.status || "active";
+        let externalId = payload.id || payload.subscription_id || payload.external_id || payload.data?.id || null;
+
+        // Mapear status comuns
+        const statusMap: Record<string, string> = {
+          'paid': 'active',
+          'payment_succeeded': 'active',
+          'subscription_created': 'trial',
+          'subscription_activated': 'active',
+          'subscription_canceled': 'canceled',
+          'subscription_paused': 'paused',
+          'payment_failed': 'overdue',
+          'subscription_expired': 'canceled',
+        };
+
+        if (statusMap[status.toLowerCase()]) {
+          status = statusMap[status.toLowerCase()];
+        }
+
+        // Normalizar plan
+        const planMap: Record<string, string> = {
+          'free': 'free',
+          'premium': 'premium',
+          'enterprise': 'enterprise',
+          'pro': 'premium',
+          'basic': 'free',
+        };
+
+        if (planMap[plan.toLowerCase()]) {
+          plan = planMap[plan.toLowerCase()];
+        }
+
+        return {
+          event,
+          name: name || email?.split('@')[0] || "Cliente",
+          email: email || "",
+          whatsapp: whatsapp || "",
+          plan,
+          status: status.toLowerCase(),
+          externalId: externalId?.toString() || null,
+          rawPayload: payload,
+        };
+      };
+
+      const normalized = normalizePayload(rawPayload);
+
+      // Validar email obrigatório
+      if (!normalized.email) {
+        // Registrar evento mesmo sem email válido
+        await storage.createWebhookEvent({
+          type: normalized.event,
+          payload: rawPayload,
+          processed: false,
+        });
+
+        return res.status(400).json({
+          success: false,
+          message: "Email é obrigatório no payload do webhook",
+        });
+      }
+
+      // Criar ou atualizar usuário
+      let user = await storage.getUserByEmail(normalized.email);
+      
+      if (!user) {
+        // Criar novo usuário
+        const nameParts = normalized.name.split(' ');
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(' ') || "";
+
+        user = await storage.createUser({
+          email: normalized.email,
+          firstName,
+          lastName,
+          whatsappNumber: normalized.whatsapp || null,
+          plano: normalized.plan,
+          billingStatus: normalized.status as any,
+          status: 'authenticated',
+          role: 'user',
+        });
+      } else {
+        // Atualizar usuário existente
+        const nameParts = normalized.name.split(' ');
+        const firstName = nameParts[0] || user.firstName || "";
+        const lastName = nameParts.slice(1).join(' ') || user.lastName || "";
+
+        await storage.updateUser(user.id, {
+          firstName: firstName || user.firstName,
+          lastName: lastName || user.lastName,
+          whatsappNumber: normalized.whatsapp || user.whatsappNumber,
+          plano: normalized.plan,
+          billingStatus: normalized.status as any,
+        });
+      }
+
+      // Criar ou atualizar assinatura
+      const providerSubscriptionId = normalized.externalId || `webhook_${Date.now()}`;
+      let subscription = await storage.getSubscriptionByProviderId('manual', providerSubscriptionId);
+
+      if (!subscription) {
+        // Criar nova assinatura
+        const priceCents = rawPayload.amount || rawPayload.price || rawPayload.value || 0;
+        const billingInterval = rawPayload.interval === 'year' || rawPayload.interval === 'yearly' ? 'year' : 'month';
+        const interval = billingInterval === 'year' ? 'yearly' : 'monthly';
+
+        subscription = await storage.createSubscription({
+          userId: user.id,
+          provider: 'manual',
+          providerSubscriptionId,
+          planName: normalized.plan === 'premium' ? 'Premium' : normalized.plan === 'enterprise' ? 'Enterprise' : 'Free',
+          priceCents: typeof priceCents === 'number' ? priceCents : 0,
+          currency: 'BRL',
+          billingInterval: billingInterval as any,
+          interval: interval as any,
+          status: normalized.status as any,
+          meta: {
+            source: 'webhook',
+            originalPayload: rawPayload,
+          },
+        });
+      } else {
+        // Atualizar assinatura existente
+        await storage.updateSubscription(subscription.id, {
+          status: normalized.status as any,
+          meta: {
+            ...(subscription.meta as any || {}),
+            lastWebhookPayload: rawPayload,
+            lastWebhookAt: new Date().toISOString(),
+          },
+        });
+      }
+
+      // Registrar evento de webhook
+      await storage.createWebhookEvent({
+        type: normalized.event,
+        payload: rawPayload,
+        processed: true,
+      });
+
+      // Registrar evento de assinatura
+      await storage.createSubscriptionEvent({
+        subscriptionId: subscription.id,
+        type: normalized.event,
+        rawPayload: rawPayload,
+      });
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error processing webhook:", error);
+      
+      // Registrar evento com erro
+      try {
+        await storage.createWebhookEvent({
+          type: req.body?.event || req.body?.type || "webhook_error",
+          payload: req.body,
+          processed: false,
+        });
+      } catch (logError) {
+        console.error("Error logging webhook event:", logError);
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: "Erro ao processar webhook",
+        error: error.message,
+      });
     }
   });
 

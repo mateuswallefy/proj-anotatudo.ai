@@ -61,9 +61,9 @@
   --info: 174 77% 34%;
   --info-foreground: 0 0% 100%;
   
-  /* Input & Ring */
+  /* Input & Ring - Stripe Blue */
   --input: 210 16% 82%;
-  --ring: 142 76% 36%;
+  --ring: 238 84% 61%; /* #4f46e5 - Stripe blue */
   
   /* Chart Palette - 6 cores harmônicas */
   --chart-1: 142 76% 36%;  /* Esmeralda - receitas */
@@ -174,9 +174,9 @@
   --info: 174 77% 40%;
   --info-foreground: 0 0% 100%;
   
-  /* Input & Ring Dark */
+  /* Input & Ring Dark - Stripe Blue */
   --input: 214 20% 25%;
-  --ring: 142 76% 36%;
+  --ring: 238 84% 61%; /* #4f46e5 - Stripe blue */
   
   /* Chart Palette Dark - Cores mais vibrantes */
   --chart-1: 142 70% 45%;  /* Esmeralda mais clara */
@@ -231,6 +231,37 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+}
+
+/* CORRIGE QUALQUER BORDA VERDE FORA DO CONTROLE */
+*:focus {
+  outline: none !important;
+}
+
+/* Estilo Stripe-like para focus - Azul padrão */
+input:focus,
+select:focus,
+textarea:focus,
+[role="combobox"]:focus,
+[role="textbox"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #4f46e5 !important;
+  border-color: #4f46e5 !important;
+}
+
+/* Remove qualquer ring verde que possa estar sendo aplicado */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  --tw-ring-color: #4f46e5 !important;
+  --tw-ring-offset-color: transparent !important;
+}
+
+/* Garante que inputs com classes Tailwind usem azul */
+input.focus\:ring-blue-500:focus,
+select.focus\:ring-blue-500:focus,
+textarea.focus\:ring-blue-500:focus {
+  --tw-ring-color: #4f46e5 !important;
 }
 
 /**
