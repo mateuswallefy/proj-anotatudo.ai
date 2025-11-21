@@ -30,7 +30,7 @@ interface CaktoPayload {
       trial_days?: number;
       next_payment_date?: string;
       current_period?: string;
-      recurrence_period?: string;
+      recurrence_period?: number | string; // Pode ser número (1, 30, 90, 365) ou string
       payment_method?: string;
       created_at?: string;
       updated_at?: string;
@@ -151,14 +151,52 @@ async function upsertSubscription(
   const priceCents = Math.round(amount * 100); // Converter para centavos
 
   // Determinar billing interval baseado em recurrence_period
+  // recurrence_period pode ser número (1, 30, 90, 180, 365) ou string
   let billingInterval: 'month' | 'year' = 'month';
   let interval: 'monthly' | 'yearly' = 'monthly';
   
-  if (subscriptionData.recurrence_period) {
-    const period = subscriptionData.recurrence_period.toLowerCase();
-    if (period.includes('year') || period.includes('anual')) {
-      billingInterval = 'year';
-      interval = 'yearly';
+  if (subscriptionData.recurrence_period !== undefined && subscriptionData.recurrence_period !== null) {
+    console.log("Recurrence period recebido:", subscriptionData.recurrence_period, typeof subscriptionData.recurrence_period);
+    
+    // Se for número, mapear diretamente
+    if (typeof subscriptionData.recurrence_period === 'number') {
+      const periodDays = subscriptionData.recurrence_period;
+      
+      if (periodDays === 365 || periodDays === 366) {
+        billingInterval = 'year';
+        interval = 'yearly';
+      } else if (periodDays === 180) {
+        // Semestral - tratar como mensal por enquanto
+        billingInterval = 'month';
+        interval = 'monthly';
+      } else if (periodDays === 90) {
+        // Trimestral - tratar como mensal por enquanto
+        billingInterval = 'month';
+        interval = 'monthly';
+      } else if (periodDays === 30 || periodDays === 31) {
+        billingInterval = 'month';
+        interval = 'monthly';
+      } else if (periodDays === 1) {
+        // Diário - apenas se for trial, senão tratar como mensal
+        if (subscriptionData.trial_days && subscriptionData.trial_days > 0) {
+          billingInterval = 'month'; // Trial diário ainda é tratado como mensal
+          interval = 'monthly';
+        } else {
+          billingInterval = 'month';
+          interval = 'monthly';
+        }
+      } else {
+        // Default para mensal se não reconhecer
+        billingInterval = 'month';
+        interval = 'monthly';
+      }
+    } else {
+      // Se for string, tratar como antes (compatibilidade)
+      const period = String(subscriptionData.recurrence_period).toLowerCase();
+      if (period.includes('year') || period.includes('anual')) {
+        billingInterval = 'year';
+        interval = 'yearly';
+      }
     }
   }
 

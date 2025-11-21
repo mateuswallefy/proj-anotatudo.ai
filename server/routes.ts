@@ -29,6 +29,7 @@ import {
   systemLogs,
   adminEventLogs,
   webhookEvents,
+  whatsappLatency,
 } from "@shared/schema";
 import { eq, and, or, desc, sql as sqlOp, sql, inArray } from "drizzle-orm";
 import { 
@@ -44,6 +45,8 @@ import {
   updateNotificationPreferencesSchema
 } from "@shared/schema";
 import { processWhatsAppMessage } from "./ai.js";
+import { logClientEvent, EventTypes } from "./clientLogger.js";
+import { v4 as uuidv4 } from "uuid";
 import { 
   calculateFinancialInsights, 
   calculateSpendingProgress,
@@ -1483,10 +1486,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`[WhatsApp] New ${messageType} message from ${fromNumber} (ID: ${messageId})`);
             
+            // ========================================
+            // REGISTRAR TIMESTAMPS INICIAIS
+            // ========================================
+            const receivedAt = new Date(); // Timestamp exato da request
+            const latencyId = uuidv4();
+            let userId: string | null = null;
+            
+            // Extrair providerReceivedAt se disponível no payload
+            const providerReceivedAt = message.timestamp 
+              ? new Date(parseInt(message.timestamp) * 1000) 
+              : null;
+            
+            try {
+              // Criar registro de latência inicial
+              await storage.createWhatsAppLatency({
+                id: latencyId,
+                waMessageId: messageId,
+                fromNumber,
+                messageType,
+                receivedAt,
+                providerReceivedAt: providerReceivedAt || undefined,
+              });
+              
+              // Logar evento de mensagem recebida
+              await logClientEvent(null, EventTypes.WHATSAPP_MESSAGE_RECEIVED, `Mensagem ${messageType} recebida do WhatsApp`, {
+                fromNumber,
+                messageId,
+                messageType,
+                receivedAt: receivedAt.toISOString(),
+                providerReceivedAt: providerReceivedAt?.toISOString() || null,
+              });
+            } catch (error) {
+              console.error(`[WhatsApp] Erro ao criar registro de latência:`, error);
+            }
+            
             // Rate limiting - 10 messages per minute
             if (!checkRateLimit(fromNumber, 10, 60000)) {
               console.log(`[WhatsApp] Rate limit exceeded for ${fromNumber} (10 msg/min)`);
-              await sendWhatsAppReply(fromNumber, "⚠️ Você está enviando muitas mensagens. Por favor, aguarde um momento.");
+              await sendWhatsAppReply(fromNumber, "⚠️ Você está enviando muitas mensagens. Por favor, aguarde um momento.", latencyId);
               continue;
             }
             
@@ -1512,7 +1550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               console.log(`[WhatsApp] Session created with status: ${session.status}`);
               // Send welcome message
-              await sendWhatsAppReply(fromNumber, "Olá! 👋 Para começar, me diga seu email cadastrado.");
+              await sendWhatsAppReply(fromNumber, "Olá! 👋 Para começar, me diga seu email cadastrado.", latencyId);
               continue;
             }
             
@@ -1541,7 +1579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Try to use extracted text as fallback
                 messageContent = extractedText || '';
                 if (!messageContent) {
-                  await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES));
+                  await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES), latencyId);
                   continue;
                 }
               }
@@ -1701,7 +1739,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       await sendWhatsAppReply(
                         fromNumber,
-                        randomMessage(inactiveSubscriptionMessages)
+                        randomMessage(inactiveSubscriptionMessages),
+                        latencyId
                       );
                     }
                   } else {
@@ -1738,7 +1777,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       ];
                       await sendWhatsAppReply(
                         fromNumber,
-                        randomMessage(authSuccessMessages)
+                        randomMessage(authSuccessMessages),
+                        latencyId
                       );
                     } else {
                       console.log(`[WhatsApp] ❌ No user or purchase found for ${extractedEmail}`);
@@ -1753,7 +1793,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       await sendWhatsAppReply(
                         fromNumber,
-                        randomMessage(EMAIL_NOT_FOUND_MESSAGES)
+                        randomMessage(EMAIL_NOT_FOUND_MESSAGES),
+                        latencyId
                       );
                     }
                   }
@@ -1764,12 +1805,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const isGreeting = ["oi", "olá", "ola"].includes(normalizedContent);
                   
                   if (isGreeting) {
-                    await sendWhatsAppReply(fromNumber, randomMessage(GREETING_RESPONSES));
+                    await sendWhatsAppReply(fromNumber, randomMessage(GREETING_RESPONSES), latencyId);
                   } else {
                     console.log(`[WhatsApp] Invalid email format in message: "${messageContent}"`);
                     await sendWhatsAppReply(
                       fromNumber,
-                      randomMessage(ASK_EMAIL_MESSAGES)
+                      randomMessage(ASK_EMAIL_MESSAGES),
+                      latencyId
                     );
                   }
                 }
@@ -1781,7 +1823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             else if (session.status === 'blocked') {
               console.log(`[WhatsApp] Blocked session for phone ${fromNumber}`);
-              await sendWhatsAppReply(fromNumber, "⛔ Seu acesso está bloqueado. Entre em contato com o suporte.");
+              await sendWhatsAppReply(fromNumber, "⛔ Seu acesso está bloqueado. Entre em contato com o suporte.", latencyId);
               continue;
             }
             
@@ -1796,7 +1838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`[WhatsApp] Subscription not active for session ${fromNumber}: ${subscriptionStatus}. Resetting session.`);
                 // Update session to awaiting_email to force re-authentication
                 await storage.updateWhatsAppSession(fromNumber, { status: 'awaiting_email', userId: null, email: null });
-                await sendWhatsAppReply(fromNumber, "⚠️ Sua assinatura não está mais ativa. Por favor, entre em contato com o suporte ou forneça seu email para reativar.");
+                await sendWhatsAppReply(fromNumber, "⚠️ Sua assinatura não está mais ativa. Por favor, entre em contato com o suporte ou forneça seu email para reativar.", latencyId);
                 continue;
               }
               
@@ -1811,19 +1853,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   email: null,
                   status: 'awaiting_email',
                 });
-                await sendWhatsAppReply(fromNumber, "⚠️ Houve um problema com sua sessão. Por favor, me envie seu email novamente.");
+                await sendWhatsAppReply(fromNumber, "⚠️ Houve um problema com sua sessão. Por favor, me envie seu email novamente.", latencyId);
                 continue;
               }
               
               console.log(`[WhatsApp] Processing transaction for authenticated user with active subscription`);
               
+              userId = user.id;
+              
+              // Atualizar userId no registro de latência
+              try {
+                await storage.updateWhatsAppLatency(latencyId, { userId: user.id });
+              } catch (error) {
+                console.error(`[WhatsApp] Erro ao atualizar userId na latência:`, error);
+              }
+              
               try {
                 // Call AI to process the message
+                const processStartTime = Date.now();
                 const result = await processWhatsAppMessage(
                   messageType as 'text' | 'audio' | 'image' | 'video',
                   messageContent,
                   user.id
                 );
+                const processEndTime = Date.now();
+                const processedAt = new Date(processEndTime);
+                
+                // Atualizar processedAt e calcular botLatencyMs
+                try {
+                  await storage.updateWhatsAppLatency(latencyId, { processedAt });
+                  
+                  await logClientEvent(user.id, EventTypes.WHATSAPP_MESSAGE_PROCESSED, `Mensagem processada com sucesso`, {
+                    messageId,
+                    messageType,
+                    processingTimeMs: processEndTime - processStartTime,
+                    processedAt: processedAt.toISOString(),
+                  });
+                } catch (error) {
+                  console.error(`[WhatsApp] Erro ao atualizar processedAt:`, error);
+                }
                 
                 console.log(`[WhatsApp] AI Result:`, result);
                 

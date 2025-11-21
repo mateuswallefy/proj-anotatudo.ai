@@ -3,6 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { pipeline } from 'stream';
+import { db } from "./db.js";
+import { whatsappLatency } from "../shared/schema.js";
+import { eq } from "drizzle-orm";
 
 const streamPipeline = promisify(pipeline);
 
@@ -20,14 +23,14 @@ interface SendTemplateParams {
   components: any[];
 }
 
-export async function sendWhatsAppMessage({ to, message }: SendMessageParams): Promise<boolean> {
+export async function sendWhatsAppMessage({ to, message }: SendMessageParams): Promise<{ success: boolean; messageId?: string }> {
   try {
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     const token = process.env.WHATSAPP_TOKEN;
 
     if (!phoneNumberId || !token) {
       console.error('[WhatsApp] Missing credentials');
-      return false;
+      return { success: false };
     }
 
     const response = await axios.post(
@@ -48,11 +51,12 @@ export async function sendWhatsAppMessage({ to, message }: SendMessageParams): P
       }
     );
 
+    const messageId = response.data?.messages?.[0]?.id;
     console.log('[WhatsApp] Message sent successfully:', response.data);
-    return true;
+    return { success: true, messageId };
   } catch (error: any) {
     console.error('[WhatsApp] Error sending message:', error.response?.data || error.message);
-    return false;
+    return { success: false };
   }
 }
 
@@ -97,8 +101,43 @@ export async function sendWhatsAppTemplate({ to, templateName, languageCode, com
 }
 
 // Helper to send replies to users
-export async function sendWhatsAppReply(to: string, message: string): Promise<boolean> {
-  return await sendWhatsAppMessage({ to, message });
+export async function sendWhatsAppReply(to: string, message: string, latencyId?: string): Promise<{ success: boolean; messageId?: string }> {
+  const responseQueuedAt = new Date();
+  
+  // Registrar responseQueuedAt ANTES de enviar
+  if (latencyId) {
+    try {
+      const { storage } = await import("./storage.js");
+      await storage.updateWhatsAppLatency(latencyId, { responseQueuedAt });
+      
+      // Logar evento
+      const { logClientEvent, EventTypes } = await import("./clientLogger.js");
+      const latency = await db.select().from(whatsappLatency).where(eq(whatsappLatency.id, latencyId)).limit(1);
+      if (latency[0]?.userId) {
+        await logClientEvent(latency[0].userId, EventTypes.WHATSAPP_RESPONSE_SENT, `Resposta enviada ao WhatsApp`, {
+          to,
+          latencyId,
+          responseQueuedAt: responseQueuedAt.toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error(`[WhatsApp] Erro ao atualizar responseQueuedAt para latency ${latencyId}:`, error);
+    }
+  }
+  
+  const result = await sendWhatsAppMessage({ to, message });
+  
+  // Se temos latencyId e messageId da resposta, atualizar responseMessageId
+  if (latencyId && result.success && result.messageId) {
+    try {
+      const { storage } = await import("./storage.js");
+      await storage.updateWhatsAppLatency(latencyId, { responseMessageId: result.messageId });
+    } catch (error) {
+      console.error(`[WhatsApp] Erro ao atualizar responseMessageId:`, error);
+    }
+  }
+  
+  return result;
 }
 
 // Email validation regex

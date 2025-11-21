@@ -239,6 +239,27 @@ export interface IStorage {
   getOrderById(id: string): Promise<Order | undefined>;
   getOrdersBySubscriptionId(subscriptionId: string): Promise<Order[]>;
 
+  // WhatsApp latency operations
+  createWhatsAppLatency(latency: InsertWhatsAppLatency): Promise<WhatsAppLatency>;
+  getWhatsAppLatencies(filters?: { userId?: string; limit?: number; startDate?: Date; endDate?: Date }): Promise<WhatsAppLatency[]>;
+  getWhatsAppLatencyStats(startDate?: Date, endDate?: Date): Promise<{
+    avgTotalLatency: number;
+    avgBotLatency: number;
+    avgNetworkLatency: number;
+    maxTotalLatency: number;
+    totalMessages: number;
+    errorRate: number;
+  }>;
+
+  // Client logs operations
+  logClientEvent(userId: string | null, eventType: string, message: string, data?: any): Promise<ClientLog>;
+  getClientLogs(filters?: { userId?: string; eventType?: string; startDate?: Date; endDate?: Date; limit?: number }): Promise<ClientLog[]>;
+
+  // Latency alerts operations
+  createLatencyAlert(alert: InsertLatencyAlert): Promise<LatencyAlert>;
+  getActiveLatencyAlerts(): Promise<LatencyAlert[]>;
+  resolveLatencyAlert(id: string): Promise<LatencyAlert | undefined>;
+
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
   getAllEvents(q?: string, type?: string, severity?: string): Promise<Array<{
     id: string;
@@ -1595,6 +1616,270 @@ export class DatabaseStorage implements IStorage {
       .from(orders)
       .where(eq(orders.subscriptionId, subscriptionId))
       .orderBy(desc(orders.createdAt));
+  }
+
+  // WhatsApp latency operations
+  async createWhatsAppLatency(latency: InsertWhatsAppLatency): Promise<WhatsAppLatency> {
+    const [newLatency] = await db
+      .insert(whatsappLatency)
+      .values({
+        ...latency,
+        id: latency.id || sql`gen_random_uuid()::text`,
+      })
+      .returning();
+    return newLatency;
+  }
+
+  async updateWhatsAppLatency(id: string, updates: Partial<InsertWhatsAppLatency>): Promise<WhatsAppLatency | undefined> {
+    const [updated] = await db
+      .update(whatsappLatency)
+      .set(updates)
+      .where(eq(whatsappLatency.id, id))
+      .returning();
+    
+    // Recalcular latências se necessário
+    if (updated) {
+      await this.recalculateLatencies(updated.id);
+    }
+    
+    return updated;
+  }
+
+  async updateWhatsAppLatencyByMessageId(waMessageId: string, updates: Partial<InsertWhatsAppLatency>): Promise<WhatsAppLatency | undefined> {
+    const [updated] = await db
+      .update(whatsappLatency)
+      .set(updates)
+      .where(eq(whatsappLatency.waMessageId, waMessageId))
+      .returning();
+    
+    if (updated) {
+      await this.recalculateLatencies(updated.id);
+    }
+    
+    return updated;
+  }
+
+  async updateWhatsAppLatencyByResponseMessageId(responseMessageId: string, updates: Partial<InsertWhatsAppLatency>): Promise<WhatsAppLatency | undefined> {
+    const [updated] = await db
+      .update(whatsappLatency)
+      .set(updates)
+      .where(eq(whatsappLatency.responseMessageId, responseMessageId))
+      .returning();
+    
+    if (updated) {
+      await this.recalculateLatencies(updated.id);
+    }
+    
+    return updated;
+  }
+
+  private async recalculateLatencies(id: string): Promise<void> {
+    const latency = await db
+      .select()
+      .from(whatsappLatency)
+      .where(eq(whatsappLatency.id, id))
+      .limit(1);
+    
+    if (!latency[0]) return;
+    
+    const updates: any = {};
+    
+    // Calcular botLatencyMs: processedAt - receivedAt
+    if (latency[0].receivedAt && latency[0].processedAt) {
+      const botLatencyMs = new Date(latency[0].processedAt).getTime() - new Date(latency[0].receivedAt).getTime();
+      updates.botLatencyMs = Math.max(0, botLatencyMs);
+    }
+    
+    // Calcular networkLatencyMs: providerDeliveredAt - responseQueuedAt
+    if (latency[0].responseQueuedAt && latency[0].providerDeliveredAt) {
+      const networkLatencyMs = new Date(latency[0].providerDeliveredAt).getTime() - new Date(latency[0].responseQueuedAt).getTime();
+      updates.networkLatencyMs = Math.max(0, networkLatencyMs);
+    }
+    
+    // Calcular totalLatencyMs: repliedToClientAt - receivedAt (ou providerDeliveredAt se repliedToClientAt não existir)
+    if (latency[0].receivedAt) {
+      const endTime = latency[0].repliedToClientAt || latency[0].providerDeliveredAt;
+      if (endTime) {
+        const totalLatencyMs = new Date(endTime).getTime() - new Date(latency[0].receivedAt).getTime();
+        updates.totalLatencyMs = Math.max(0, totalLatencyMs);
+      }
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      await db
+        .update(whatsappLatency)
+        .set(updates)
+        .where(eq(whatsappLatency.id, id));
+    }
+  }
+
+  async getWhatsAppLatencies(filters?: {
+    userId?: string;
+    limit?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<WhatsAppLatency[]> {
+    let query = db.select().from(whatsappLatency);
+
+    const conditions: any[] = [];
+
+    if (filters?.userId) {
+      conditions.push(eq(whatsappLatency.userId, filters.userId));
+    }
+
+    if (filters?.startDate) {
+      conditions.push(sqlOp`${whatsappLatency.receivedAt} >= ${filters.startDate}`);
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sqlOp`${whatsappLatency.receivedAt} <= ${filters.endDate}`);
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    query = query.orderBy(desc(whatsappLatency.receivedAt));
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+
+    return await query;
+  }
+
+  async getWhatsAppLatencyStats(startDate?: Date, endDate?: Date): Promise<{
+    avgTotalLatency: number;
+    avgBotLatency: number;
+    avgNetworkLatency: number;
+    maxTotalLatency: number;
+    totalMessages: number;
+    errorRate: number;
+  }> {
+    let query = db
+      .select({
+        avgTotalLatency: sqlOp<number>`COALESCE(AVG(${whatsappLatency.totalLatencyMs}), 0)`,
+        avgBotLatency: sqlOp<number>`COALESCE(AVG(${whatsappLatency.botLatencyMs}), 0)`,
+        avgNetworkLatency: sqlOp<number>`COALESCE(AVG(${whatsappLatency.networkLatencyMs}), 0)`,
+        maxTotalLatency: sqlOp<number>`COALESCE(MAX(${whatsappLatency.totalLatencyMs}), 0)`,
+        totalMessages: sqlOp<number>`COUNT(*)`,
+        errorCount: sqlOp<number>`COUNT(*) FILTER (WHERE ${whatsappLatency.totalLatencyMs} IS NULL OR ${whatsappLatency.totalLatencyMs} > 10000)`,
+      })
+      .from(whatsappLatency);
+
+    const conditions: any[] = [];
+
+    if (startDate) {
+      conditions.push(sqlOp`${whatsappLatency.receivedAt} >= ${startDate}`);
+    }
+
+    if (endDate) {
+      conditions.push(sqlOp`${whatsappLatency.receivedAt} <= ${endDate}`);
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const [stats] = await query;
+
+    const totalMessages = Number(stats.totalMessages) || 0;
+    const errorCount = Number(stats.errorCount) || 0;
+    const errorRate = totalMessages > 0 ? (errorCount / totalMessages) * 100 : 0;
+
+    return {
+      avgTotalLatency: Math.round(Number(stats.avgTotalLatency) || 0),
+      avgBotLatency: Math.round(Number(stats.avgBotLatency) || 0),
+      avgNetworkLatency: Math.round(Number(stats.avgNetworkLatency) || 0),
+      maxTotalLatency: Number(stats.maxTotalLatency) || 0,
+      totalMessages,
+      errorRate: Math.round(errorRate * 100) / 100,
+    };
+  }
+
+  // Client logs operations
+  async logClientEvent(
+    userId: string | null,
+    eventType: string,
+    message: string,
+    data: any = {}
+  ): Promise<ClientLog> {
+    const [newLog] = await db
+      .insert(clientLogs)
+      .values({
+        userId: userId || null,
+        eventType,
+        message,
+        data: data || {},
+      })
+      .returning();
+    return newLog;
+  }
+
+  async getClientLogs(filters?: {
+    userId?: string;
+    eventType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<ClientLog[]> {
+    let query = db.select().from(clientLogs);
+
+    const conditions: any[] = [];
+
+    if (filters?.userId) {
+      conditions.push(eq(clientLogs.userId, filters.userId));
+    }
+
+    if (filters?.eventType) {
+      conditions.push(eq(clientLogs.eventType, filters.eventType));
+    }
+
+    if (filters?.startDate) {
+      conditions.push(sqlOp`${clientLogs.createdAt} >= ${filters.startDate}`);
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sqlOp`${clientLogs.createdAt} <= ${filters.endDate}`);
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    query = query.orderBy(desc(clientLogs.createdAt));
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+
+    return await query;
+  }
+
+  // Latency alerts operations
+  async createLatencyAlert(alert: InsertLatencyAlert): Promise<LatencyAlert> {
+    const [newAlert] = await db.insert(latencyAlerts).values(alert).returning();
+    return newAlert;
+  }
+
+  async getActiveLatencyAlerts(): Promise<LatencyAlert[]> {
+    return await db
+      .select()
+      .from(latencyAlerts)
+      .where(eq(latencyAlerts.resolved, false))
+      .orderBy(desc(latencyAlerts.createdAt));
+  }
+
+  async resolveLatencyAlert(id: string): Promise<LatencyAlert | undefined> {
+    const [updated] = await db
+      .update(latencyAlerts)
+      .set({
+        resolved: true,
+        resolvedAt: new Date(),
+      })
+      .where(eq(latencyAlerts.id, id))
+      .returning();
+    return updated;
   }
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)

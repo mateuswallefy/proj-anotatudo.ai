@@ -689,3 +689,78 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
+
+// WhatsApp latency table (monitoramento de latência de mensagens)
+export const whatsappLatency = pgTable("whatsapp_latency", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  userId: varchar("user_id", { length: 191 }).references(() => users.id, { onDelete: 'set null' }),
+  waMessageId: varchar("wa_message_id", { length: 191 }), // ID da mensagem recebida
+  responseMessageId: varchar("response_message_id", { length: 191 }), // ID da mensagem de resposta enviada
+  fromNumber: varchar("from_number", { length: 191 }), // Número do remetente
+  messageType: varchar("message_type", { length: 50 }), // text, audio, image, video
+  
+  // Timestamps da mensagem recebida
+  receivedAt: timestamp("received_at"), // Quando a mensagem chega no endpoint
+  providerReceivedAt: timestamp("provider_received_at"), // Se o provedor (Meta) mandar no payload
+  
+  // Timestamps do processamento
+  processedAt: timestamp("processed_at"), // Quando o servidor termina o processamento
+  
+  // Timestamps da resposta enviada
+  responseQueuedAt: timestamp("response_queued_at"), // Quando sendWhatsAppReply() é chamado
+  providerSentAt: timestamp("provider_sent_at"), // Quando a API do WhatsApp retorna "sent"
+  providerDeliveredAt: timestamp("provider_delivered_at"), // Quando recebe webhook de entrega
+  repliedToClientAt: timestamp("replied_to_client_at"), // Quando WhatsApp confirma "delivered to user"
+  
+  // Latências calculadas (em milissegundos)
+  botLatencyMs: integer("bot_latency_ms"), // processedAt - receivedAt
+  networkLatencyMs: integer("network_latency_ms"), // providerDeliveredAt - responseQueuedAt
+  totalLatencyMs: integer("total_latency_ms"), // repliedToClientAt - receivedAt
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWhatsAppLatencySchema = createInsertSchema(whatsappLatency).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWhatsAppLatency = z.infer<typeof insertWhatsAppLatencySchema>;
+export type WhatsAppLatency = typeof whatsappLatency.$inferSelect;
+
+// Client logs table (logs completos por cliente - estilo "espião")
+export const clientLogs = pgTable("client_logs", {
+  id: varchar("id", { length: 191 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 191 }).references(() => users.id, { onDelete: 'cascade' }),
+  eventType: varchar("event_type", { length: 200 }).notNull(),
+  message: text("message"),
+  data: jsonb("data"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertClientLogSchema = createInsertSchema(clientLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertClientLog = z.infer<typeof insertClientLogSchema>;
+export type ClientLog = typeof clientLogs.$inferSelect;
+
+// Latency alerts table (alertas de latência alta)
+export const latencyAlerts = pgTable("latency_alerts", {
+  id: varchar("id", { length: 191 }).primaryKey().default(sql`gen_random_uuid()`),
+  severity: varchar("severity", { enum: ['warning', 'critical'] }).notNull(),
+  message: text("message").notNull(),
+  totalLatencyMs: integer("total_latency_ms").notNull(),
+  resolved: boolean("resolved").default(false).notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLatencyAlertSchema = createInsertSchema(latencyAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLatencyAlert = z.infer<typeof insertLatencyAlertSchema>;
+export type LatencyAlert = typeof latencyAlerts.$inferSelect;
