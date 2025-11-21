@@ -620,10 +620,16 @@ export type AdminEventLog = typeof adminEventLogs.$inferSelect;
 // Webhook events table (eventos de webhook recebidos)
 export const webhookEvents = pgTable("webhook_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  type: text("type").notNull(), // Campo "type" na tabela (compatível com código existente)
+  event: text("event").notNull(), // Nome do evento (ex: subscription_created)
+  type: text("type").notNull(), // Mantido para compatibilidade
   payload: jsonb("payload").notNull(),
-  receivedAt: timestamp("received_at").defaultNow().notNull(), // Campo "received_at" na tabela (compatível com código existente)
-  processed: boolean("processed").default(false).notNull(),
+  status: varchar("status", { enum: ['pending', 'processed', 'failed'] }).default('pending').notNull(),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0).notNull(),
+  lastRetryAt: timestamp("last_retry_at"),
+  processed: boolean("processed").default(false).notNull(), // Mantido para compatibilidade
 });
 
 export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({
@@ -633,6 +639,21 @@ export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({
 
 export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
+
+// Webhook processed events table (idempotência - evita processar o mesmo evento duas vezes)
+export const webhookProcessedEvents = pgTable("webhook_processed_events", {
+  eventId: varchar("event_id").primaryKey(), // ID do evento externo (ex: subscription.id ou order.id)
+  eventType: varchar("event_type").notNull(), // Tipo do evento (ex: subscription_created)
+  webhookEventId: varchar("webhook_event_id").notNull().references(() => webhookEvents.id, { onDelete: 'cascade' }),
+  processedAt: timestamp("processed_at").defaultNow().notNull(),
+});
+
+export const insertWebhookProcessedEventSchema = createInsertSchema(webhookProcessedEvents).omit({
+  processedAt: true,
+});
+
+export type InsertWebhookProcessedEvent = z.infer<typeof insertWebhookProcessedEventSchema>;
+export type WebhookProcessedEvent = typeof webhookProcessedEvents.$inferSelect;
 
 // Orders table (pedidos/cobranças)
 export const orders = pgTable("orders", {

@@ -3488,6 +3488,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para retry de webhooks falhados (manual)
+  app.post("/api/admin/webhooks/retry-failed", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { retryFailedWebhooks } = await import("./webhooks/webhookProcessor.js");
+      await retryFailedWebhooks();
+      res.json({ success: true, message: "Retry de webhooks falhados iniciado" });
+    } catch (error: any) {
+      console.error("Error retrying failed webhooks:", error);
+      res.status(500).json({ message: "Failed to retry failed webhooks" });
+    }
+  });
+
   // ============================================
   // WEBHOOKS - Integração Externa
   // ============================================

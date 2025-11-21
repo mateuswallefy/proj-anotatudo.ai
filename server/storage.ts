@@ -20,8 +20,11 @@ import {
   adminEventLogs,
   whatsappSessions,
   webhookEvents,
+  webhookProcessedEvents,
   orders,
   type User,
+  type WebhookProcessedEvent,
+  type InsertWebhookProcessedEvent,
   type Order,
   type InsertOrder,
   type UpsertUser,
@@ -209,7 +212,13 @@ export interface IStorage {
   createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
   getWebhookEvents(limit?: number): Promise<WebhookEvent[]>;
   getWebhookEventById(id: string): Promise<WebhookEvent | undefined>;
+  updateWebhookStatus(id: string, updates: { status: 'pending' | 'processed' | 'failed'; processedAt?: Date; errorMessage?: string; retryCount?: number; lastRetryAt?: Date }): Promise<WebhookEvent | undefined>;
   reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined>;
+  getFailedWebhooks(maxRetries?: number): Promise<WebhookEvent[]>;
+  
+  // Webhook processed events (idempotência)
+  checkEventProcessed(eventId: string): Promise<WebhookProcessedEvent | undefined>;
+  markEventProcessed(event: InsertWebhookProcessedEvent): Promise<WebhookProcessedEvent>;
 
   // Orders operations
   createOrder(order: InsertOrder): Promise<Order>;
@@ -1258,7 +1267,13 @@ export class DatabaseStorage implements IStorage {
 
   // Webhook events operations
   async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
-    const [newEvent] = await db.insert(webhookEvents).values(event).returning();
+    const eventData = {
+      ...event,
+      event: (event as any).event || event.type, // Garantir que 'event' está preenchido
+      type: event.type || (event as any).event, // Garantir que 'type' está preenchido
+      status: ((event as any).status || 'pending') as 'pending' | 'processed' | 'failed',
+    };
+    const [newEvent] = await db.insert(webhookEvents).values(eventData).returning();
     return newEvent;
   }
 
@@ -1279,13 +1294,96 @@ export class DatabaseStorage implements IStorage {
     return event;
   }
 
-  async reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined> {
+  async updateWebhookStatus(
+    id: string,
+    updates: {
+      status: 'pending' | 'processed' | 'failed';
+      processedAt?: Date;
+      errorMessage?: string;
+      retryCount?: number;
+      lastRetryAt?: Date;
+    }
+  ): Promise<WebhookEvent | undefined> {
+    const updateData: any = {
+      status: updates.status,
+      processed: updates.status === 'processed',
+    };
+
+    if (updates.processedAt) {
+      updateData.processedAt = updates.processedAt;
+    }
+    if (updates.errorMessage !== undefined) {
+      updateData.errorMessage = updates.errorMessage;
+    }
+    if (updates.retryCount !== undefined) {
+      updateData.retryCount = updates.retryCount;
+    }
+    if (updates.lastRetryAt !== undefined) {
+      updateData.lastRetryAt = updates.lastRetryAt;
+    }
+
     const [updated] = await db
       .update(webhookEvents)
-      .set({ processed: false })
+      .set(updateData)
       .where(eq(webhookEvents.id, id))
       .returning();
     return updated;
+  }
+
+  async reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined> {
+    const [updated] = await db
+      .update(webhookEvents)
+      .set({
+        status: 'pending',
+        processed: false,
+        errorMessage: null,
+        lastRetryAt: new Date(),
+      })
+      .where(eq(webhookEvents.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getFailedWebhooks(maxRetries: number = 5): Promise<WebhookEvent[]> {
+    return await db
+      .select()
+      .from(webhookEvents)
+      .where(
+        and(
+          eq(webhookEvents.status, 'failed'),
+          sqlOp`${webhookEvents.retryCount} < ${maxRetries}`
+        )
+      )
+      .orderBy(desc(webhookEvents.receivedAt));
+  }
+
+  // Webhook processed events (idempotência)
+  async checkEventProcessed(eventId: string): Promise<WebhookProcessedEvent | undefined> {
+    const [event] = await db
+      .select()
+      .from(webhookProcessedEvents)
+      .where(eq(webhookProcessedEvents.eventId, eventId))
+      .limit(1);
+    return event;
+  }
+
+  async markEventProcessed(event: InsertWebhookProcessedEvent): Promise<WebhookProcessedEvent> {
+    const [newEvent] = await db
+      .insert(webhookProcessedEvents)
+      .values(event)
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!newEvent) {
+      // Se já existe, retornar o existente
+      const existing = await this.checkEventProcessed(event.eventId);
+      if (!existing) {
+        throw new Error("Falha ao marcar evento como processado");
+      }
+      return existing;
+    }
+    
+    return newEvent;
   }
 
   // Orders operations

@@ -6,7 +6,7 @@ import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
 import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
 import { storage } from "./storage.js";
-import { handleWebhookEvent } from "./webhooks/processSubscriptionEvent.js";
+import { processWebhook } from "./webhooks/webhookProcessor.js";
 
 const app = express();
 
@@ -15,50 +15,97 @@ const app = express();
 // ============================================
 // Este endpoint NÃO requer autenticação e aceita requisições externas
 app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (req, res) => {
+  let webhookId: string | null = null;
+
   try {
-    console.log("WEBHOOK RECEIVED:", JSON.stringify(req.body, null, 2));
+    console.log("[WEBHOOK] ========================================");
+    console.log("[WEBHOOK] WEBHOOK RECEIVED");
+    console.log("[WEBHOOK] Body:", JSON.stringify(req.body, null, 2));
+    console.log("[WEBHOOK] ========================================");
     
     const rawPayload = req.body;
 
     // Validar formato do payload da Cakto
     if (!rawPayload.event || !rawPayload.data) {
-      console.log("WEBHOOK ERROR: Payload inválido - falta 'event' ou 'data'");
-      // Registrar evento mesmo com payload inválido
+      console.log("[WEBHOOK] ❌ Payload inválido - falta 'event' ou 'data'");
+      
+      // Registrar evento como falhado
       try {
-        await storage.createWebhookEvent({
+        const invalidWebhook = await storage.createWebhookEvent({
+          event: rawPayload.event || rawPayload.type || "webhook_invalid",
           type: rawPayload.event || rawPayload.type || "webhook_invalid",
           payload: rawPayload,
+          status: 'failed',
+          errorMessage: "Payload inválido - falta 'event' ou 'data'",
           processed: false,
         });
+        webhookId = invalidWebhook.id;
       } catch (logError) {
-        console.error("WEBHOOK ERROR: Falha ao registrar evento inválido:", logError);
+        console.error("[WEBHOOK] ❌ Falha ao registrar evento inválido:", logError);
       }
+      
       // Sempre retornar 200 OK mesmo com erro
       return res.status(200).json({ success: true });
     }
 
-    // Processar evento usando o processador completo
-    await handleWebhookEvent({
+    // 1. Registrar webhook como PENDING antes de processar
+    console.log("[WEBHOOK] 📝 Registrando webhook como PENDING...");
+    const webhookRecord = await storage.createWebhookEvent({
       event: rawPayload.event,
-      data: rawPayload.data,
+      type: rawPayload.event,
+      payload: rawPayload,
+      status: 'pending',
+      processed: false,
     });
+    webhookId = webhookRecord.id;
+    console.log(`[WEBHOOK] ✅ Webhook registrado com ID: ${webhookId}`);
 
-    console.log(`WEBHOOK: Processado com sucesso - Evento: ${rawPayload.event}`);
+    // 2. Processar webhook usando o processador completo
+    console.log(`[WEBHOOK] 🔄 Iniciando processamento do webhook ${webhookId}...`);
+    await processWebhook(webhookId, rawPayload);
+
+    console.log(`[WEBHOOK] ✅ Webhook ${webhookId} processado com sucesso`);
     return res.status(200).json({ success: true });
+
   } catch (err: any) {
-    console.error("WEBHOOK ERROR:", err);
-    console.error("WEBHOOK ERROR - Stack:", err.stack);
-    console.error("WEBHOOK ERROR - Body recebido:", JSON.stringify(req.body, null, 2));
+    console.error("[WEBHOOK] ========================================");
+    console.error("[WEBHOOK] ❌ ERRO CRÍTICO NO WEBHOOK");
+    console.error("[WEBHOOK] Erro:", err);
+    console.error("[WEBHOOK] Stack:", err.stack);
+    console.error("[WEBHOOK] Body recebido:", JSON.stringify(req.body, null, 2));
+    console.error("[WEBHOOK] ========================================");
     
-    // Registrar evento com erro
-    try {
-      await storage.createWebhookEvent({
-        type: req.body?.event || req.body?.type || "webhook_error",
-        payload: req.body,
-        processed: false,
-      });
-    } catch (logError) {
-      console.error("WEBHOOK ERROR: Falha ao registrar evento de erro:", logError);
+    // Se o webhook foi registrado, atualizar status como falhado
+    if (webhookId) {
+      try {
+        const webhook = await storage.getWebhookEventById(webhookId);
+        const currentRetryCount = webhook?.retryCount || 0;
+        
+        await storage.updateWebhookStatus(webhookId, {
+          status: 'failed',
+          errorMessage: err.stack || err.message || 'Erro desconhecido',
+          retryCount: currentRetryCount + 1,
+          lastRetryAt: new Date(),
+        });
+      } catch (updateError) {
+        console.error("[WEBHOOK] ❌ Falha ao atualizar status do webhook:", updateError);
+      }
+    } else {
+      // Se não foi registrado, tentar registrar como falhado
+      try {
+        await storage.createWebhookEvent({
+          event: req.body?.event || req.body?.type || "webhook_error",
+          type: req.body?.event || req.body?.type || "webhook_error",
+          payload: req.body,
+          status: 'failed',
+          errorMessage: err.stack || err.message || 'Erro desconhecido',
+          retryCount: 1,
+          lastRetryAt: new Date(),
+          processed: false,
+        });
+      } catch (logError) {
+        console.error("[WEBHOOK] ❌ Falha ao registrar evento de erro:", logError);
+      }
     }
 
     // Webhook nunca pode falhar - sempre retornar 200 OK

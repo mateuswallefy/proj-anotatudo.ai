@@ -39,10 +39,16 @@ import { useToast } from "@/hooks/use-toast";
 
 type WebhookEvent = {
   id: string;
+  event: string;
   type: string;
   payload: any;
+  status: 'pending' | 'processed' | 'failed';
   receivedAt: string;
-  processed: string;
+  processedAt: string | null;
+  errorMessage: string | null;
+  retryCount: number;
+  lastRetryAt: string | null;
+  processed: boolean;
 };
 
 const WEBHOOK_URL = "https://anotatudo.com/api/webhooks/subscriptions";
@@ -341,9 +347,11 @@ export default function AdminWebhooks() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tipo</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Evento</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Recebido em</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Processado em</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tentativas</TableHead>
                   <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -355,6 +363,8 @@ export default function AdminWebhooks() {
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
@@ -362,7 +372,7 @@ export default function AdminWebhooks() {
                 )}
                 {!isLoading && (!webhooks || webhooks.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={4} className="p-0">
+                    <TableCell colSpan={6} className="p-0">
                       <StripeEmptyState
                         icon={Webhook}
                         title="Nenhum webhook recebido"
@@ -371,60 +381,94 @@ export default function AdminWebhooks() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoading && webhooks && webhooks.length > 0 && webhooks.map((webhook) => (
-                  <TableRow key={webhook.id}>
-                    <TableCell>
-                      <span className="font-mono text-sm text-gray-900 dark:text-gray-50">
-                        {webhook.type}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {webhook.processed ? (
+                {!isLoading && webhooks && webhooks.length > 0 && webhooks.map((webhook) => {
+                  const status = webhook.status || (webhook.processed ? 'processed' : 'pending');
+                  const getStatusBadge = () => {
+                    if (status === 'processed') {
+                      return (
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
                           <span className="text-sm text-gray-700 dark:text-gray-300">Processado</span>
                         </div>
-                      ) : (
+                      );
+                    } else if (status === 'failed') {
+                      return (
                         <div className="flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-orange-600" />
+                          <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Falhou</span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-orange-500"></div>
                           <span className="text-sm text-gray-700 dark:text-gray-300">Pendente</span>
                         </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {format(new Date(webhook.receivedAt), "dd/MM/yyyy 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedEvent(webhook)}
-                          className="gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Ver Payload
-                        </Button>
-                        {!webhook.processed && (
+                      );
+                    }
+                  };
+
+                  return (
+                    <TableRow key={webhook.id}>
+                      <TableCell>
+                        <span className="font-mono text-sm text-gray-900 dark:text-gray-50">
+                          {webhook.event || webhook.type}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge()}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {format(new Date(webhook.receivedAt), "dd/MM/yyyy 'às' HH:mm", {
+                            locale: ptBR,
+                          })}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {webhook.processedAt ? (
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {format(new Date(webhook.processedAt), "dd/MM/yyyy 'às' HH:mm", {
+                              locale: ptBR,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {webhook.retryCount || 0}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => reprocessMutation.mutate(webhook.id)}
-                            disabled={reprocessMutation.isPending}
+                            onClick={() => setSelectedEvent(webhook)}
                             className="gap-2"
                           >
-                            <RefreshCw className={`h-4 w-4 ${reprocessMutation.isPending ? 'animate-spin' : ''}`} />
-                            Reprocessar
+                            <Eye className="h-4 w-4" />
+                            Ver Payload
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {status !== 'processed' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => reprocessMutation.mutate(webhook.id)}
+                              disabled={reprocessMutation.isPending}
+                              className="gap-2"
+                            >
+                              <RefreshCw className={`h-4 w-4 ${reprocessMutation.isPending ? 'animate-spin' : ''}`} />
+                              Reprocessar
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </ScrollArea>
