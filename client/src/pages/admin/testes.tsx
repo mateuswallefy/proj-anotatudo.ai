@@ -38,13 +38,14 @@ import {
 } from "lucide-react";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
+  AlertDialogTrigger,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 
 type User = {
@@ -443,34 +444,20 @@ export default function AdminTestes() {
               Limpar Dados de Teste
             </PremiumButton>
           </AlertDialogTrigger>
-          <AlertDialogContent className="rounded-2xl">
+          <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Limpar todos os dados de teste?</AlertDialogTitle>
-              <AlertDialogDescription className="text-base">
-                Tem certeza que deseja remover <strong>TODOS</strong> os dados de teste?
-                <br />
-                <br />
-                Esta ação é <strong className="text-red-600 dark:text-red-400">irreversível</strong> e removerá:
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>Todos os clientes de teste</li>
-                  <li>Todas as assinaturas de teste</li>
-                  <li>Todos os pedidos de teste</li>
-                  <li>Todos os eventos de teste</li>
-                  <li>Todos os webhooks de teste</li>
-                  <li>Todos os logs de teste</li>
-                </ul>
-                <br />
-                <strong>Clientes e assinaturas reais não serão afetados.</strong>
+              <AlertDialogDescription>
+                Esta ação é irreversível e removerá clientes, assinaturas, pedidos, webhooks e eventos marcados como teste.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => cleanupMutation.mutate()}
-                className="bg-red-600 hover:bg-red-700 text-white"
                 disabled={cleanupMutation.isPending}
               >
-                {cleanupMutation.isPending ? "Limpando..." : "Confirmar Limpeza"}
+                {cleanupMutation.isPending ? "Limpando..." : "Limpar Tudo"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
