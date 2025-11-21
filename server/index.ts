@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
+import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
 
 const app = express();
 
@@ -59,6 +60,9 @@ app.use((req, res, next) => {
   
   // 🔒 PROTEÇÃO ADMIN-ROOT: Verificar e recriar admin-root se necessário
   await ensureAdminRootExists();
+  
+  // 🔧 WEBHOOK-EVENTS: Garantir que a tabela webhook_events existe
+  await ensureWebhookEventsTable();
   
   const server = await registerRoutes(app);
 

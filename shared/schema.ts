@@ -620,10 +620,10 @@ export type AdminEventLog = typeof adminEventLogs.$inferSelect;
 // Webhook events table (eventos de webhook recebidos)
 export const webhookEvents = pgTable("webhook_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  type: varchar("type").notNull(),
+  type: text("type").notNull(), // Campo "type" na tabela (compatível com código existente)
   payload: jsonb("payload").notNull(),
-  receivedAt: timestamp("received_at").defaultNow().notNull(),
-  processed: boolean("processed").default(true).notNull(),
+  receivedAt: timestamp("received_at").defaultNow().notNull(), // Campo "received_at" na tabela (compatível com código existente)
+  processed: boolean("processed").default(false).notNull(),
 });
 
 export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({
