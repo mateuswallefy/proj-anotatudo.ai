@@ -202,6 +202,8 @@ export default function AdminAssinaturas() {
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Cliente ID</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Subscription ID</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Provider ID</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Plano</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Valor</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Intervalo</TableHead>
@@ -216,6 +218,8 @@ export default function AdminAssinaturas() {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={`skeleton-${i}`}>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -228,7 +232,7 @@ export default function AdminAssinaturas() {
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-destructive py-8">
+                    <TableCell colSpan={9} className="text-center text-destructive py-8">
                       <div className="flex flex-col items-center gap-3">
                         <AlertTriangle className="h-8 w-8" />
                         <p className="font-medium">Erro ao carregar assinaturas</p>
@@ -252,7 +256,7 @@ export default function AdminAssinaturas() {
                   if (items.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={7} className="p-0">
+                        <TableCell colSpan={9} className="p-0">
                           <StripeEmptyState
                             icon={CreditCard}
                             title="Nenhuma assinatura encontrada"
@@ -266,6 +270,12 @@ export default function AdminAssinaturas() {
                     <TableRow key={sub.id}>
                       <TableCell className="font-mono text-sm">
                         {sub.userId.slice(0, 8)}...
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {sub.id.slice(0, 8)}...
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {sub.providerSubscriptionId.slice(0, 12)}...
                       </TableCell>
                       <TableCell className="font-medium">{sub.planName}</TableCell>
                       <TableCell className="font-mono font-bold tabular-nums">

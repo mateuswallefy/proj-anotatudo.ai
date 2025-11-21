@@ -1170,6 +1170,14 @@ export default function AdminClientes() {
                           Dados Pessoais
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">ID do Cliente</label>
+                            <div className="h-10 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-mono text-sm flex items-center">
+                              {(userDetail?.user || selectedUser)?.id || "-"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField
                             control={editForm.control}
                             name="nome"

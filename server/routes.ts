@@ -3720,6 +3720,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const testOfferId = data.offerId || `test_offer_${uuidv4()}`;
       const testProductId = data.productId || data.planName;
       
+      // providerSubscriptionId deve ser o mesmo que subscription.id no payload
+      const providerSubscriptionId = testSubscriptionId;
+      
       // Calcular datas
       const now = new Date();
       
@@ -3753,7 +3756,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         event: "subscription_created",
         data: {
           subscription: {
-            id: testSubscriptionId,
+            id: providerSubscriptionId, // Este é o providerSubscriptionId
+            providerId: providerSubscriptionId, // Para compatibilidade
+            providerSubscriptionId: providerSubscriptionId, // Para garantir
             status: status,
             offer_id: testOfferId,
             product_id: testProductId,
@@ -3862,7 +3867,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = testAdvanceSchema.parse(req.body);
       
-      const subscription = await storage.getSubscriptionById(data.subscriptionId);
+      // Buscar por providerSubscriptionId primeiro, depois por ID interno
+      const subscription = await (storage as any).findSubscriptionByIdentifier(data.subscriptionId);
       if (!subscription) {
         return res.status(404).json({ message: "Assinatura não encontrada" });
       }
@@ -3936,7 +3942,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = testPaymentSchema.parse(req.body);
       
-      const subscription = await storage.getSubscriptionById(data.subscriptionId);
+      // Buscar por providerSubscriptionId primeiro, depois por ID interno
+      const subscription = await (storage as any).findSubscriptionByIdentifier(data.subscriptionId);
       if (!subscription) {
         return res.status(404).json({ message: "Assinatura não encontrada" });
       }
@@ -4000,6 +4007,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============================================
   // WEBHOOKS - Integração Externa
+  // POST /api/admin/test/cleanup - Limpa todos os dados de teste
+  app.post("/api/admin/test/cleanup", isAuthenticated, requireAdminRoot, async (req: any, res) => {
+    try {
+      console.log("[TEST-CLEANUP] Iniciando limpeza de dados de teste");
+      
+      // Usar métodos do storage para garantir consistência
+      const deleted = {
+        events: 0,
+        webhooks: 0,
+        logs: 0,
+        orders: 0,
+        subscriptions: 0,
+        clients: 0,
+      };
+
+      // Deletar na ordem correta para evitar violações de FK
+      // 1. Eventos de assinatura (referenciam subscriptions e users)
+      deleted.events = await storage.deleteTestSubscriptionEvents();
+      console.log(`[TEST-CLEANUP] Deletados ${deleted.events} eventos de assinatura`);
+
+      // 2. Webhook events (não tem FK dependente)
+      deleted.webhooks = await storage.deleteTestWebhookEvents();
+      console.log(`[TEST-CLEANUP] Deletados ${deleted.webhooks} webhooks`);
+
+      // 3. Client logs (referenciam users)
+      deleted.logs = await storage.deleteTestClientLogs();
+      console.log(`[TEST-CLEANUP] Deletados ${deleted.logs} logs de cliente`);
+
+      // 4. Orders (referenciam subscriptions)
+      deleted.orders = await storage.deleteTestOrders();
+      console.log(`[TEST-CLEANUP] Deletados ${deleted.orders} pedidos`);
+
+      // 5. Subscriptions (referenciam users)
+      deleted.subscriptions = await storage.deleteTestSubscriptions();
+      console.log(`[TEST-CLEANUP] Deletados ${deleted.subscriptions} assinaturas`);
+
+      // 6. Users (último, pois pode ter FK de outras tabelas)
+      deleted.clients = await storage.deleteTestClients();
+      console.log(`[TEST-CLEANUP] Deletados ${deleted.clients} clientes`);
+
+      // Registrar log
+      try {
+        await logClientEvent(
+          null,
+          "test_cleanup",
+          `Admin root apagou todos os dados de teste: ${JSON.stringify(deleted)}`,
+          { deleted }
+        );
+      } catch (logError) {
+        console.error("[TEST-CLEANUP] Erro ao registrar log:", logError);
+      }
+
+      console.log(`[TEST-CLEANUP] Limpeza concluída:`, deleted);
+
+      res.json({
+        success: true,
+        deleted,
+      });
+    } catch (error: any) {
+      console.error("[TEST-CLEANUP] Erro ao limpar dados de teste:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Falha ao limpar dados de teste",
+      });
+    }
+  });
+
   // ============================================
   // NOTA: O endpoint POST /api/webhooks/subscriptions foi movido para server/index.ts
   // para garantir que ele seja carregado ANTES dos middlewares de autenticação

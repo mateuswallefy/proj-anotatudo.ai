@@ -34,7 +34,18 @@ import {
   RotateCcw, 
   Send,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type User = {
   id: string;
@@ -59,6 +70,7 @@ export default function AdminTestes() {
   const [customWebhookPayload, setCustomWebhookPayload] = useState<string>("");
   const [showCustomWebhook, setShowCustomWebhook] = useState(false);
   const [showCreateSubscription, setShowCreateSubscription] = useState(false);
+  const [showCleanupDialog, setShowCleanupDialog] = useState(false);
   
   // Form state para criar assinatura fake
   const [formData, setFormData] = useState({
@@ -90,6 +102,18 @@ export default function AdminTestes() {
       return await response.json();
     },
     enabled: !!selectedClientId,
+  });
+
+  // Buscar eventos (para refetch após limpeza)
+  const { refetch: refetchEvents } = useQuery({
+    queryKey: ["/api/admin/events"],
+    enabled: false,
+  });
+
+  // Buscar webhooks (para refetch após limpeza)
+  const { refetch: refetchWebhooks } = useQuery({
+    queryKey: ["/api/admin/webhooks/grouped"],
+    enabled: false,
   });
 
   // Criar assinatura fake
@@ -170,7 +194,17 @@ export default function AdminTestes() {
   // Simular pagamento
   const paymentMutation = useMutation({
     mutationFn: async (data: { subscriptionId: string; type: string; amount?: number }) => {
-      const response = await apiRequest("POST", "/api/admin/test/payment", data);
+      // Buscar assinatura para obter providerSubscriptionId
+      const subscription = subscriptionsData?.find(s => s.id === data.subscriptionId);
+      if (!subscription) {
+        throw new Error("Assinatura não encontrada");
+      }
+      
+      const response = await apiRequest("POST", "/api/admin/test/payment", {
+        subscriptionId: subscription.providerSubscriptionId,
+        type: data.type,
+        amount: data.amount,
+      });
       return await response.json();
     },
     onSuccess: (data) => {
@@ -213,16 +247,51 @@ export default function AdminTestes() {
     },
   });
 
+  // Limpar dados de teste
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/test/cleanup");
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      const total = data.deleted.events + data.deleted.webhooks + data.deleted.logs + 
+                    data.deleted.orders + data.deleted.subscriptions + data.deleted.clients;
+      toast({
+        title: "Sucesso!",
+        description: `Dados de teste removidos: ${total} itens (${data.deleted.events} eventos, ${data.deleted.webhooks} webhooks, ${data.deleted.logs} logs, ${data.deleted.orders} pedidos, ${data.deleted.subscriptions} assinaturas, ${data.deleted.clients} clientes)`,
+      });
+      setShowCleanupDialog(false);
+      // Resetar estado local
+      setSelectedClientId("");
+      setSelectedSubscriptionId("");
+      // Recarregar todas as listagens
+      refetchClients();
+      refetchSubscriptions();
+      refetchEvents();
+      refetchWebhooks();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao limpar dados de teste",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Cancelar assinatura
   const cancelSubscriptionMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
+      const subscription = subscriptionsData?.find(s => s.id === subscriptionId);
+      if (!subscription) {
+        throw new Error("Assinatura não encontrada");
+      }
+      
       const payload = {
         event: "subscription_canceled",
         data: {
           subscription: {
-            id: subscriptionsData?.find(s => s.id === subscriptionId)?.provider === 'caktos' 
-              ? subscriptionsData.find(s => s.id === subscriptionId)?.id 
-              : `test_${subscriptionId}`,
+            id: subscription.providerSubscriptionId,
             status: "canceled",
           },
         },
@@ -360,6 +429,53 @@ export default function AdminTestes() {
         title="Testes Internos"
         subtitle="Simule webhooks, pagamentos, cancelamentos e renovações sem depender da Cakto"
       />
+
+      {/* Botão de Limpeza de Dados de Teste */}
+      <div className="mb-6">
+        <AlertDialog open={showCleanupDialog} onOpenChange={setShowCleanupDialog}>
+          <AlertDialogTrigger asChild>
+            <PremiumButton
+              variant="outline"
+              className="border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              disabled={cleanupMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Limpar Dados de Teste
+            </PremiumButton>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Limpar todos os dados de teste?</AlertDialogTitle>
+              <AlertDialogDescription className="text-base">
+                Tem certeza que deseja remover <strong>TODOS</strong> os dados de teste?
+                <br />
+                <br />
+                Esta ação é <strong className="text-red-600 dark:text-red-400">irreversível</strong> e removerá:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Todos os clientes de teste</li>
+                  <li>Todas as assinaturas de teste</li>
+                  <li>Todos os pedidos de teste</li>
+                  <li>Todos os eventos de teste</li>
+                  <li>Todos os webhooks de teste</li>
+                  <li>Todos os logs de teste</li>
+                </ul>
+                <br />
+                <strong>Clientes e assinaturas reais não serão afetados.</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => cleanupMutation.mutate()}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={cleanupMutation.isPending}
+              >
+                {cleanupMutation.isPending ? "Limpando..." : "Confirmar Limpeza"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       <div className="space-y-6">
         {/* Seleção de Cliente e Assinatura */}
@@ -735,8 +851,17 @@ export default function AdminTestes() {
                   });
                   return;
                 }
+                const subscription = subscriptionsData?.find(s => s.id === selectedSubscriptionId);
+                if (!subscription) {
+                  toast({
+                    title: "Erro",
+                    description: "Assinatura não encontrada",
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 paymentMutation.mutate({
-                  subscriptionId: selectedSubscriptionId,
+                  subscriptionId: subscription.providerSubscriptionId,
                   type: "payment_succeeded",
                 });
               }}
@@ -758,8 +883,17 @@ export default function AdminTestes() {
                   });
                   return;
                 }
+                const subscription = subscriptionsData?.find(s => s.id === selectedSubscriptionId);
+                if (!subscription) {
+                  toast({
+                    title: "Erro",
+                    description: "Assinatura não encontrada",
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 paymentMutation.mutate({
-                  subscriptionId: selectedSubscriptionId,
+                  subscriptionId: subscription.providerSubscriptionId,
                   type: "payment_failed",
                 });
               }}
@@ -781,8 +915,17 @@ export default function AdminTestes() {
                   });
                   return;
                 }
+                const subscription = subscriptionsData?.find(s => s.id === selectedSubscriptionId);
+                if (!subscription) {
+                  toast({
+                    title: "Erro",
+                    description: "Assinatura não encontrada",
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 paymentMutation.mutate({
-                  subscriptionId: selectedSubscriptionId,
+                  subscriptionId: subscription.providerSubscriptionId,
                   type: "payment_refunded",
                 });
               }}
@@ -804,8 +947,17 @@ export default function AdminTestes() {
                   });
                   return;
                 }
+                const subscription = subscriptionsData?.find(s => s.id === selectedSubscriptionId);
+                if (!subscription) {
+                  toast({
+                    title: "Erro",
+                    description: "Assinatura não encontrada",
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 paymentMutation.mutate({
-                  subscriptionId: selectedSubscriptionId,
+                  subscriptionId: subscription.providerSubscriptionId,
                   type: "payment_chargeback",
                 });
               }}

@@ -70,7 +70,7 @@ import {
   type InsertWebhookEvent,
 } from "@shared/schema";
 import { db } from "./db.js";
-import { eq, and, desc, or, sql as sqlOp, like, ilike, inArray, ne } from "drizzle-orm";
+import { eq, and, desc, or, sql as sqlOp, sql, like, ilike, inArray, ne } from "drizzle-orm";
 import { format } from "date-fns";
 
 export interface IStorage {
@@ -1044,6 +1044,24 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptions)
       .where(eq(subscriptions.id, id));
     return subscription;
+  }
+
+  // Helper para buscar assinatura por providerSubscriptionId ou ID interno (tenta provider primeiro)
+  async findSubscriptionByIdentifier(identifier: string, provider?: 'caktos' | 'manual'): Promise<Subscription | undefined> {
+    // Primeiro, tentar buscar por providerSubscriptionId em ambos os providers
+    if (provider) {
+      const byProvider = await this.getSubscriptionByProviderId(provider, identifier);
+      if (byProvider) return byProvider;
+    } else {
+      // Tentar ambos os providers
+      const byCaktos = await this.getSubscriptionByProviderId('caktos', identifier);
+      if (byCaktos) return byCaktos;
+      const byManual = await this.getSubscriptionByProviderId('manual', identifier);
+      if (byManual) return byManual;
+    }
+    
+    // Se não encontrou, tentar buscar por ID interno
+    return await this.getSubscriptionById(identifier);
   }
 
   async getSubscriptionByProviderId(provider: 'caktos' | 'manual', providerSubscriptionId: string): Promise<Subscription | undefined> {
@@ -2105,6 +2123,83 @@ export class DatabaseStorage implements IStorage {
     });
 
     return allEvents;
+  }
+
+  // Test cleanup methods - Delete all test data
+  async deleteTestSubscriptionEvents(): Promise<number> {
+    // Delete events where payload contains isTest=true or subscription has isTest=true
+    const result = await db.execute(sql`
+      DELETE FROM subscription_events 
+      WHERE payload::jsonb->'data'->'meta'->>'isTest' = 'true'
+         OR payload::jsonb->'data'->'subscription'->>'isTest' = 'true'
+         OR EXISTS (
+           SELECT 1 FROM subscriptions s 
+           WHERE s.id = subscription_events.subscription_id 
+           AND s.meta->>'isTest' = 'true'
+         )
+    `);
+    return result.rowCount || 0;
+  }
+
+  async deleteTestWebhookEvents(): Promise<number> {
+    // Delete webhooks where payload contains isTest=true
+    const result = await db.execute(sql`
+      DELETE FROM webhook_events 
+      WHERE payload::jsonb->'data'->'meta'->>'isTest' = 'true'
+         OR payload::jsonb->'data'->'subscription'->>'isTest' = 'true'
+    `);
+    return result.rowCount || 0;
+  }
+
+  async deleteTestClientLogs(): Promise<number> {
+    // Delete logs where data contains isTest=true or user has isTest=true
+    const result = await db.execute(sql`
+      DELETE FROM client_logs 
+      WHERE data::jsonb->>'isTest' = 'true'
+         OR EXISTS (
+           SELECT 1 FROM users u 
+           WHERE u.id = client_logs.user_id 
+           AND u.metadata::jsonb->>'isTest' = 'true'
+         )
+    `);
+    return result.rowCount || 0;
+  }
+
+  async deleteTestOrders(): Promise<number> {
+    // Delete orders where meta contains isTest=true or subscription has isTest=true
+    const result = await db.execute(sql`
+      DELETE FROM orders 
+      WHERE meta->>'isTest' = 'true'
+         OR EXISTS (
+           SELECT 1 FROM subscriptions s 
+           WHERE s.id = orders.subscription_id 
+           AND s.meta->>'isTest' = 'true'
+         )
+    `);
+    return result.rowCount || 0;
+  }
+
+  async deleteTestSubscriptions(): Promise<number> {
+    // Delete subscriptions where meta contains isTest=true
+    const result = await db.execute(sql`
+      DELETE FROM subscriptions 
+      WHERE meta->>'isTest' = 'true'
+    `);
+    return result.rowCount || 0;
+  }
+
+  async deleteTestClients(): Promise<number> {
+    // Delete users where metadata contains isTest=true AND they don't have real subscriptions
+    const result = await db.execute(sql`
+      DELETE FROM users 
+      WHERE metadata::jsonb->>'isTest' = 'true'
+         AND NOT EXISTS (
+           SELECT 1 FROM subscriptions s 
+           WHERE s.user_id = users.id 
+           AND (s.meta->>'isTest' IS NULL OR s.meta->>'isTest' != 'true')
+         )
+    `);
+    return result.rowCount || 0;
   }
 }
 
