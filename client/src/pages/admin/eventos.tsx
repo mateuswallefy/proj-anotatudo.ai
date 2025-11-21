@@ -42,9 +42,13 @@ type Event = {
   id: string;
   type: string;
   message: string;
-  source: string;
+  origin: string;
+  severity: 'info' | 'warning' | 'error';
+  provider: string;
+  subscriptionId: string;
+  clientId: string;
+  payload: any;
   createdAt: string | Date;
-  metadata: any;
 };
 
 const getEventTypeColor = (type: string, message: string) => {
@@ -65,6 +69,19 @@ const getEventTypeColor = (type: string, message: string) => {
 
 const getEventTypeLabel = (type: string, source: string) => {
   const labels: Record<string, string> = {
+    "subscription_created": "Assinatura criada",
+    "subscription_updated": "Assinatura atualizada",
+    "subscription_reactivated": "Assinatura reativada",
+    "subscription_paused": "Assinatura pausada",
+    "subscription_unpaused": "Assinatura despausada",
+    "subscription_canceled": "Assinatura cancelada",
+    "subscription_expired": "Assinatura expirada",
+    "subscription_trial_started": "Trial iniciado",
+    "subscription_trial_ended": "Trial finalizado",
+    "payment_succeeded": "Pagamento confirmado",
+    "payment_failed": "Pagamento falhou",
+    "payment_refunded": "Pagamento reembolsado",
+    // Legacy labels
     "subscription.created": "Assinatura criada",
     "subscription.activated": "Assinatura ativada",
     "subscription.canceled": "Assinatura cancelada",
@@ -102,15 +119,15 @@ export default function AdminEventos() {
   }, [search]);
 
   // Fetch all events from the unified endpoint
-  const { data: eventsData, isLoading, error } = useQuery<{ events: Event[] }>({
+  const { data: eventsData, isLoading, error } = useQuery<{ events: Event[]; total: number }>({
     queryKey: ["/api/admin/events", { 
-      q: debouncedSearch,
+      search: debouncedSearch,
       type: typeFilter === "all" ? undefined : typeFilter,
       severity: severityFilter === "all" ? undefined : severityFilter,
     }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (debouncedSearch) params.append("q", debouncedSearch);
+      if (debouncedSearch) params.append("search", debouncedSearch);
       if (typeFilter !== "all") params.append("type", typeFilter);
       if (severityFilter !== "all") params.append("severity", severityFilter);
       const response = await apiRequest("GET", `/api/admin/events?${params.toString()}`);
@@ -128,9 +145,9 @@ export default function AdminEventos() {
       pageSubtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI."
     >
       <AdminPageHeader
-        title="Eventos"
+          title="Eventos"
         subtitle="Visualize todos os eventos de assinatura do AnotaTudo.AI"
-      />
+        />
 
       <div className="space-y-6">
         {/* Search and Filters */}
@@ -159,11 +176,12 @@ export default function AdminEventos() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="ai">IA</SelectItem>
-                    <SelectItem value="webhook">Webhook</SelectItem>
-                    <SelectItem value="system">Sistema</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="subscription_created">Assinatura Criada</SelectItem>
+                    <SelectItem value="subscription_updated">Assinatura Atualizada</SelectItem>
+                    <SelectItem value="subscription_canceled">Assinatura Cancelada</SelectItem>
+                    <SelectItem value="payment_succeeded">Pagamento Confirmado</SelectItem>
+                    <SelectItem value="payment_failed">Pagamento Falhou</SelectItem>
+                    <SelectItem value="payment_refunded">Pagamento Reembolsado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -189,7 +207,7 @@ export default function AdminEventos() {
         <StripeSectionCard className="p-0 overflow-hidden">
           <ScrollArea className="w-full">
             <Table>
-                <TableHeader>
+              <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tipo</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Origem</TableHead>
@@ -246,15 +264,15 @@ export default function AdminEventos() {
                     <TableRow key={event.id}>
                       <TableCell>
                         <StripeStatusBadge
-                          status={type.toLowerCase().includes("error") || message.toLowerCase().includes("error") ? "error" : type.toLowerCase().includes("warning") || message.toLowerCase().includes("warning") ? "warning" : "info"}
-                          label={getEventTypeLabel(type, source)}
+                          status={event.severity || (type.toLowerCase().includes("error") || message.toLowerCase().includes("error") ? "error" : type.toLowerCase().includes("warning") || message.toLowerCase().includes("warning") ? "warning" : "info")}
+                          label={getEventTypeLabel(type, event.origin || "unknown")}
                         />
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                          <span className="text-xs text-muted-foreground">{source}</span>
+                          <span className="text-xs text-muted-foreground">{event.origin || "unknown"}</span>
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">
-                          {message || "-"}
+                          {event.message || "-"}
                       </TableCell>
                       <TableCell>
                         {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
@@ -272,19 +290,52 @@ export default function AdminEventos() {
                               <Eye className="h-4 w-4" />
                             </PremiumButton>
                           </DialogTrigger>
-                          <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
+                          <DialogContent className="max-w-[90%] sm:max-w-[800px] rounded-2xl">
                             <DialogHeader>
                               <DialogTitle>Detalhes do Evento</DialogTitle>
                               <DialogDescription>
-                                  Metadata completo do evento
+                                  Informações completas do evento de assinatura
                               </DialogDescription>
                             </DialogHeader>
-                            <div className="py-4">
-                              <ScrollArea className="max-h-[60vh]">
-                                <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
-                                    {JSON.stringify(selectedEvent?.metadata || {}, null, 2)}
-                                </pre>
-                              </ScrollArea>
+                            <div className="py-4 space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-sm font-semibold">Tipo</Label>
+                                  <p className="text-sm text-muted-foreground">{event.type}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm font-semibold">Severidade</Label>
+                                  <p className="text-sm text-muted-foreground">{event.severity}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm font-semibold">Origem</Label>
+                                  <p className="text-sm text-muted-foreground">{event.origin}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm font-semibold">Provider</Label>
+                                  <p className="text-sm text-muted-foreground">{event.provider}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm font-semibold">Subscription ID</Label>
+                                  <p className="text-sm text-muted-foreground font-mono">{event.subscriptionId}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm font-semibold">Client ID</Label>
+                                  <p className="text-sm text-muted-foreground font-mono">{event.clientId}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-semibold">Mensagem</Label>
+                                <p className="text-sm text-muted-foreground">{event.message}</p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-semibold">Payload Completo</Label>
+                                <ScrollArea className="max-h-[60vh] mt-2">
+                                  <pre className="p-4 bg-muted rounded-lg text-xs overflow-auto">
+                                    {JSON.stringify(event.payload || {}, null, 2)}
+                                  </pre>
+                                </ScrollArea>
+                              </div>
                             </div>
                           </DialogContent>
                         </Dialog>

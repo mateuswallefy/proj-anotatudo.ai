@@ -561,21 +561,37 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export const subscriptionEvents = pgTable("subscription_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   subscriptionId: varchar("subscription_id").notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   type: varchar("type").notNull(),
-  rawPayload: jsonb("raw_payload").notNull(),
+  provider: varchar("provider").notNull(),
+  severity: varchar("severity", { enum: ['info', 'warning', 'error'] }).default('info').notNull(),
+  message: text("message").notNull(),
+  payload: jsonb("payload").notNull(),
+  origin: varchar("origin", { enum: ['webhook', 'system'] }).default('webhook').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("IDX_subscription_events_subscription_id").on(table.subscriptionId),
+  index("IDX_subscription_events_client_id").on(table.clientId),
+  index("IDX_subscription_events_type").on(table.type),
+  index("IDX_subscription_events_created_at").on(table.createdAt),
+]);
 
 export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one }) => ({
   subscription: one(subscriptions, {
     fields: [subscriptionEvents.subscriptionId],
     references: [subscriptions.id],
   }),
+  client: one(users, {
+    fields: [subscriptionEvents.clientId],
+    references: [users.id],
+  }),
 }));
 
 export const insertSubscriptionEventSchema = createInsertSchema(subscriptionEvents).omit({
   id: true,
   createdAt: true,
+}).extend({
+  payload: z.any(), // Allow any JSON structure
 });
 
 export type InsertSubscriptionEvent = z.infer<typeof insertSubscriptionEventSchema>;

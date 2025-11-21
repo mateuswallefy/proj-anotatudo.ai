@@ -674,24 +674,24 @@ export default function AdminClientes() {
       pageSubtitle="Gerencie todos os clientes do AnotaTudo.AI."
     >
       <AdminPageHeader
-        title="Clientes"
+          title="Clientes"
         subtitle="Gerencie assinaturas, status e acesso dos seus clientes."
         actions={
-          <Dialog 
-            open={createDialogOpen} 
-            onOpenChange={(open) => {
-              setCreateDialogOpen(open);
-              if (!open) {
-                createForm.reset();
-              }
-            }}
-          >
-            <DialogTrigger asChild>
+            <Dialog 
+              open={createDialogOpen} 
+              onOpenChange={(open) => {
+                setCreateDialogOpen(open);
+                if (!open) {
+                  createForm.reset();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
-                Novo cliente
+                  Novo cliente
               </Button>
-            </DialogTrigger>
+              </DialogTrigger>
               <DialogContent className="max-w-[90%] sm:max-w-[600px] rounded-2xl">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-bold">Novo Cliente</DialogTitle>
@@ -850,23 +850,23 @@ export default function AdminClientes() {
           {/* Filters */}
           <StripeSectionCard>
             <div className="space-y-4">
-              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                <div className="flex-1 w-full md:max-w-md">
-                  <div className="relative">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              <div className="flex-1 w-full md:max-w-md">
+                <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <PremiumInput
-                      placeholder="Buscar por nome, email ou WhatsApp..."
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                      }}
+                  <PremiumInput
+                    placeholder="Buscar por nome, email ou WhatsApp..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                    }}
                       className="pl-10"
-                    />
-                  </div>
+                  />
                 </div>
               </div>
-              
-              {/* Advanced Filters */}
+            </div>
+            
+            {/* Advanced Filters */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Status de Acesso</Label>
@@ -926,7 +926,7 @@ export default function AdminClientes() {
                   </TabsList>
                 </Tabs>
               </div>
-              </div>
+            </div>
             </div>
           </StripeSectionCard>
 
@@ -1077,44 +1077,44 @@ export default function AdminClientes() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Avatar className="h-10 w-10 border border-gray-200 dark:border-gray-800">
-                    <AvatarImage src={(userDetail?.user || selectedUser)?.profileImageUrl || undefined} />
+                  <AvatarImage src={(userDetail?.user || selectedUser)?.profileImageUrl || undefined} />
                     <AvatarFallback className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-semibold">
-                      {(() => {
-                        const user = userDetail?.user || selectedUser;
-                        return user?.firstName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
-                      })()}
-                    </AvatarFallback>
-                  </Avatar>
+                    {(() => {
+                      const user = userDetail?.user || selectedUser;
+                      return user?.firstName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
+                    })()}
+                  </AvatarFallback>
+                </Avatar>
                   <div className="flex-1 min-w-0">
                     <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-1">
-                      {(() => {
-                        const user = userDetail?.user || selectedUser;
-                        if (user?.firstName && user?.lastName) {
-                          return `${user.firstName} ${user.lastName}`;
-                        }
-                        if (user?.name) {
-                          return user.name;
-                        }
-                        return user?.email?.split("@")[0] || "Cliente";
-                      })()}
-                    </DialogTitle>
+                    {(() => {
+                      const user = userDetail?.user || selectedUser;
+                      if (user?.firstName && user?.lastName) {
+                        return `${user.firstName} ${user.lastName}`;
+                      }
+                      if (user?.name) {
+                        return user.name;
+                      }
+                      return user?.email?.split("@")[0] || "Cliente";
+                    })()}
+                  </DialogTitle>
                     <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
-                      {(userDetail?.user || selectedUser)?.email || "-"}
-                    </DialogDescription>
-                  </div>
+                    {(userDetail?.user || selectedUser)?.email || "-"}
+                  </DialogDescription>
                 </div>
+              </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <StripeStatusBadge
                     status={(() => {
-                      const user = userDetail?.user || selectedUser;
+                    const user = userDetail?.user || selectedUser;
                       return user?.billingStatus || "none";
-                    })()}
+                  })()}
                   />
-                  {((userDetail?.user || selectedUser)?.role === "admin") && (
+                {((userDetail?.user || selectedUser)?.role === "admin") && (
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                      Admin
+                    Admin
                     </span>
-                  )}
+                )}
                 </div>
               </div>
             </DialogHeader>
@@ -1359,7 +1359,7 @@ export default function AdminClientes() {
                               </div>
                               <div className="flex-shrink-0">
                                 <StripeStatusBadge status={sub.status} />
-                              </div>
+                            </div>
                             </div>
                           </div>
                         ))}
@@ -1367,8 +1367,8 @@ export default function AdminClientes() {
                     ) : (
                       <div className="text-center py-12">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Nenhuma assinatura encontrada
-                        </p>
+                        Nenhuma assinatura encontrada
+                      </p>
                       </div>
                     )}
                   </div>
@@ -1376,71 +1376,71 @@ export default function AdminClientes() {
 
                 {/* Tab: Acesso */}
                 <TabsContent value="acesso" className="mt-0 space-y-6">
-                  <div className="space-y-4">
+                    <div className="space-y-4">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
                       Controle de Acesso
                     </h3>
                     <div className="p-5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-                      {(() => {
-                        const user = userDetail?.user || selectedUser;
-                        return (
-                          <>
+                        {(() => {
+                          const user = userDetail?.user || selectedUser;
+                          return (
+                            <>
                             <div className="flex items-center justify-between mb-6">
                               <div className="flex-1">
                                 <p className="font-semibold text-sm text-gray-900 dark:text-gray-50 mb-1">Status Atual</p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  {user?.billingStatus === "paused"
-                                    ? "Acesso suspenso - Cliente não pode fazer login"
-                                    : "Acesso ativo - Cliente pode usar o sistema normalmente"}
-                                </p>
-                              </div>
+                                    {user?.billingStatus === "paused"
+                                      ? "Acesso suspenso - Cliente não pode fazer login"
+                                      : "Acesso ativo - Cliente pode usar o sistema normalmente"}
+                                  </p>
+                                </div>
                               <div className="flex-shrink-0 ml-4">
                                 <StripeStatusBadge
                                   status={user?.billingStatus === "paused" ? "suspended" : user?.billingStatus || "none"}
                                 />
                               </div>
-                            </div>
+                              </div>
 
-                            <Separator className="my-4" />
+                              <Separator className="my-4" />
 
-                            <div className="space-y-3">
-                              {user?.billingStatus === "paused" ? (
+                              <div className="space-y-3">
+                                {user?.billingStatus === "paused" ? (
+                                  <PremiumButton
+                                    onClick={() => setReactivateConfirmOpen(true)}
+                                    className="w-full"
+                                    disabled={reactivateUserMutation.isPending}
+                                  >
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
+                                  </PremiumButton>
+                                ) : (
+                                  <PremiumButton
+                                    variant="secondary"
+                                    onClick={() => setSuspendConfirmOpen(true)}
+                                    className="w-full"
+                                    disabled={suspendUserMutation.isPending}
+                                  >
+                                    <ShieldOff className="h-4 w-4 mr-2" />
+                                    {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
+                                  </PremiumButton>
+                                )}
+
                                 <PremiumButton
-                                  onClick={() => setReactivateConfirmOpen(true)}
+                                  variant="outline"
+                                  onClick={() => setLogoutConfirmOpen(true)}
                                   className="w-full"
-                                  disabled={reactivateUserMutation.isPending}
+                                  disabled={forceLogoutMutation.isPending}
                                 >
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  {reactivateUserMutation.isPending ? "Reativando..." : "Reativar Acesso"}
+                                  <LogOut className="h-4 w-4 mr-2" />
+                                  {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
                                 </PremiumButton>
-                              ) : (
-                                <PremiumButton
-                                  variant="secondary"
-                                  onClick={() => setSuspendConfirmOpen(true)}
-                                  className="w-full"
-                                  disabled={suspendUserMutation.isPending}
-                                >
-                                  <ShieldOff className="h-4 w-4 mr-2" />
-                                  {suspendUserMutation.isPending ? "Suspender..." : "Suspender Acesso"}
-                                </PremiumButton>
-                              )}
-
-                              <PremiumButton
-                                variant="outline"
-                                onClick={() => setLogoutConfirmOpen(true)}
-                                className="w-full"
-                                disabled={forceLogoutMutation.isPending}
-                              >
-                                <LogOut className="h-4 w-4 mr-2" />
-                                {forceLogoutMutation.isPending ? "Desconectando..." : "Forçar Logout"}
-                              </PremiumButton>
-                            </div>
-                          </>
-                        );
-                      })()}
+                              </div>
+                            </>
+                          );
+                        })()}
                     </div>
-                  </div>
-                </TabsContent>
+                    </div>
+                  </TabsContent>
 
                 {/* Tab: Ações */}
                 <TabsContent value="acoes" className="mt-0 space-y-6">

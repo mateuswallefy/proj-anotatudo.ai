@@ -115,9 +115,9 @@ export default function AdminAssinaturas() {
       pageSubtitle="Gerencie todas as assinaturas do AnotaTudo.AI."
     >
       <AdminPageHeader
-        title="Assinaturas"
+          title="Assinaturas"
         subtitle="Controle de planos, status e cobrança"
-      />
+        />
 
       <div className="space-y-6">
         {/* Search and Filters */}
@@ -199,7 +199,7 @@ export default function AdminAssinaturas() {
         <StripeSectionCard className="p-0 overflow-hidden">
           <ScrollArea className="w-full">
             <Table>
-                <TableHeader>
+              <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Cliente ID</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Plano</TableHead>

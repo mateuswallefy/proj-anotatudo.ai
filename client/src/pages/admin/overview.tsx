@@ -74,7 +74,7 @@ export default function AdminOverview() {
   // In production, you'd want to create /api/admin/events endpoint
   const eventsLoading = false;
   const recentEvents: SubscriptionEvent[] = [];
-  
+
   return (
     <AdminLayout 
       currentPath="/admin"
@@ -82,8 +82,8 @@ export default function AdminOverview() {
       pageSubtitle="Acompanhe seus clientes, assinaturas e receita do AnotaTudo.AI."
     >
       <AdminPageHeader
-        title="Painel Administrativo"
-        subtitle="Acompanhe seus clientes, assinaturas e receita do AnotaTudo.AI."
+          title="Painel Administrativo"
+          subtitle="Acompanhe seus clientes, assinaturas e receita do AnotaTudo.AI."
         actions={
           <Button
             variant="outline"
@@ -99,133 +99,133 @@ export default function AdminOverview() {
 
       {/* Primary Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        {overviewLoading ? (
-          <>
-            {Array.from({ length: 4 }).map((_, i) => (
+          {overviewLoading ? (
+            <>
+              {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-32 w-full rounded-lg" />
-            ))}
-          </>
-        ) : (
-          <>
+              ))}
+            </>
+          ) : (
+            <>
             <StripeMetricCard
-              icon={Users}
-              label="Total de Clientes"
-              value={(overview?.totalUsers || 0).toLocaleString()}
-              iconColor="text-blue-600"
+                icon={Users}
+                label="Total de Clientes"
+                value={(overview?.totalUsers || 0).toLocaleString()}
+                iconColor="text-blue-600"
               iconBg="bg-blue-50 dark:bg-blue-900/20"
-            />
+              />
             <StripeMetricCard
-              icon={UserCheck}
-              label="Clientes Ativos"
-              value={(overview?.activeUsers || 0).toLocaleString()}
-              subtitle={`${overview?.trialUsers || 0} em teste`}
-              iconColor="text-emerald-600"
+                icon={UserCheck}
+                label="Clientes Ativos"
+                value={(overview?.activeUsers || 0).toLocaleString()}
+                subtitle={`${overview?.trialUsers || 0} em teste`}
+                iconColor="text-emerald-600"
               iconBg="bg-emerald-50 dark:bg-emerald-900/20"
-            />
+              />
             <StripeMetricCard
-              icon={XCircle}
-              label="Cancelados"
-              value={(overview?.canceledUsers || 0).toLocaleString()}
-              iconColor="text-red-600"
+                icon={XCircle}
+                label="Cancelados"
+                value={(overview?.canceledUsers || 0).toLocaleString()}
+                iconColor="text-red-600"
               iconBg="bg-red-50 dark:bg-red-900/20"
-            />
+              />
             <StripeMetricCard
-              icon={TrendingUp}
-              label="MRR Estimado"
-              value={formatCurrency((overview?.mrrCentsEstimado || 0) / 100)}
+                icon={TrendingUp}
+                label="MRR Estimado"
+                value={formatCurrency((overview?.mrrCentsEstimado || 0) / 100)}
               subtitle="baseado em assinaturas ativas"
-              iconColor="text-purple-600"
+                iconColor="text-purple-600"
               iconBg="bg-purple-50 dark:bg-purple-900/20"
-            />
-          </>
-        )}
-      </div>
+              />
+            </>
+          )}
+        </div>
 
       {/* Secondary Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {overviewLoading ? (
-          <>
-            {Array.from({ length: 3 }).map((_, i) => (
+          {overviewLoading ? (
+            <>
+              {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full rounded-lg" />
-            ))}
-          </>
-        ) : (
-          <>
+              ))}
+            </>
+          ) : (
+            <>
             <StripeMetricCard
-              icon={Clock}
-              label="Em Teste"
-              value={overview?.trialUsers || 0}
-              iconColor="text-blue-600"
+                icon={Clock}
+                label="Em Teste"
+                value={overview?.trialUsers || 0}
+                iconColor="text-blue-600"
               iconBg="bg-blue-50 dark:bg-blue-900/20"
-            />
+              />
             <StripeMetricCard
-              icon={AlertTriangle}
-              label="Atrasados"
-              value={overview?.overdueUsers || 0}
-              iconColor="text-orange-600"
+                icon={AlertTriangle}
+                label="Atrasados"
+                value={overview?.overdueUsers || 0}
+                iconColor="text-orange-600"
               iconBg="bg-orange-50 dark:bg-orange-900/20"
-            />
+              />
             <StripeMetricCard
-              icon={Calendar}
-              label="Novos (30 dias)"
-              value={overview?.newUsersLast30Days || 0}
-              iconColor="text-purple-600"
+                icon={Calendar}
+                label="Novos (30 dias)"
+                value={overview?.newUsersLast30Days || 0}
+                iconColor="text-purple-600"
               iconBg="bg-purple-50 dark:bg-purple-900/20"
-            />
-          </>
-        )}
-      </div>
+              />
+            </>
+          )}
+        </div>
 
-      {/* Recent Events */}
+        {/* Recent Events */}
       <StripeSectionCard
         title="Eventos Recentes"
         subtitle="Últimas atividades do sistema"
       >
-        {eventsLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
+          {eventsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : (() => {
-          const items = recentEvents ?? [];
-          if (items.length === 0) {
-            return (
+              ))}
+            </div>
+          ) : (() => {
+            const items = recentEvents ?? [];
+            if (items.length === 0) {
+              return (
               <StripeEmptyState
                 icon={Activity}
                 title="Nenhum evento recente"
                 subtitle="Os eventos aparecerão aqui quando houver atividade no sistema"
               />
-            );
-          }
-          return (
-            <div className="space-y-3">
-              {items.slice(0, 10).map((event) => (
-                <div
-                  key={event.id}
+              );
+            }
+            return (
+              <div className="space-y-3">
+                {items.slice(0, 10).map((event) => (
+                  <div
+                    key={event.id}
                   className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                >
+                  >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <StripeStatusBadge
                       status={event.type.includes("canceled") || event.type.includes("failed") ? "error" : event.type.includes("created") || event.type.includes("activated") ? "active" : "info"}
                       label={getEventTypeLabel(event.type)}
                     />
-                    <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
-                        {event.subscription?.planName || "N/A"}
-                      </p>
+                          {event.subscription?.planName || "N/A"}
+                        </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </p>
+                          {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
+                            locale: ptBR,
+                          })}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
+                ))}
+              </div>
+            );
+          })()}
       </StripeSectionCard>
     </AdminLayout>
   );

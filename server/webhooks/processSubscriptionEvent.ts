@@ -1,4 +1,5 @@
 import { storage } from "../storage.js";
+import { SubscriptionEventTypes } from "./subscriptionEventTypes.js";
 
 /**
  * Tipos de eventos suportados da Cakto
@@ -340,6 +341,22 @@ async function processSubscriptionCreated(payload: CaktoPayload) {
     billingStatus: mapSubscriptionStatus(subscription.status || 'active'),
   });
 
+  // 5. Registrar evento de assinatura criada
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: user.id,
+      type: SubscriptionEventTypes.SUBSCRIPTION_CREATED,
+      provider: 'caktos',
+      severity: 'info',
+      message: `Assinatura criada com sucesso - ${subscription.id}`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento subscription_created:`, logError);
+  }
+
   console.log(`[WEBHOOK] subscription_created processado com sucesso - Cliente: ${customer.email}, Assinatura: ${subscription.id}`);
 }
 
@@ -407,6 +424,22 @@ async function processPaymentSucceeded(payload: CaktoPayload) {
     });
   }
 
+  // Registrar evento de pagamento bem-sucedido
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: subscriptionRecord.userId,
+      type: SubscriptionEventTypes.PAYMENT_SUCCEEDED,
+      provider: 'caktos',
+      severity: 'info',
+      message: `Pagamento confirmado - Pedido: ${order.id}`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento payment_succeeded:`, logError);
+  }
+
   console.log(`[WEBHOOK] payment_succeeded processado com sucesso - Assinatura: ${subscription.id}, Pedido: ${order.id}`);
 }
 
@@ -446,6 +479,22 @@ async function processPaymentFailed(payload: CaktoPayload) {
     });
   }
 
+  // Registrar evento de pagamento falhado
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: subscriptionRecord.userId,
+      type: SubscriptionEventTypes.PAYMENT_FAILED,
+      provider: 'caktos',
+      severity: 'error',
+      message: `Pagamento falhou - Pedido: ${order?.id || 'N/A'}`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento payment_failed:`, logError);
+  }
+
   console.log(`[WEBHOOK] payment_failed processado com sucesso - Assinatura: ${subscription.id}`);
 }
 
@@ -478,6 +527,22 @@ async function processSubscriptionCanceled(payload: CaktoPayload) {
     await storage.updateUser(user.id, {
       billingStatus: 'canceled',
     });
+  }
+
+  // Registrar evento de assinatura cancelada
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: subscriptionRecord.userId,
+      type: SubscriptionEventTypes.SUBSCRIPTION_CANCELED,
+      provider: 'caktos',
+      severity: 'warning',
+      message: `Assinatura cancelada - ${subscription.id}`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento subscription_canceled:`, logError);
   }
 
   console.log(`[WEBHOOK] subscription_canceled processado com sucesso - Assinatura: ${subscription.id}`);
@@ -514,6 +579,22 @@ async function processSubscriptionSuspended(payload: CaktoPayload) {
     });
   }
 
+  // Registrar evento de assinatura pausada
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: subscriptionRecord.userId,
+      type: SubscriptionEventTypes.SUBSCRIPTION_PAUSED,
+      provider: 'caktos',
+      severity: 'warning',
+      message: `Assinatura pausada - ${subscription.id}`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento subscription_suspended:`, logError);
+  }
+
   console.log(`[WEBHOOK] subscription_suspended processado com sucesso - Assinatura: ${subscription.id}`);
 }
 
@@ -546,6 +627,22 @@ async function processSubscriptionResumed(payload: CaktoPayload) {
     await storage.updateUser(user.id, {
       billingStatus: 'active',
     });
+  }
+
+  // Registrar evento de assinatura reativada
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: subscriptionRecord.userId,
+      type: SubscriptionEventTypes.SUBSCRIPTION_REACTIVATED,
+      provider: 'caktos',
+      severity: 'info',
+      message: `Assinatura reativada - ${subscription.id}`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento subscription_resumed:`, logError);
   }
 
   console.log(`[WEBHOOK] subscription_resumed processado com sucesso - Assinatura: ${subscription.id}`);

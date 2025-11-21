@@ -182,6 +182,27 @@ export interface IStorage {
   listSubscriptions(filters?: { q?: string; status?: string; provider?: string; interval?: string; period?: string }): Promise<Subscription[]>;
 
   // Subscription events operations
+  logSubscriptionEvent(event: {
+    subscriptionId: string;
+    clientId: string;
+    type: string;
+    provider: string;
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    payload: any;
+    origin: 'webhook' | 'system';
+  }): Promise<SubscriptionEvent>;
+  getSubscriptionEvents(filters?: {
+    type?: string;
+    severity?: string;
+    provider?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ events: SubscriptionEvent[]; total: number }>;
+  getSubscriptionEventsForClient(clientId: string): Promise<SubscriptionEvent[]>;
+  getSubscriptionEventsForSubscription(subscriptionId: string): Promise<SubscriptionEvent[]>;
+  // Legacy methods (keep for backward compatibility)
   createSubscriptionEvent(event: InsertSubscriptionEvent): Promise<SubscriptionEvent>;
   getSubscriptionEventsBySubscriptionId(subscriptionId: string, limit?: number): Promise<SubscriptionEvent[]>;
   getSubscriptionEventsByUserId(userId: string, limit?: number): Promise<SubscriptionEvent[]>;
@@ -1147,6 +1168,108 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(subscriptionEvents.subscriptionId, subscriptionIds))
       .orderBy(desc(subscriptionEvents.createdAt))
       .limit(limit);
+  }
+
+  // New methods for subscription events
+  async logSubscriptionEvent(event: {
+    subscriptionId: string;
+    clientId: string;
+    type: string;
+    provider: string;
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    payload: any;
+    origin: 'webhook' | 'system';
+  }): Promise<SubscriptionEvent> {
+    const [newEvent] = await db
+      .insert(subscriptionEvents)
+      .values({
+        subscriptionId: event.subscriptionId,
+        clientId: event.clientId,
+        type: event.type,
+        provider: event.provider,
+        severity: event.severity,
+        message: event.message,
+        payload: event.payload,
+        origin: event.origin,
+      })
+      .returning();
+    return newEvent;
+  }
+
+  async getSubscriptionEvents(filters?: {
+    type?: string;
+    severity?: string;
+    provider?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ events: SubscriptionEvent[]; total: number }> {
+    const limit = filters?.limit || 100;
+    const offset = filters?.offset || 0;
+
+    const whereConditions: any[] = [];
+
+    if (filters?.type) {
+      whereConditions.push(eq(subscriptionEvents.type, filters.type));
+    }
+
+    if (filters?.severity) {
+      whereConditions.push(eq(subscriptionEvents.severity, filters.severity as any));
+    }
+
+    if (filters?.provider) {
+      whereConditions.push(eq(subscriptionEvents.provider, filters.provider));
+    }
+
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      whereConditions.push(
+        or(
+          ilike(subscriptionEvents.type, searchTerm),
+          ilike(subscriptionEvents.message, searchTerm),
+          ilike(subscriptionEvents.subscriptionId, searchTerm),
+          ilike(subscriptionEvents.clientId, searchTerm),
+          sqlOp`CAST(${subscriptionEvents.payload} AS TEXT) ILIKE ${searchTerm}`
+        )!
+      );
+    }
+
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
+    // Get total count
+    const countResult = await db
+      .select({ count: sqlOp<number>`count(*)` })
+      .from(subscriptionEvents)
+      .where(whereClause);
+    const total = Number(countResult[0]?.count || 0);
+
+    // Get events
+    const events = await db
+      .select()
+      .from(subscriptionEvents)
+      .where(whereClause)
+      .orderBy(desc(subscriptionEvents.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return { events, total };
+  }
+
+  async getSubscriptionEventsForClient(clientId: string): Promise<SubscriptionEvent[]> {
+    return await db
+      .select()
+      .from(subscriptionEvents)
+      .where(eq(subscriptionEvents.clientId, clientId))
+      .orderBy(desc(subscriptionEvents.createdAt));
+  }
+
+  async getSubscriptionEventsForSubscription(subscriptionId: string): Promise<SubscriptionEvent[]> {
+    return await db
+      .select()
+      .from(subscriptionEvents)
+      .where(eq(subscriptionEvents.subscriptionId, subscriptionId))
+      .orderBy(desc(subscriptionEvents.createdAt));
   }
 
   async listRecentSubscriptionEvents(limit: number = 50): Promise<SubscriptionEvent[]> {

@@ -3122,13 +3122,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
   app.get("/api/admin/events", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
-      const q = req.query.q as string | undefined;
       const type = req.query.type as string | undefined;
       const severity = req.query.severity as string | undefined;
-      const allEvents = await storage.getAllEvents(q, type, severity);
-      res.json({ events: allEvents });
+      const provider = req.query.provider as string | undefined;
+      const search = req.query.search as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+      const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+
+      const result = await storage.getSubscriptionEvents({
+        type,
+        severity,
+        provider,
+        search,
+        limit,
+        offset,
+      });
+
+      res.json({ 
+        events: result.events,
+        total: result.total,
+      });
     } catch (error: any) {
-      console.error("[Admin] Error fetching all events:", error);
+      console.error("[Admin] Error fetching subscription events:", error);
       res.status(500).json({ 
         success: false,
         message: error.message || "Falha ao buscar eventos",
