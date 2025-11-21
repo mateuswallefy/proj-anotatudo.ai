@@ -20,7 +20,10 @@ import {
   adminEventLogs,
   whatsappSessions,
   webhookEvents,
+  orders,
   type User,
+  type Order,
+  type InsertOrder,
   type UpsertUser,
   type Transacao,
   type InsertTransacao,
@@ -207,6 +210,11 @@ export interface IStorage {
   getWebhookEvents(limit?: number): Promise<WebhookEvent[]>;
   getWebhookEventById(id: string): Promise<WebhookEvent | undefined>;
   reprocessWebhookEvent(id: string): Promise<WebhookEvent | undefined>;
+
+  // Orders operations
+  createOrder(order: InsertOrder): Promise<Order>;
+  getOrderById(id: string): Promise<Order | undefined>;
+  getOrdersBySubscriptionId(subscriptionId: string): Promise<Order[]>;
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)
   getAllEvents(q?: string, type?: string, severity?: string): Promise<Array<{
@@ -1278,6 +1286,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(webhookEvents.id, id))
       .returning();
     return updated;
+  }
+
+  // Orders operations
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const [newOrder] = await db
+      .insert(orders)
+      .values({
+        ...order,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: orders.id,
+        set: {
+          ...order,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return newOrder;
+  }
+
+  async getOrderById(id: string): Promise<Order | undefined> {
+    const [order] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, id));
+    return order;
+  }
+
+  async getOrdersBySubscriptionId(subscriptionId: string): Promise<Order[]> {
+    return await db
+      .select()
+      .from(orders)
+      .where(eq(orders.subscriptionId, subscriptionId))
+      .orderBy(desc(orders.createdAt));
   }
 
   // Get all events (unified from admin_event_logs, subscription_events, system_logs)

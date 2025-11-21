@@ -633,3 +633,38 @@ export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({
 
 export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
+
+// Orders table (pedidos/cobranças)
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey(), // ID externo da Cakto (order.id)
+  subscriptionId: varchar("subscription_id").notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+  amount: integer("amount").notNull(), // Valor em centavos
+  status: varchar("status", { enum: ['paid', 'failed', 'refunded', 'chargeback'] }).notNull(),
+  paidAt: timestamp("paid_at"),
+  dueDate: timestamp("due_date"),
+  paymentMethod: varchar("payment_method"),
+  installments: integer("installments"),
+  cardBrand: varchar("card_brand"),
+  cardLastDigits: varchar("card_last_digits"),
+  boletoBarcode: text("boleto_barcode"),
+  pixQrCode: text("pix_qr_code"),
+  picpayQrCode: text("picpay_qr_code"),
+  meta: jsonb("meta"), // Armazenar dados adicionais do payload
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const ordersRelations = relations(orders, ({ one }) => ({
+  subscription: one(subscriptions, {
+    fields: [orders.subscriptionId],
+    references: [subscriptions.id],
+  }),
+}));
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type Order = typeof orders.$inferSelect;

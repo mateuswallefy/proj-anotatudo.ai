@@ -6,6 +6,7 @@ import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
 import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
 import { storage } from "./storage.js";
+import { handleWebhookEvent } from "./webhooks/processSubscriptionEvent.js";
 
 const app = express();
 
@@ -19,176 +20,30 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
     
     const rawPayload = req.body;
 
-    // Normalizar payload para formato interno
-    const normalizePayload = (payload: any): {
-      event: string;
-      name: string;
-      email: string;
-      whatsapp: string;
-      plan: string;
-      status: string;
-      externalId: string | null;
-      rawPayload: any;
-    } => {
-      // Tentar diferentes formatos de payload
-      let event = payload.event || payload.type || payload.action || "subscription_created";
-      let email = payload.email || payload.customer?.email || payload.user?.email || payload.data?.email;
-      let name = payload.name || payload.customer?.name || payload.user?.name || payload.data?.name || "";
-      let whatsapp = payload.whatsapp || payload.phone || payload.customer?.phone || payload.data?.whatsapp || "";
-      let plan = payload.plan || payload.product?.name || payload.subscription?.plan || payload.data?.plan || "premium";
-      let status = payload.status || payload.subscription?.status || payload.data?.status || "active";
-      let externalId = payload.id || payload.subscription_id || payload.external_id || payload.data?.id || null;
-
-      // Mapear status comuns
-      const statusMap: Record<string, string> = {
-        'paid': 'active',
-        'payment_succeeded': 'active',
-        'subscription_created': 'trial',
-        'subscription_activated': 'active',
-        'subscription_canceled': 'canceled',
-        'subscription_paused': 'paused',
-        'payment_failed': 'overdue',
-        'subscription_expired': 'canceled',
-      };
-
-      if (statusMap[status.toLowerCase()]) {
-        status = statusMap[status.toLowerCase()];
-      }
-
-      // Normalizar plan
-      const planMap: Record<string, string> = {
-        'free': 'free',
-        'premium': 'premium',
-        'enterprise': 'enterprise',
-        'pro': 'premium',
-        'basic': 'free',
-      };
-
-      if (planMap[plan.toLowerCase()]) {
-        plan = planMap[plan.toLowerCase()];
-      }
-
-      return {
-        event,
-        name: name || email?.split('@')[0] || "Cliente",
-        email: email || "",
-        whatsapp: whatsapp || "",
-        plan,
-        status: status.toLowerCase(),
-        externalId: externalId?.toString() || null,
-        rawPayload: payload,
-      };
-    };
-
-    const normalized = normalizePayload(rawPayload);
-
-    // Validar email obrigatório
-    if (!normalized.email) {
-      console.log("WEBHOOK ERROR: Email não fornecido no payload");
-      // Registrar evento mesmo sem email válido
+    // Validar formato do payload da Cakto
+    if (!rawPayload.event || !rawPayload.data) {
+      console.log("WEBHOOK ERROR: Payload inválido - falta 'event' ou 'data'");
+      // Registrar evento mesmo com payload inválido
       try {
         await storage.createWebhookEvent({
-          type: normalized.event,
+          type: rawPayload.event || rawPayload.type || "webhook_invalid",
           payload: rawPayload,
           processed: false,
         });
       } catch (logError) {
-        console.error("WEBHOOK ERROR: Falha ao registrar evento sem email:", logError);
+        console.error("WEBHOOK ERROR: Falha ao registrar evento inválido:", logError);
       }
       // Sempre retornar 200 OK mesmo com erro
       return res.status(200).json({ success: true });
     }
 
-    // Criar ou atualizar usuário
-    let user = await storage.getUserByEmail(normalized.email);
-    
-    if (!user) {
-      // Criar novo usuário
-      const nameParts = normalized.name.split(' ');
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(' ') || "";
-
-      user = await storage.createUser({
-        email: normalized.email,
-        firstName,
-        lastName,
-        whatsappNumber: normalized.whatsapp || null,
-        plano: normalized.plan,
-        billingStatus: normalized.status as any,
-        status: 'authenticated',
-        role: 'user',
-      });
-      console.log(`WEBHOOK: Usuário criado - ${normalized.email}`);
-    } else {
-      // Atualizar usuário existente
-      const nameParts = normalized.name.split(' ');
-      const firstName = nameParts[0] || user.firstName || "";
-      const lastName = nameParts.slice(1).join(' ') || user.lastName || "";
-
-      await storage.updateUser(user.id, {
-        firstName: firstName || user.firstName,
-        lastName: lastName || user.lastName,
-        whatsappNumber: normalized.whatsapp || user.whatsappNumber,
-        plano: normalized.plan,
-        billingStatus: normalized.status as any,
-      });
-      console.log(`WEBHOOK: Usuário atualizado - ${normalized.email}`);
-    }
-
-    // Criar ou atualizar assinatura
-    const providerSubscriptionId = normalized.externalId || `webhook_${Date.now()}`;
-    let subscription = await storage.getSubscriptionByProviderId('manual', providerSubscriptionId);
-
-    if (!subscription) {
-      // Criar nova assinatura
-      const priceCents = rawPayload.amount || rawPayload.price || rawPayload.value || 0;
-      const billingInterval = rawPayload.interval === 'year' || rawPayload.interval === 'yearly' ? 'year' : 'month';
-      const interval = billingInterval === 'year' ? 'yearly' : 'monthly';
-
-      subscription = await storage.createSubscription({
-        userId: user.id,
-        provider: 'manual',
-        providerSubscriptionId,
-        planName: normalized.plan === 'premium' ? 'Premium' : normalized.plan === 'enterprise' ? 'Enterprise' : 'Free',
-        priceCents: typeof priceCents === 'number' ? priceCents : 0,
-        currency: 'BRL',
-        billingInterval: billingInterval as any,
-        interval: interval as any,
-        status: normalized.status as any,
-        meta: {
-          source: 'webhook',
-          originalPayload: rawPayload,
-        },
-      });
-      console.log(`WEBHOOK: Assinatura criada - ${subscription.id}`);
-    } else {
-      // Atualizar assinatura existente
-      await storage.updateSubscription(subscription.id, {
-        status: normalized.status as any,
-        meta: {
-          ...(subscription.meta as any || {}),
-          lastWebhookPayload: rawPayload,
-          lastWebhookAt: new Date().toISOString(),
-        },
-      });
-      console.log(`WEBHOOK: Assinatura atualizada - ${subscription.id}`);
-    }
-
-    // Registrar evento de webhook
-    await storage.createWebhookEvent({
-      type: normalized.event,
-      payload: rawPayload,
-      processed: true,
+    // Processar evento usando o processador completo
+    await handleWebhookEvent({
+      event: rawPayload.event,
+      data: rawPayload.data,
     });
 
-    // Registrar evento de assinatura
-    await storage.createSubscriptionEvent({
-      subscriptionId: subscription.id,
-      type: normalized.event,
-      rawPayload: rawPayload,
-    });
-
-    console.log(`WEBHOOK: Processado com sucesso - Evento: ${normalized.event}, Email: ${normalized.email}`);
+    console.log(`WEBHOOK: Processado com sucesso - Evento: ${rawPayload.event}`);
     return res.status(200).json({ success: true });
   } catch (err: any) {
     console.error("WEBHOOK ERROR:", err);
