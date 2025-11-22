@@ -210,11 +210,13 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
                       )}
                     </Button>
                   </div>
-                  <ScrollArea className="h-[60vh]">
-                    <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-sm font-mono overflow-auto">
-                      <code>{JSON.stringify(webhookDetails.payload, null, 2)}</code>
+                  <div className="max-h-[500px] overflow-auto rounded-lg bg-gray-900 p-4 border border-gray-700">
+                    <pre className="text-gray-100 text-sm whitespace-pre overflow-x-auto">
+                      <code className="font-mono">
+                        {JSON.stringify(webhookDetails.payload, null, 2)}
+                      </code>
                     </pre>
-                  </ScrollArea>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -398,17 +400,19 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
 
               {/* Headers Tab */}
               <TabsContent value="headers" className="mt-0">
-                <ScrollArea className="h-[60vh]">
-                  {webhookDetails.headers && Object.keys(webhookDetails.headers).length > 0 ? (
-                    <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg text-sm font-mono overflow-auto">
-                      <code>{JSON.stringify(webhookDetails.headers, null, 2)}</code>
+                {webhookDetails.headers && Object.keys(webhookDetails.headers).length > 0 ? (
+                  <div className="max-h-[500px] overflow-auto rounded-lg bg-gray-900 p-4 border border-gray-700">
+                    <pre className="text-gray-100 text-sm whitespace-pre overflow-x-auto">
+                      <code className="font-mono">
+                        {JSON.stringify(webhookDetails.headers, null, 2)}
+                      </code>
                     </pre>
-                  ) : (
-                    <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-                      <p>Nenhum header disponível</p>
-                    </div>
-                  )}
-                </ScrollArea>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+                    <p>Nenhum header disponível</p>
+                  </div>
+                )}
               </TabsContent>
             </div>
           </Tabs>
