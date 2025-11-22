@@ -242,7 +242,7 @@ export default function AdminAssinaturas() {
                         <PremiumButton
                           variant="outline"
                           size="sm"
-                          onClick={() => startTransition(() => refetch())}
+                          onClick={() => { void refetch(); }}
                           className="mt-2"
                         >
                           Tentar novamente
