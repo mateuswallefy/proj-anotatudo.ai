@@ -11,6 +11,7 @@ type CaktoEvent =
   | "subscription_suspended"
   | "subscription_resumed"
   | "subscription_expired"
+  | "subscription_trial_ended"
   | "payment_succeeded"
   | "payment_failed"
   | "payment_refunded"
@@ -402,11 +403,8 @@ async function processSubscriptionUpdated(payload: CaktoPayload) {
     throw new Error("ID da assinatura é obrigatório para subscription_updated");
   }
 
-  // Buscar assinatura existente (tentar caktos primeiro, depois manual)
-  let existingSubscription = await storage.getSubscriptionByProviderId('caktos', subscription.id);
-  if (!existingSubscription) {
-    existingSubscription = await storage.getSubscriptionByProviderId('manual', subscription.id);
-  }
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const existingSubscription = await (storage as any).findSubscriptionByIdentifier(subscription.id);
   if (!existingSubscription) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
@@ -420,6 +418,25 @@ async function processSubscriptionUpdated(payload: CaktoPayload) {
     });
   } else {
     await upsertSubscription(existingSubscription.userId, subscription);
+  }
+
+  // Registrar evento de assinatura atualizada
+  try {
+    const updatedSubscription = await (storage as any).findSubscriptionByIdentifier(subscription.id);
+    if (updatedSubscription) {
+      await storage.logSubscriptionEvent({
+        subscriptionId: updatedSubscription.id,
+        clientId: updatedSubscription.userId,
+        type: SubscriptionEventTypes.SUBSCRIPTION_UPDATED,
+        provider: updatedSubscription.provider || 'caktos',
+        severity: 'info',
+        message: `Assinatura atualizada - ${subscription.id}`,
+        payload: payload,
+        origin: 'webhook',
+      });
+    }
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento subscription_updated:`, logError);
   }
 
   console.log(`[WEBHOOK] subscription_updated processado com sucesso - Assinatura: ${subscription.id}`);
@@ -441,11 +458,8 @@ async function processPaymentSucceeded(payload: CaktoPayload) {
     throw new Error("ID do pedido é obrigatório para payment_succeeded");
   }
 
-  // Buscar assinatura (tentar caktos primeiro, depois manual)
-  let subscriptionRecord = await storage.getSubscriptionByProviderId('caktos', subscription.id);
-  if (!subscriptionRecord) {
-    subscriptionRecord = await storage.getSubscriptionByProviderId('manual', subscription.id);
-  }
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
   if (!subscriptionRecord) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
@@ -466,7 +480,7 @@ async function processPaymentSucceeded(payload: CaktoPayload) {
       subscriptionId: subscriptionRecord.id,
       clientId: subscriptionRecord.userId,
       type: SubscriptionEventTypes.PAYMENT_SUCCEEDED,
-      provider: 'caktos',
+      provider: subscriptionRecord.provider || 'caktos',
       severity: 'info',
       message: `Pagamento confirmado - Pedido: ${order.id}`,
       payload: payload,
@@ -491,11 +505,8 @@ async function processPaymentFailed(payload: CaktoPayload) {
     throw new Error("ID da assinatura é obrigatório para payment_failed");
   }
 
-  // Buscar assinatura (tentar caktos primeiro, depois manual)
-  let subscriptionRecord = await storage.getSubscriptionByProviderId('caktos', subscription.id);
-  if (!subscriptionRecord) {
-    subscriptionRecord = await storage.getSubscriptionByProviderId('manual', subscription.id);
-  }
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
   if (!subscriptionRecord) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
@@ -524,7 +535,7 @@ async function processPaymentFailed(payload: CaktoPayload) {
       subscriptionId: subscriptionRecord.id,
       clientId: subscriptionRecord.userId,
       type: SubscriptionEventTypes.PAYMENT_FAILED,
-      provider: 'caktos',
+      provider: subscriptionRecord.provider || 'caktos',
       severity: 'error',
       message: `Pagamento falhou - Pedido: ${order?.id || 'N/A'}`,
       payload: payload,
@@ -549,11 +560,8 @@ async function processSubscriptionCanceled(payload: CaktoPayload) {
     throw new Error("ID da assinatura é obrigatório para subscription_canceled");
   }
 
-  // Buscar assinatura (tentar caktos primeiro, depois manual)
-  let subscriptionRecord = await storage.getSubscriptionByProviderId('caktos', subscription.id);
-  if (!subscriptionRecord) {
-    subscriptionRecord = await storage.getSubscriptionByProviderId('manual', subscription.id);
-  }
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
   if (!subscriptionRecord) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
@@ -577,7 +585,7 @@ async function processSubscriptionCanceled(payload: CaktoPayload) {
       subscriptionId: subscriptionRecord.id,
       clientId: subscriptionRecord.userId,
       type: SubscriptionEventTypes.SUBSCRIPTION_CANCELED,
-      provider: 'caktos',
+      provider: subscriptionRecord.provider || 'caktos',
       severity: 'warning',
       message: `Assinatura cancelada - ${subscription.id}`,
       payload: payload,
@@ -602,11 +610,8 @@ async function processSubscriptionSuspended(payload: CaktoPayload) {
     throw new Error("ID da assinatura é obrigatório para subscription_suspended");
   }
 
-  // Buscar assinatura (tentar caktos primeiro, depois manual)
-  let subscriptionRecord = await storage.getSubscriptionByProviderId('caktos', subscription.id);
-  if (!subscriptionRecord) {
-    subscriptionRecord = await storage.getSubscriptionByProviderId('manual', subscription.id);
-  }
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
   if (!subscriptionRecord) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
@@ -655,11 +660,8 @@ async function processSubscriptionResumed(payload: CaktoPayload) {
     throw new Error("ID da assinatura é obrigatório para subscription_resumed");
   }
 
-  // Buscar assinatura (tentar caktos primeiro, depois manual)
-  let subscriptionRecord = await storage.getSubscriptionByProviderId('caktos', subscription.id);
-  if (!subscriptionRecord) {
-    subscriptionRecord = await storage.getSubscriptionByProviderId('manual', subscription.id);
-  }
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
   if (!subscriptionRecord) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
@@ -683,7 +685,7 @@ async function processSubscriptionResumed(payload: CaktoPayload) {
       subscriptionId: subscriptionRecord.id,
       clientId: subscriptionRecord.userId,
       type: SubscriptionEventTypes.SUBSCRIPTION_REACTIVATED,
-      provider: 'caktos',
+      provider: subscriptionRecord.provider || 'caktos',
       severity: 'info',
       message: `Assinatura reativada - ${subscription.id}`,
       payload: payload,
@@ -771,6 +773,60 @@ async function processPaymentChargeback(payload: CaktoPayload) {
 }
 
 /**
+ * Processa evento subscription_trial_ended
+ */
+async function processSubscriptionTrialEnded(payload: CaktoPayload) {
+  console.log("[WEBHOOK] Processando subscription_trial_ended");
+
+  const { subscription } = payload.data;
+
+  if (!subscription?.id) {
+    throw new Error("ID da assinatura é obrigatório para subscription_trial_ended");
+  }
+
+  // Buscar assinatura usando findSubscriptionByIdentifier (prioriza providerSubscriptionId)
+  const subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
+  if (!subscriptionRecord) {
+    throw new Error(`Assinatura não encontrada: ${subscription.id}`);
+  }
+
+  const now = new Date();
+  const trialEndDate = subscription.trial_end_date ? new Date(subscription.trial_end_date) : now;
+
+  // Atualizar assinatura: status para active, trialEndsAt para a data do trial_end_date
+  await storage.updateSubscription(subscriptionRecord.id, {
+    status: 'active',
+    trialEndsAt: trialEndDate,
+  });
+
+  // Atualizar status do cliente
+  const user = await storage.getUser(subscriptionRecord.userId);
+  if (user) {
+    await storage.updateUser(user.id, {
+      billingStatus: 'active',
+    });
+  }
+
+  // Registrar evento de trial encerrado
+  try {
+    await storage.logSubscriptionEvent({
+      subscriptionId: subscriptionRecord.id,
+      clientId: subscriptionRecord.userId,
+      type: SubscriptionEventTypes.SUBSCRIPTION_TRIAL_ENDED,
+      provider: subscriptionRecord.provider || 'caktos',
+      severity: 'info',
+      message: `Trial encerrado - Assinatura ativada`,
+      payload: payload,
+      origin: 'webhook',
+    });
+  } catch (logError) {
+    console.error(`[WEBHOOK] Erro ao registrar evento subscription_trial_ended:`, logError);
+  }
+
+  console.log(`[WEBHOOK] subscription_trial_ended processado com sucesso - Assinatura: ${subscription.id}`);
+}
+
+/**
  * Função principal para processar eventos de webhook da Cakto
  */
 export async function handleWebhookEvent(payload: CaktoPayload): Promise<void> {
@@ -803,6 +859,9 @@ export async function handleWebhookEvent(payload: CaktoPayload): Promise<void> {
         break;
       case "subscription_resumed":
         await processSubscriptionResumed(payload);
+        break;
+      case "subscription_trial_ended":
+        await processSubscriptionTrialEnded(payload);
         break;
       case "payment_refunded":
         await processPaymentRefunded(payload);

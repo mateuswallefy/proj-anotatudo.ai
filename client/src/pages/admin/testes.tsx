@@ -190,6 +190,7 @@ export default function AdminTestes() {
         description: `Validade avançada! Nova data: ${new Date(data.newEndDate).toLocaleDateString('pt-BR')}`,
       });
       refetchSubscriptions();
+      refetchClients();
     },
     onError: (error: any) => {
       toast({
@@ -219,9 +220,10 @@ export default function AdminTestes() {
     onSuccess: (data) => {
       toast({
         title: "Sucesso!",
-        description: `Pagamento ${data.message} simulado com sucesso!`,
+        description: `Pagamento simulado com sucesso!`,
       });
       refetchSubscriptions();
+      refetchClients();
     },
     onError: (error: any) => {
       toast({
@@ -314,6 +316,7 @@ export default function AdminTestes() {
         description: "Assinatura cancelada com sucesso!",
       });
       refetchSubscriptions();
+      refetchClients();
     },
     onError: (error: any) => {
       toast({
@@ -350,6 +353,7 @@ export default function AdminTestes() {
         description: "Assinatura reativada com sucesso!",
       });
       refetchSubscriptions();
+      refetchClients();
     },
     onError: (error: any) => {
       toast({
@@ -414,6 +418,36 @@ export default function AdminTestes() {
     });
   };
 
+  // Encerrar trial
+  const endTrialMutation = useMutation({
+    mutationFn: async (subscriptionId: string) => {
+      // Buscar assinatura para obter providerSubscriptionId
+      const subscription = subscriptionsData?.find(s => s.id === subscriptionId);
+      if (!subscription) {
+        throw new Error("Assinatura não encontrada");
+      }
+      const response = await apiRequest("POST", "/api/admin/test/end-trial", {
+        subscriptionId: subscription.providerSubscriptionId,
+      });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sucesso!",
+        description: "Trial encerrado com sucesso!",
+      });
+      refetchSubscriptions();
+      refetchClients();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao encerrar trial",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEndTrial = () => {
     if (!selectedSubscriptionId) {
       toast({
@@ -423,10 +457,7 @@ export default function AdminTestes() {
       });
       return;
     }
-    advanceMutation.mutate({
-      subscriptionId: selectedSubscriptionId,
-      days: -1, // Retroceder 1 dia para expirar
-    });
+    endTrialMutation.mutate(selectedSubscriptionId);
   };
 
   const handleSendCustomWebhook = () => {
@@ -712,7 +743,7 @@ export default function AdminTestes() {
 
             <PremiumButton
               onClick={handleEndTrial}
-              disabled={!selectedSubscriptionId || advanceMutation.isPending}
+              disabled={!selectedSubscriptionId || endTrialMutation.isPending}
               variant="outline"
             >
               <X className="h-4 w-4 mr-2" />

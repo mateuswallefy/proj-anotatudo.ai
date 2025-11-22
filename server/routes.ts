@@ -3658,6 +3658,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     days: z.number().int().positive(),
   });
 
+  const testEndTrialSchema = z.object({
+    subscriptionId: z.string(),
+  });
+
   const testPaymentSchema = z.object({
     subscriptionId: z.string(),
     type: z.enum(['payment_succeeded', 'payment_failed', 'payment_refunded', 'payment_chargeback']),
@@ -3687,10 +3691,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Processar webhook usando o ID correto
       await processWebhook(webhookRecord.id, payload);
       
+      // Se o evento envolve uma assinatura, buscar e retornar a assinatura atualizada
+      let updatedSubscription = null;
+      if (payload.data?.subscription?.id) {
+        const subscription = await (storage as any).findSubscriptionByIdentifier(payload.data.subscription.id);
+        if (subscription) {
+          updatedSubscription = await storage.getSubscriptionById(subscription.id);
+        }
+      }
+      
       res.json({ 
         success: true, 
         message: `Webhook ${payload.event} processado com sucesso`,
         webhookId: webhookRecord.id,
+        subscription: updatedSubscription,
       });
     } catch (error: any) {
       console.error("[TEST] Erro ao simular webhook:", error);
@@ -3895,7 +3909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar se expirou
       const now = new Date();
       if (newEnd < now && subscription.status !== 'expired') {
-        await storage.updateSubscription(data.subscriptionId, {
+        await storage.updateSubscription(subscriptionInternalId, {
           status: 'overdue',
         });
         
@@ -3943,6 +3957,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false,
         message: error.message || "Falha ao avançar validade",
+      });
+    }
+  });
+
+  // POST /api/admin/test/end-trial - Encerra trial de uma assinatura
+  app.post("/api/admin/test/end-trial", isAuthenticated, requireAdminRoot, async (req: any, res) => {
+    try {
+      const data = testEndTrialSchema.parse(req.body);
+      
+      // Buscar por providerSubscriptionId primeiro, depois por ID interno
+      const subscription = await (storage as any).findSubscriptionByIdentifier(data.subscriptionId);
+      if (!subscription) {
+        return res.status(404).json({ message: "Assinatura não encontrada" });
+      }
+      
+      const now = new Date();
+      
+      // Criar payload fake de webhook para encerrar trial
+      const webhookPayload = {
+        event: "subscription_trial_ended",
+        data: {
+          subscription: {
+            id: subscription.providerSubscriptionId,
+            providerId: subscription.providerSubscriptionId,
+            providerSubscriptionId: subscription.providerSubscriptionId,
+            status: "active", // Trial encerrado = status active
+            trial_end_date: now.toISOString().split('T')[0], // Data de hoje
+            next_payment_date: subscription.currentPeriodEnd 
+              ? new Date(subscription.currentPeriodEnd).toISOString().split('T')[0]
+              : undefined,
+            provider: subscription.provider,
+          },
+          meta: {
+            isTest: true,
+          },
+        },
+      };
+      
+      // Processar webhook
+      const { processWebhook } = await import("./webhooks/webhookProcessor.js");
+      
+      // Registrar webhook primeiro
+      const webhookRecord = await storage.createWebhookEvent({
+        event: webhookPayload.event,
+        type: webhookPayload.event,
+        payload: webhookPayload,
+        status: 'pending',
+        processed: false,
+      });
+      
+      // Processar webhook usando o ID correto
+      await processWebhook(webhookRecord.id, webhookPayload);
+      
+      // Buscar assinatura atualizada
+      const updated = await storage.getSubscriptionById(subscription.id);
+      
+      res.json({ 
+        success: true,
+        message: "Trial encerrado com sucesso",
+        subscription: updated,
+      });
+    } catch (error: any) {
+      console.error("[TEST] Erro ao encerrar trial:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Dados inválidos",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ 
+        success: false,
+        message: error.message || "Falha ao encerrar trial",
       });
     }
   });
@@ -4000,10 +4087,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Processar webhook usando o ID correto
       await processWebhook(webhookRecord.id, webhookPayload);
       
+      // Buscar assinatura atualizada
+      const updated = await storage.getSubscriptionById(subscription.id);
+      
       res.json({ 
         success: true,
         message: `Pagamento ${data.type} simulado com sucesso`,
-        webhookPayload,
+        subscription: updated,
       });
     } catch (error: any) {
       console.error("[TEST] Erro ao simular pagamento:", error);
