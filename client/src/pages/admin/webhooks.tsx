@@ -375,7 +375,7 @@ export default function AdminWebhooks() {
                   <TableHead className="w-[140px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
                   <TableHead className="w-[150px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
                   <TableHead className="w-[180px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
-                  <TableHead className="w-[100px] py-3 px-4 text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                  <TableHead className="w-[180px] text-right py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -389,7 +389,7 @@ export default function AdminWebhooks() {
                         <TableCell className="py-3 px-4"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="py-3 px-4 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                        <TableCell className="w-[180px] py-3 px-4 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -485,8 +485,8 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <TableCell className="w-[180px] text-right py-3 px-4">
+                        <div className="flex items-center justify-end gap-3">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -500,7 +500,7 @@ export default function AdminWebhooks() {
                             <button
                               onClick={() => reprocessMutation.mutate(group.lastAttempt.id)}
                               disabled={reprocessMutation.isPending}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                             >
                               {reprocessMutation.isPending ? (
                                 <span className="flex items-center gap-1.5">
