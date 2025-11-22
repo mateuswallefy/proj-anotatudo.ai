@@ -363,10 +363,9 @@ export default function AdminWebhooks() {
         {/* Webhook Events Table */}
         <StripeSectionCard 
           title="Últimos Webhooks Recebidos"
-          className="p-0 overflow-hidden"
         >
-          <div className="max-w-[1200px] mx-auto px-6 w-full">
-            <ScrollArea className="w-full">
+          <div className="w-full max-w-[1200px] mx-auto px-6">
+            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
               <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
@@ -487,7 +486,7 @@ export default function AdminWebhooks() {
                         )}
                       </TableCell>
                       <TableCell className="w-[180px] text-right py-3 px-4">
-                        <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center justify-end gap-3 whitespace-nowrap">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -519,8 +518,8 @@ export default function AdminWebhooks() {
                   );
                 })}
               </TableBody>
-            </Table>
-            </ScrollArea>
+              </Table>
+            </div>
           </div>
         </StripeSectionCard>
       </div>
