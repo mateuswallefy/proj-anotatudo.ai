@@ -30,6 +30,10 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Desabilitar cache para garantir rebuilds limpos
+    cache: false,
+    // Forçar recompilação do CSS/Tailwind
+    cssCodeSplit: false,
   },
   server: {
     fs: {

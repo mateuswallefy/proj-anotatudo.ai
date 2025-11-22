@@ -8,8 +8,8 @@ packages = ["lsof"]
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+build = ["npm", "run", "rebuild:fast"]
+run = ["npm", "run", "start:direct"]
 
 [[ports]]
 localPort = 5000
