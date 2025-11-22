@@ -131,7 +131,7 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
 
   return (
     <Dialog open={!!webhookId} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[900px] max-w-[95vw] w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[650px] max-w-[95vw] w-full max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-4 border-b">
           <DialogTitle className="text-2xl font-bold">Detalhes do Webhook</DialogTitle>
           <DialogDescription className="sr-only">
