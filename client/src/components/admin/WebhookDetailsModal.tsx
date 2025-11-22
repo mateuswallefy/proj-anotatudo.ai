@@ -131,7 +131,7 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
 
   return (
     <Dialog open={!!webhookId} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[900px] max-w-[95vw] w-full max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-4 border-b">
           <DialogTitle className="text-2xl font-bold">Detalhes do Webhook</DialogTitle>
           <DialogDescription className="sr-only">
@@ -186,7 +186,7 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
               <TabsTrigger value="headers">Headers</TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-auto mt-4">
+            <div className="w-full min-w-0 flex-1 overflow-auto mt-4">
               {/* Payload Tab */}
               <TabsContent value="payload" className="mt-0 space-y-4">
                 <div className="relative">
@@ -210,8 +210,8 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
                       )}
                     </Button>
                   </div>
-                  <div className="max-h-[500px] overflow-auto rounded-lg bg-gray-900 p-4 border border-gray-700">
-                    <pre className="text-gray-100 text-sm whitespace-pre overflow-x-auto">
+                  <div className="w-full min-w-0 max-h-[500px] overflow-auto rounded-lg bg-gray-900 p-4 border border-gray-700">
+                    <pre className="text-gray-100 text-sm whitespace-pre overflow-x-auto w-full min-w-0">
                       <code className="font-mono">
                         {JSON.stringify(webhookDetails.payload, null, 2)}
                       </code>
@@ -401,8 +401,8 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
               {/* Headers Tab */}
               <TabsContent value="headers" className="mt-0">
                 {webhookDetails.headers && Object.keys(webhookDetails.headers).length > 0 ? (
-                  <div className="max-h-[500px] overflow-auto rounded-lg bg-gray-900 p-4 border border-gray-700">
-                    <pre className="text-gray-100 text-sm whitespace-pre overflow-x-auto">
+                  <div className="w-full min-w-0 max-h-[500px] overflow-auto rounded-lg bg-gray-900 p-4 border border-gray-700">
+                    <pre className="text-gray-100 text-sm whitespace-pre overflow-x-auto w-full min-w-0">
                       <code className="font-mono">
                         {JSON.stringify(webhookDetails.headers, null, 2)}
                       </code>
