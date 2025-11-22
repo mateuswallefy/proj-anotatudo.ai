@@ -4048,13 +4048,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const amount = data.amount || subscription.priceCents;
       
       // Criar payload fake de webhook idêntico ao da Cakto
+      // IMPORTANTE: Usar o MESMO providerSubscriptionId em todos os campos
+      const providerSubscriptionId = subscription.providerSubscriptionId;
+      
       const webhookPayload = {
         event: data.type,
         data: {
           subscription: {
-            id: subscription.providerSubscriptionId, // Usar providerSubscriptionId (mesmo que foi usado na criação)
-            providerId: subscription.providerSubscriptionId,
-            providerSubscriptionId: subscription.providerSubscriptionId,
+            id: providerSubscriptionId, // ID principal - deve ser o mesmo em todos os lugares
+            providerId: providerSubscriptionId, // Mesmo ID
+            providerSubscriptionId: providerSubscriptionId, // Mesmo ID
             status: subscription.status,
             provider: subscription.provider,
           },
@@ -4068,6 +4071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           meta: {
             isTest: true,
+            subscriptionId: providerSubscriptionId, // Garantir que meta também tem o ID
           },
         },
       };

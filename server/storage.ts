@@ -1048,20 +1048,38 @@ export class DatabaseStorage implements IStorage {
 
   // Helper para buscar assinatura por providerSubscriptionId ou ID interno (tenta provider primeiro)
   async findSubscriptionByIdentifier(identifier: string, provider?: 'caktos' | 'manual'): Promise<Subscription | undefined> {
-    // Primeiro, tentar buscar por providerSubscriptionId em ambos os providers
+    console.log(`[STORAGE] Buscando assinatura por identificador: ${identifier}, provider: ${provider || 'ambos'}`);
+    
+    // Primeiro, tentar buscar por providerSubscriptionId no provider especificado
     if (provider) {
       const byProvider = await this.getSubscriptionByProviderId(provider, identifier);
-      if (byProvider) return byProvider;
+      if (byProvider) {
+        console.log(`[STORAGE] ✅ Assinatura encontrada por providerSubscriptionId no provider ${provider}: ${byProvider.id}`);
+        return byProvider;
+      }
     } else {
-      // Tentar ambos os providers
-      const byCaktos = await this.getSubscriptionByProviderId('caktos', identifier);
-      if (byCaktos) return byCaktos;
+      // Tentar ambos os providers (priorizar manual para testes)
       const byManual = await this.getSubscriptionByProviderId('manual', identifier);
-      if (byManual) return byManual;
+      if (byManual) {
+        console.log(`[STORAGE] ✅ Assinatura encontrada por providerSubscriptionId no provider manual: ${byManual.id}`);
+        return byManual;
+      }
+      const byCaktos = await this.getSubscriptionByProviderId('caktos', identifier);
+      if (byCaktos) {
+        console.log(`[STORAGE] ✅ Assinatura encontrada por providerSubscriptionId no provider caktos: ${byCaktos.id}`);
+        return byCaktos;
+      }
     }
     
     // Se não encontrou, tentar buscar por ID interno
-    return await this.getSubscriptionById(identifier);
+    const byInternalId = await this.getSubscriptionById(identifier);
+    if (byInternalId) {
+      console.log(`[STORAGE] ✅ Assinatura encontrada por ID interno: ${byInternalId.id}`);
+      return byInternalId;
+    }
+    
+    console.log(`[STORAGE] ❌ Assinatura NÃO encontrada com identificador: ${identifier}`);
+    return undefined;
   }
 
   async getSubscriptionByProviderId(provider: 'caktos' | 'manual', providerSubscriptionId: string): Promise<Subscription | undefined> {

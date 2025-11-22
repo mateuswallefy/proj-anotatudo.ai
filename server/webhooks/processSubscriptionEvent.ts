@@ -162,6 +162,40 @@ async function upsertSubscription(
     subscriptionData.id
   );
 
+  // IMPORTANTE: Se estamos criando uma nova assinatura para um cliente que já tem uma,
+  // devemos cancelar a assinatura anterior para garantir apenas UMA assinatura ativa por cliente
+  if (!existingSubscription) {
+    const userSubscriptions = await storage.getSubscriptionsByUserId(userId);
+    const activeSubscriptions = userSubscriptions.filter(
+      sub => sub.status !== 'canceled' && sub.providerSubscriptionId !== subscriptionData.id
+    );
+    
+    // Cancelar todas as assinaturas anteriores ativas do mesmo cliente
+    for (const oldSubscription of activeSubscriptions) {
+      console.log(`[WEBHOOK] Cancelando assinatura anterior do cliente: ${oldSubscription.id} (providerSubscriptionId: ${oldSubscription.providerSubscriptionId})`);
+      await storage.updateSubscription(oldSubscription.id, {
+        status: 'canceled',
+        cancelAt: new Date(),
+      });
+      
+      // Registrar evento de cancelamento automático
+      try {
+        await storage.logSubscriptionEvent({
+          subscriptionId: oldSubscription.id,
+          clientId: userId,
+          type: SubscriptionEventTypes.SUBSCRIPTION_CANCELED,
+          provider: oldSubscription.provider || 'caktos',
+          severity: 'info',
+          message: `Assinatura anterior cancelada automaticamente ao criar nova assinatura`,
+          payload: { newSubscriptionId: subscriptionData.id },
+          origin: 'system',
+        });
+      } catch (logError) {
+        console.error(`[WEBHOOK] Erro ao registrar evento de cancelamento automático:`, logError);
+      }
+    }
+  }
+
   const amount = subscriptionData.amount || 0;
   const priceCents = Math.round(amount * 100); // Converter para centavos
 
@@ -516,7 +550,7 @@ async function processPaymentFailed(payload: CaktoPayload) {
     await createOrder(subscriptionRecord.id, order);
   }
 
-  // Atualizar assinatura para overdue
+  // Atualizar assinatura para overdue (pagamento falhou)
   await storage.updateSubscription(subscriptionRecord.id, {
     status: 'overdue',
   });
@@ -566,9 +600,10 @@ async function processSubscriptionCanceled(payload: CaktoPayload) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
 
-  // Atualizar assinatura para canceled
+  // Atualizar assinatura para canceled com cancelAt
   await storage.updateSubscription(subscriptionRecord.id, {
     status: 'canceled',
+    cancelAt: new Date(),
   });
 
   // Atualizar status do cliente
@@ -704,7 +739,7 @@ async function processSubscriptionResumed(payload: CaktoPayload) {
 async function processPaymentRefunded(payload: CaktoPayload) {
   console.log("[WEBHOOK] Processando payment_refunded");
 
-  const { order } = payload.data;
+  const { order, subscription } = payload.data;
 
   if (!order?.id) {
     throw new Error("ID do pedido é obrigatório para payment_refunded");
@@ -730,6 +765,35 @@ async function processPaymentRefunded(payload: CaktoPayload) {
       picpayQrCode: existingOrder.picpayQrCode,
       meta: existingOrder.meta,
     });
+
+    // Buscar assinatura para registrar evento
+    // Primeiro tentar pelo subscription no payload, depois pelo order
+    let subscriptionRecord = null;
+    if (subscription?.id) {
+      subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
+    } else if (existingOrder?.subscriptionId) {
+      subscriptionRecord = await storage.getSubscriptionById(existingOrder.subscriptionId);
+    }
+    
+    if (subscriptionRecord) {
+      // Registrar evento de estorno
+      // Nota: O schema não tem status "refunded" para assinaturas, então mantemos o status atual
+      // mas registramos o evento
+      try {
+        await storage.logSubscriptionEvent({
+          subscriptionId: subscriptionRecord.id,
+          clientId: subscriptionRecord.userId,
+          type: SubscriptionEventTypes.PAYMENT_REFUNDED,
+          provider: subscriptionRecord.provider || 'caktos',
+          severity: 'warning',
+          message: `Estorno processado - Pedido: ${order.id}`,
+          payload: payload,
+          origin: 'webhook',
+        });
+      } catch (logError) {
+        console.error(`[WEBHOOK] Erro ao registrar evento payment_refunded:`, logError);
+      }
+    }
   }
 
   console.log(`[WEBHOOK] payment_refunded processado com sucesso - Pedido: ${order.id}`);
@@ -741,7 +805,7 @@ async function processPaymentRefunded(payload: CaktoPayload) {
 async function processPaymentChargeback(payload: CaktoPayload) {
   console.log("[WEBHOOK] Processando payment_chargeback");
 
-  const { order } = payload.data;
+  const { order, subscription } = payload.data;
 
   if (!order?.id) {
     throw new Error("ID do pedido é obrigatório para payment_chargeback");
@@ -767,6 +831,46 @@ async function processPaymentChargeback(payload: CaktoPayload) {
       picpayQrCode: existingOrder.picpayQrCode,
       meta: existingOrder.meta,
     });
+
+    // Buscar assinatura para atualizar status
+    // Primeiro tentar pelo subscription no payload, depois pelo order
+    let subscriptionRecord = null;
+    if (subscription?.id) {
+      subscriptionRecord = await (storage as any).findSubscriptionByIdentifier(subscription.id);
+    } else if (existingOrder?.subscriptionId) {
+      subscriptionRecord = await storage.getSubscriptionById(existingOrder.subscriptionId);
+    }
+    
+    if (subscriptionRecord) {
+      // Atualizar assinatura para paused (equivalente a suspended)
+      await storage.updateSubscription(subscriptionRecord.id, {
+        status: 'paused',
+      });
+
+      // Atualizar status do cliente
+      const user = await storage.getUser(subscriptionRecord.userId);
+      if (user) {
+        await storage.updateUser(user.id, {
+          billingStatus: 'paused',
+        });
+      }
+
+      // Registrar evento de chargeback
+      try {
+        await storage.logSubscriptionEvent({
+          subscriptionId: subscriptionRecord.id,
+          clientId: subscriptionRecord.userId,
+          type: SubscriptionEventTypes.PAYMENT_REFUNDED, // Usar PAYMENT_REFUNDED como tipo genérico
+          provider: subscriptionRecord.provider || 'caktos',
+          severity: 'error',
+          message: `Chargeback processado - Assinatura suspensa - Pedido: ${order.id}`,
+          payload: payload,
+          origin: 'webhook',
+        });
+      } catch (logError) {
+        console.error(`[WEBHOOK] Erro ao registrar evento payment_chargeback:`, logError);
+      }
+    }
   }
 
   console.log(`[WEBHOOK] payment_chargeback processado com sucesso - Pedido: ${order.id}`);
@@ -794,9 +898,16 @@ async function processSubscriptionTrialEnded(payload: CaktoPayload) {
   const trialEndDate = subscription.trial_end_date ? new Date(subscription.trial_end_date) : now;
 
   // Atualizar assinatura: status para active, trialEndsAt para a data do trial_end_date
+  // Se next_payment_date estiver presente, atualizar currentPeriodEnd também
+  let currentPeriodEnd = subscriptionRecord.currentPeriodEnd;
+  if (subscription.next_payment_date) {
+    currentPeriodEnd = new Date(subscription.next_payment_date);
+  }
+
   await storage.updateSubscription(subscriptionRecord.id, {
     status: 'active',
     trialEndsAt: trialEndDate,
+    currentPeriodEnd: currentPeriodEnd,
   });
 
   // Atualizar status do cliente
@@ -823,7 +934,7 @@ async function processSubscriptionTrialEnded(payload: CaktoPayload) {
     console.error(`[WEBHOOK] Erro ao registrar evento subscription_trial_ended:`, logError);
   }
 
-  console.log(`[WEBHOOK] subscription_trial_ended processado com sucesso - Assinatura: ${subscription.id}`);
+  console.log(`[WEBHOOK] subscription_trial_ended processado com sucesso - Assinatura: ${subscription.id}, Status: active`);
 }
 
 /**
