@@ -375,7 +375,7 @@ export default function AdminWebhooks() {
                     <TableHead className="w-[125px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
                     <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
                     <TableHead className="w-[145px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
-                    <TableHead className="w-[125px] text-right px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                    <TableHead className="w-[140px] text-right px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
@@ -389,7 +389,7 @@ export default function AdminWebhooks() {
                         <TableCell className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="w-[125px] px-4 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                        <TableCell className="w-[140px] px-4 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -485,30 +485,30 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="w-[125px] text-right px-4 py-3">
-                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      <TableCell className="w-[140px] text-right px-4 py-3">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setSelectedWebhookId(group.lastAttempt.id)}
-                            className="gap-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-7 px-2"
+                            className="gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-7 px-1.5 text-xs"
                           >
-                            <Eye className="h-4 w-4" />
-                            <span className="text-sm">Detalhes</span>
+                            <Eye className="h-3.5 w-3.5" />
+                            <span className="text-xs">Detalhes</span>
                           </Button>
                           {status === 'failed' && (
                             <button
                               onClick={() => reprocessMutation.mutate(group.lastAttempt.id)}
                               disabled={reprocessMutation.isPending}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                             >
                               {reprocessMutation.isPending ? (
-                                <span className="flex items-center gap-1.5">
-                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                  Reprocessando...
+                                <span className="flex items-center gap-1">
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                  <span className="text-xs">Reprocessando...</span>
                                 </span>
                               ) : (
-                                "Reprocessar"
+                                <span className="text-xs">Reprocessar</span>
                               )}
                             </button>
                           )}
