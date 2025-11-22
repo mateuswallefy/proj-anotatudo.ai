@@ -1104,6 +1104,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSubscription(id: string, updates: Partial<InsertSubscription>): Promise<Subscription | undefined> {
+    console.log(`[STORAGE] [UPDATE] Atualizando assinatura ID interno: ${id}`);
+    console.log(`[STORAGE] [UPDATE] Campos a atualizar:`, JSON.stringify(updates, null, 2));
+    
+    // Buscar assinatura antes da atualização para log
+    const before = await this.getSubscriptionById(id);
+    if (before) {
+      console.log(`[STORAGE] [UPDATE] Antes: status=${before.status}, trialEndsAt=${before.trialEndsAt}, cancelAt=${before.cancelAt}, currentPeriodEnd=${before.currentPeriodEnd}`);
+    } else {
+      console.log(`[STORAGE] [UPDATE] ⚠️ Assinatura não encontrada antes da atualização: ${id}`);
+    }
+    
     const [updated] = await db
       .update(subscriptions)
       .set({
@@ -1112,6 +1123,13 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(subscriptions.id, id))
       .returning();
+    
+    if (updated) {
+      console.log(`[STORAGE] [UPDATE] ✅ Depois: status=${updated.status}, trialEndsAt=${updated.trialEndsAt}, cancelAt=${updated.cancelAt}, currentPeriodEnd=${updated.currentPeriodEnd}`);
+    } else {
+      console.log(`[STORAGE] [UPDATE] ❌ Nenhuma linha atualizada para ID: ${id}`);
+    }
+    
     return updated;
   }
 

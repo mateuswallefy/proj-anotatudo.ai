@@ -503,9 +503,24 @@ async function processPaymentSucceeded(payload: CaktoPayload) {
 
   // Atualizar assinatura para active se estava overdue
   if (subscriptionRecord.status === 'overdue') {
-    await storage.updateSubscription(subscriptionRecord.id, {
-      status: 'active',
+    console.log(`[WEBHOOK] [UPDATE] Assinatura estava overdue, atualizando para active`);
+    console.log(`[WEBHOOK] [UPDATE] ID interno: ${subscriptionRecord.id}, Status atual: ${subscriptionRecord.status}`);
+
+    const updateData = {
+      status: 'active' as const,
+    };
+
+    console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+      status: updateData.status,
     });
+
+    const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+    
+    if (updated) {
+      console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}`);
+    } else {
+      console.log(`[WEBHOOK] [UPDATE] ⚠️ Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+    }
   }
 
   // Registrar evento de pagamento bem-sucedido
@@ -550,14 +565,29 @@ async function processPaymentFailed(payload: CaktoPayload) {
     await createOrder(subscriptionRecord.id, order);
   }
 
-  // Atualizar assinatura para overdue (pagamento falhou)
-  await storage.updateSubscription(subscriptionRecord.id, {
-    status: 'overdue',
+  console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
+  console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}`);
+
+  const updateData = {
+    status: 'overdue' as const,
+  };
+
+  console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+    status: updateData.status,
   });
+
+  const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+  
+  if (!updated) {
+    throw new Error(`Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+  }
+
+  console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}`);
 
   // Atualizar status do cliente
   const user = await storage.getUser(subscriptionRecord.userId);
   if (user) {
+    console.log(`[WEBHOOK] [UPDATE] Atualizando billingStatus do cliente ${user.id} para 'overdue'`);
     await storage.updateUser(user.id, {
       billingStatus: 'overdue',
     });
@@ -586,7 +616,9 @@ async function processPaymentFailed(payload: CaktoPayload) {
  * Processa evento subscription_canceled
  */
 async function processSubscriptionCanceled(payload: CaktoPayload) {
+  console.log("[WEBHOOK] ========================================");
   console.log("[WEBHOOK] Processando subscription_canceled");
+  console.log("[WEBHOOK] Payload:", JSON.stringify(payload, null, 2));
 
   const { subscription } = payload.data;
 
@@ -600,15 +632,32 @@ async function processSubscriptionCanceled(payload: CaktoPayload) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
 
-  // Atualizar assinatura para canceled com cancelAt
-  await storage.updateSubscription(subscriptionRecord.id, {
-    status: 'canceled',
-    cancelAt: new Date(),
+  console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
+  console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}, cancelAt: ${subscriptionRecord.cancelAt}`);
+
+  const cancelAt = new Date();
+  const updateData = {
+    status: 'canceled' as const,
+    cancelAt: cancelAt,
+  };
+
+  console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+    status: updateData.status,
+    cancelAt: updateData.cancelAt.toISOString(),
   });
+
+  const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+  
+  if (!updated) {
+    throw new Error(`Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+  }
+
+  console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}, cancelAt: ${updated.cancelAt}`);
 
   // Atualizar status do cliente
   const user = await storage.getUser(subscriptionRecord.userId);
   if (user) {
+    console.log(`[WEBHOOK] [UPDATE] Atualizando billingStatus do cliente ${user.id} para 'canceled'`);
     await storage.updateUser(user.id, {
       billingStatus: 'canceled',
     });
@@ -626,11 +675,13 @@ async function processSubscriptionCanceled(payload: CaktoPayload) {
       payload: payload,
       origin: 'webhook',
     });
+    console.log(`[WEBHOOK] ✅ Evento subscription_canceled registrado`);
   } catch (logError) {
-    console.error(`[WEBHOOK] Erro ao registrar evento subscription_canceled:`, logError);
+    console.error(`[WEBHOOK] ❌ Erro ao registrar evento subscription_canceled:`, logError);
   }
 
-  console.log(`[WEBHOOK] subscription_canceled processado com sucesso - Assinatura: ${subscription.id}`);
+  console.log(`[WEBHOOK] ✅ subscription_canceled processado com sucesso - Assinatura: ${subscription.id}, Status: ${updated.status}`);
+  console.log(`[WEBHOOK] ========================================`);
 }
 
 /**
@@ -842,14 +893,29 @@ async function processPaymentChargeback(payload: CaktoPayload) {
     }
     
     if (subscriptionRecord) {
-      // Atualizar assinatura para paused (equivalente a suspended)
-      await storage.updateSubscription(subscriptionRecord.id, {
-        status: 'paused',
+      console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
+      console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}`);
+
+      const updateData = {
+        status: 'paused' as const,
+      };
+
+      console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+        status: updateData.status,
       });
+
+      const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+      
+      if (!updated) {
+        throw new Error(`Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+      }
+
+      console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}`);
 
       // Atualizar status do cliente
       const user = await storage.getUser(subscriptionRecord.userId);
       if (user) {
+        console.log(`[WEBHOOK] [UPDATE] Atualizando billingStatus do cliente ${user.id} para 'paused'`);
         await storage.updateUser(user.id, {
           billingStatus: 'paused',
         });
@@ -880,7 +946,9 @@ async function processPaymentChargeback(payload: CaktoPayload) {
  * Processa evento subscription_trial_ended
  */
 async function processSubscriptionTrialEnded(payload: CaktoPayload) {
+  console.log("[WEBHOOK] ========================================");
   console.log("[WEBHOOK] Processando subscription_trial_ended");
+  console.log("[WEBHOOK] Payload:", JSON.stringify(payload, null, 2));
 
   const { subscription } = payload.data;
 
@@ -894,6 +962,9 @@ async function processSubscriptionTrialEnded(payload: CaktoPayload) {
     throw new Error(`Assinatura não encontrada: ${subscription.id}`);
   }
 
+  console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
+  console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}, trialEndsAt: ${subscriptionRecord.trialEndsAt}`);
+
   const now = new Date();
   const trialEndDate = subscription.trial_end_date ? new Date(subscription.trial_end_date) : now;
 
@@ -904,15 +975,30 @@ async function processSubscriptionTrialEnded(payload: CaktoPayload) {
     currentPeriodEnd = new Date(subscription.next_payment_date);
   }
 
-  await storage.updateSubscription(subscriptionRecord.id, {
-    status: 'active',
+  const updateData = {
+    status: 'active' as const,
     trialEndsAt: trialEndDate,
     currentPeriodEnd: currentPeriodEnd,
+  };
+
+  console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+    status: updateData.status,
+    trialEndsAt: updateData.trialEndsAt?.toISOString(),
+    currentPeriodEnd: updateData.currentPeriodEnd?.toISOString(),
   });
+
+  const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+  
+  if (!updated) {
+    throw new Error(`Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+  }
+
+  console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}, trialEndsAt: ${updated.trialEndsAt}`);
 
   // Atualizar status do cliente
   const user = await storage.getUser(subscriptionRecord.userId);
   if (user) {
+    console.log(`[WEBHOOK] [UPDATE] Atualizando billingStatus do cliente ${user.id} para 'active'`);
     await storage.updateUser(user.id, {
       billingStatus: 'active',
     });
@@ -930,11 +1016,13 @@ async function processSubscriptionTrialEnded(payload: CaktoPayload) {
       payload: payload,
       origin: 'webhook',
     });
+    console.log(`[WEBHOOK] ✅ Evento subscription_trial_ended registrado`);
   } catch (logError) {
-    console.error(`[WEBHOOK] Erro ao registrar evento subscription_trial_ended:`, logError);
+    console.error(`[WEBHOOK] ❌ Erro ao registrar evento subscription_trial_ended:`, logError);
   }
 
-  console.log(`[WEBHOOK] subscription_trial_ended processado com sucesso - Assinatura: ${subscription.id}, Status: active`);
+  console.log(`[WEBHOOK] ✅ subscription_trial_ended processado com sucesso - Assinatura: ${subscription.id}, Status: ${updated.status}`);
+  console.log(`[WEBHOOK] ========================================`);
 }
 
 /**
