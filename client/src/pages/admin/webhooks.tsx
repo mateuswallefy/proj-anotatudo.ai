@@ -365,8 +365,9 @@ export default function AdminWebhooks() {
           title="Últimos Webhooks Recebidos"
           className="p-0 overflow-hidden"
         >
-          <ScrollArea className="w-full">
-            <Table>
+          <div className="max-w-[1200px] mx-auto px-6 w-full">
+            <ScrollArea className="w-full">
+              <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                   <TableHead className="w-[220px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Evento</TableHead>
@@ -519,7 +520,8 @@ export default function AdminWebhooks() {
                 })}
               </TableBody>
             </Table>
-          </ScrollArea>
+            </ScrollArea>
+          </div>
         </StripeSectionCard>
       </div>
 
