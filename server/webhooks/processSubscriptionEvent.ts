@@ -105,6 +105,9 @@ async function upsertCustomer(customerData: CaktoPayload['data']['customer']) {
   const firstName = nameParts[0] || "";
   const lastName = nameParts.slice(1).join(" ") || "";
 
+  // Preservar metadata do customer se presente (importante para testes)
+  const customerMetadata = (customerData as any).metadata || {};
+  
   const userData = {
     email: customerData.email,
     firstName: firstName || undefined,
@@ -116,6 +119,8 @@ async function upsertCustomer(customerData: CaktoPayload['data']['customer']) {
     metadata: {
       docNumber: customerData.doc_number,
       caktoStatus: customerData.status,
+      // Preservar metadata do customer (especialmente isTest e createdBy)
+      ...customerMetadata,
     },
   };
 

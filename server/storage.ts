@@ -2190,13 +2190,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTestClients(): Promise<number> {
     // Delete users where metadata contains isTest=true AND they don't have real subscriptions
+    // Um cliente real é aquele que tem pelo menos uma assinatura com meta.isTest != 'true' ou NULL
     const result = await db.execute(sql`
       DELETE FROM users 
       WHERE metadata::jsonb->>'isTest' = 'true'
-         AND NOT EXISTS (
-           SELECT 1 FROM subscriptions s 
-           WHERE s.user_id = users.id 
-           AND (s.meta->>'isTest' IS NULL OR s.meta->>'isTest' != 'true')
+         AND id NOT IN (
+           SELECT DISTINCT s.user_id 
+           FROM subscriptions s 
+           WHERE s.user_id IS NOT NULL
+             AND (s.meta->>'isTest' IS NULL OR s.meta->>'isTest' != 'true')
          )
     `);
     return result.rowCount || 0;

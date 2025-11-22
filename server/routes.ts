@@ -3780,6 +3780,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             phone: data.customerPhone || undefined,
             doc_number: docNumber,
             status: "active",
+            metadata: {
+              isTest: true,
+              createdBy: "admin",
+            },
           },
           order: {
             id: testOrderId,
