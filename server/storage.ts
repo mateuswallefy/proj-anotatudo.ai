@@ -1104,33 +1104,119 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSubscription(id: string, updates: Partial<InsertSubscription>): Promise<Subscription | undefined> {
-    console.log(`[STORAGE] [UPDATE] Atualizando assinatura ID interno: ${id}`);
-    console.log(`[STORAGE] [UPDATE] Campos a atualizar:`, JSON.stringify(updates, null, 2));
+    console.log(`[STORAGE] ========================================`);
+    console.log(`[STORAGE] [UPDATE] Iniciando atualização de assinatura`);
+    console.log(`[STORAGE] [UPDATE] ID interno: ${id}`);
     
-    // Buscar assinatura antes da atualização para log
+    // Buscar assinatura antes da atualização para log e preservar dados
     const before = await this.getSubscriptionById(id);
-    if (before) {
-      console.log(`[STORAGE] [UPDATE] Antes: status=${before.status}, trialEndsAt=${before.trialEndsAt}, cancelAt=${before.cancelAt}, currentPeriodEnd=${before.currentPeriodEnd}`);
-    } else {
-      console.log(`[STORAGE] [UPDATE] ⚠️ Assinatura não encontrada antes da atualização: ${id}`);
+    if (!before) {
+      console.log(`[STORAGE] [UPDATE] ❌ Assinatura não encontrada: ${id}`);
+      console.log(`[STORAGE] ========================================`);
+      return undefined;
     }
     
-    const [updated] = await db
-      .update(subscriptions)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(subscriptions.id, id))
-      .returning();
+    console.log(`[STORAGE] [UPDATE] Before Update:`, JSON.stringify({
+      id: before.id,
+      status: before.status,
+      trialEndsAt: before.trialEndsAt,
+      cancelAt: before.cancelAt,
+      currentPeriodEnd: before.currentPeriodEnd,
+      meta: before.meta,
+    }, null, 2));
     
-    if (updated) {
-      console.log(`[STORAGE] [UPDATE] ✅ Depois: status=${updated.status}, trialEndsAt=${updated.trialEndsAt}, cancelAt=${updated.cancelAt}, currentPeriodEnd=${updated.currentPeriodEnd}`);
-    } else {
-      console.log(`[STORAGE] [UPDATE] ❌ Nenhuma linha atualizada para ID: ${id}`);
+    console.log(`[STORAGE] [UPDATE] Updates recebidos:`, JSON.stringify(updates, null, 2));
+    
+    // IMPORTANTE: Remover campos undefined para evitar que sejam setados como NULL no banco
+    const cleanUpdates: any = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        cleanUpdates[key] = value;
+      }
     }
     
-    return updated;
+    // Preservar meta existente ao mesclar com nova meta
+    if (cleanUpdates.meta && before.meta) {
+      cleanUpdates.meta = {
+        ...(before.meta as any),
+        ...(cleanUpdates.meta as any),
+      };
+    } else if (cleanUpdates.meta && !before.meta) {
+      // Se não tinha meta antes, usar a nova
+      cleanUpdates.meta = cleanUpdates.meta;
+    }
+    // Se não tem meta nos updates, não incluir no cleanUpdates (preserva a existente)
+    
+    console.log(`[STORAGE] [UPDATE] Clean updates (sem undefined):`, JSON.stringify(cleanUpdates, null, 2));
+    
+    // Verificar se há algo para atualizar
+    if (Object.keys(cleanUpdates).length === 0) {
+      console.log(`[STORAGE] [UPDATE] ⚠️ Nenhum campo para atualizar (todos eram undefined)`);
+      console.log(`[STORAGE] ========================================`);
+      return before;
+    }
+    
+    // Garantir que updatedAt sempre seja atualizado
+    cleanUpdates.updatedAt = new Date();
+    
+    try {
+      console.log(`[STORAGE] [UPDATE] Executando UPDATE SQL...`);
+      const result = await db
+        .update(subscriptions)
+        .set(cleanUpdates)
+        .where(eq(subscriptions.id, id))
+        .returning();
+      
+      const rowsAffected = result.length;
+      console.log(`[STORAGE] [UPDATE] Rows affected: ${rowsAffected}`);
+      
+      if (rowsAffected === 0) {
+        console.log(`[STORAGE] [UPDATE] ❌ Nenhuma linha atualizada! Verificando se ID existe...`);
+        // Verificar se o ID existe
+        const check = await this.getSubscriptionById(id);
+        if (!check) {
+          console.log(`[STORAGE] [UPDATE] ❌ ID não existe no banco: ${id}`);
+        } else {
+          console.log(`[STORAGE] [UPDATE] ⚠️ ID existe mas update não afetou linhas. Possível problema com WHERE clause.`);
+        }
+        console.log(`[STORAGE] ========================================`);
+        return undefined;
+      }
+      
+      const updated = result[0];
+      
+      console.log(`[STORAGE] [UPDATE] After Update:`, JSON.stringify({
+        id: updated.id,
+        status: updated.status,
+        trialEndsAt: updated.trialEndsAt,
+        cancelAt: updated.cancelAt,
+        currentPeriodEnd: updated.currentPeriodEnd,
+        meta: updated.meta,
+      }, null, 2));
+      
+      // Verificar se os campos realmente mudaram
+      const statusChanged = before.status !== updated.status;
+      const trialEndsAtChanged = before.trialEndsAt?.getTime() !== updated.trialEndsAt?.getTime();
+      const cancelAtChanged = before.cancelAt?.getTime() !== updated.cancelAt?.getTime();
+      const currentPeriodEndChanged = before.currentPeriodEnd?.getTime() !== updated.currentPeriodEnd?.getTime();
+      
+      console.log(`[STORAGE] [UPDATE] Campos alterados:`, {
+        status: statusChanged ? `✅ ${before.status} → ${updated.status}` : `❌ não mudou (${before.status})`,
+        trialEndsAt: trialEndsAtChanged ? `✅ alterado` : `❌ não mudou`,
+        cancelAt: cancelAtChanged ? `✅ alterado` : `❌ não mudou`,
+        currentPeriodEnd: currentPeriodEndChanged ? `✅ alterado` : `❌ não mudou`,
+      });
+      
+      console.log(`[STORAGE] [UPDATE] ✅ Atualização concluída com sucesso`);
+      console.log(`[STORAGE] ========================================`);
+      
+      return updated;
+    } catch (error: any) {
+      console.error(`[STORAGE] [UPDATE] ❌ Erro ao atualizar assinatura:`, error);
+      console.error(`[STORAGE] [UPDATE] Stack:`, error.stack);
+      console.log(`[STORAGE] ========================================`);
+      throw error;
+    }
   }
 
   async listSubscriptions(filters?: { q?: string; status?: string; provider?: string; interval?: string; period?: string }): Promise<Subscription[]> {

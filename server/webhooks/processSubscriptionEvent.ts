@@ -703,9 +703,24 @@ async function processSubscriptionSuspended(payload: CaktoPayload) {
   }
 
   // Atualizar assinatura para paused
-  await storage.updateSubscription(subscriptionRecord.id, {
-    status: 'paused',
+  console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
+  console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}`);
+
+  const updateData = {
+    status: 'paused' as const,
+  };
+
+  console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+    status: updateData.status,
   });
+
+  const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+  
+  if (!updated) {
+    throw new Error(`Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+  }
+
+  console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}`);
 
   // Atualizar status do cliente
   const user = await storage.getUser(subscriptionRecord.userId);
@@ -753,9 +768,24 @@ async function processSubscriptionResumed(payload: CaktoPayload) {
   }
 
   // Atualizar assinatura para active
-  await storage.updateSubscription(subscriptionRecord.id, {
-    status: 'active',
+  console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
+  console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}`);
+
+  const updateData = {
+    status: 'active' as const,
+  };
+
+  console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
+    status: updateData.status,
   });
+
+  const updated = await storage.updateSubscription(subscriptionRecord.id, updateData);
+  
+  if (!updated) {
+    throw new Error(`Falha ao atualizar assinatura ${subscriptionRecord.id}`);
+  }
+
+  console.log(`[WEBHOOK] [UPDATE] ✅ Assinatura atualizada - Status: ${updated.status}`);
 
   // Atualizar status do cliente
   const user = await storage.getUser(subscriptionRecord.userId);
@@ -896,7 +926,8 @@ async function processPaymentChargeback(payload: CaktoPayload) {
       console.log(`[WEBHOOK] [UPDATE] Assinatura encontrada - ID interno: ${subscriptionRecord.id}, providerSubscriptionId: ${subscriptionRecord.providerSubscriptionId}`);
       console.log(`[WEBHOOK] [UPDATE] Status atual: ${subscriptionRecord.status}`);
 
-      const updateData = {
+      // IMPORTANTE: Não passar undefined, apenas campos definidos
+      const updateData: Partial<any> = {
         status: 'paused' as const,
       };
 
@@ -970,16 +1001,16 @@ async function processSubscriptionTrialEnded(payload: CaktoPayload) {
 
   // Atualizar assinatura: status para active, trialEndsAt para a data do trial_end_date
   // Se next_payment_date estiver presente, atualizar currentPeriodEnd também
-  let currentPeriodEnd = subscriptionRecord.currentPeriodEnd;
-  if (subscription.next_payment_date) {
-    currentPeriodEnd = new Date(subscription.next_payment_date);
-  }
-
-  const updateData = {
+  // IMPORTANTE: Não passar undefined - se não houver next_payment_date, não incluir currentPeriodEnd
+  const updateData: any = {
     status: 'active' as const,
     trialEndsAt: trialEndDate,
-    currentPeriodEnd: currentPeriodEnd,
   };
+  
+  if (subscription.next_payment_date) {
+    updateData.currentPeriodEnd = new Date(subscription.next_payment_date);
+  }
+  // Se não houver next_payment_date, não incluir currentPeriodEnd (preserva o valor atual)
 
   console.log(`[WEBHOOK] [UPDATE] Salvando:`, {
     status: updateData.status,
