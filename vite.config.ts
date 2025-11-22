@@ -40,5 +40,13 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    // Forçar reload em desenvolvimento
+    hmr: {
+      overlay: true,
+    },
+  },
+  // Desabilitar cache do Vite em desenvolvimento
+  optimizeDeps: {
+    force: true,
   },
 });

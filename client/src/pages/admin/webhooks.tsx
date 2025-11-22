@@ -375,7 +375,7 @@ export default function AdminWebhooks() {
                     <TableHead className="w-[125px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
                     <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
                     <TableHead className="w-[145px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
-                    <TableHead className="w-[145px] text-right px-3 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                    <TableHead className="w-[150px] text-right px-2 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
@@ -389,7 +389,7 @@ export default function AdminWebhooks() {
                         <TableCell className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="w-[145px] px-3 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                        <TableCell className="w-[150px] px-2 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -485,16 +485,16 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="w-[145px] text-right px-3 py-3">
+                      <TableCell className="w-[150px] text-right px-2 py-3">
                         <div className="flex items-center justify-end gap-1 whitespace-nowrap">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setSelectedWebhookId(group.lastAttempt.id)}
-                            className="gap-0.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-7 px-1 text-xs shrink-0"
+                            className="gap-0.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-7 px-1.5 text-xs shrink-0 min-w-0"
                           >
-                            <Eye className="h-3.5 w-3.5 shrink-0" />
-                            <span className="text-xs whitespace-nowrap">Detalhes</span>
+                            <Eye className="h-3.5 w-3.5 shrink-0 flex-shrink-0" />
+                            <span className="text-xs whitespace-nowrap flex-shrink-0">Detalhes</span>
                           </Button>
                           {status === 'failed' && (
                             <button

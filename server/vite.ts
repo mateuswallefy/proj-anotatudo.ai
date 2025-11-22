@@ -38,6 +38,12 @@ export async function setupVite(app: Express, server: Server) {
     },
     server: serverOptions,
     appType: "custom",
+    // Forçar recarregar módulos em desenvolvimento
+    clearScreen: false,
+    // Desabilitar cache em desenvolvimento
+    optimizeDeps: {
+      force: true,
+    },
   });
 
   app.use(vite.middlewares);
