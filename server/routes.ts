@@ -3647,16 +3647,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         attempts = [webhook];
       }
 
-      // Extrair headers se existirem (pode estar em payload ou em campo separado)
+      // Buscar headers salvos
       let headers: Record<string, string> | null = null;
-      if ((webhook as any).rawHeaders) {
-        headers = (webhook as any).rawHeaders;
-      } else if (webhook.payload?.headers) {
-        headers = webhook.payload.headers;
+      try {
+        const headerRecord = await storage.getWebhookHeaders(id);
+        if (headerRecord) {
+          headers = headerRecord.headers as Record<string, string>;
+        }
+      } catch (err) {
+        // Ignorar erro
       }
 
-      // Logs (por enquanto vazio, pode ser expandido no futuro)
-      const logs: string[] = [];
+      // Buscar logs salvos
+      let logs: any[] = [];
+      try {
+        logs = await storage.getWebhookLogs(id);
+      } catch (err) {
+        // Ignorar erro
+      }
 
       res.json({
         id: webhook.id,

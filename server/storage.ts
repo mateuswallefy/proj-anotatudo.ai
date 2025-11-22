@@ -21,10 +21,16 @@ import {
   whatsappSessions,
   webhookEvents,
   webhookProcessedEvents,
+  webhookLogs,
+  webhookEventHeaders,
   orders,
   type User,
   type WebhookProcessedEvent,
   type InsertWebhookProcessedEvent,
+  type WebhookLog,
+  type InsertWebhookLog,
+  type WebhookEventHeader,
+  type InsertWebhookEventHeader,
   type Order,
   type InsertOrder,
   type UpsertUser,
@@ -1815,6 +1821,65 @@ export class DatabaseStorage implements IStorage {
     );
 
     return groups;
+  }
+
+  // Webhook logs operations
+  async saveWebhookLog(entry: InsertWebhookLog): Promise<WebhookLog> {
+    const [log] = await db
+      .insert(webhookLogs)
+      .values(entry)
+      .returning();
+    return log;
+  }
+
+  async getWebhookLogs(webhookEventId: string): Promise<WebhookLog[]> {
+    return await db
+      .select()
+      .from(webhookLogs)
+      .where(eq(webhookLogs.webhookEventId, webhookEventId))
+      .orderBy(webhookLogs.timestamp); // Ordem cronológica (mais antigo primeiro)
+  }
+
+  // Webhook headers operations
+  async saveWebhookHeaders(webhookEventId: string, headers: Record<string, any>): Promise<WebhookEventHeader> {
+    // Verificar se já existe header para este webhook
+    const existing = await db
+      .select()
+      .from(webhookEventHeaders)
+      .where(eq(webhookEventHeaders.webhookEventId, webhookEventId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      // Atualizar existente
+      const [updated] = await db
+        .update(webhookEventHeaders)
+        .set({
+          headers,
+          savedAt: new Date(),
+        })
+        .where(eq(webhookEventHeaders.webhookEventId, webhookEventId))
+        .returning();
+      return updated;
+    } else {
+      // Criar novo
+      const [newHeader] = await db
+        .insert(webhookEventHeaders)
+        .values({
+          webhookEventId,
+          headers,
+        })
+        .returning();
+      return newHeader;
+    }
+  }
+
+  async getWebhookHeaders(webhookEventId: string): Promise<WebhookEventHeader | undefined> {
+    const [header] = await db
+      .select()
+      .from(webhookEventHeaders)
+      .where(eq(webhookEventHeaders.webhookEventId, webhookEventId))
+      .limit(1);
+    return header;
   }
 
   // Webhook processed events (idempotência)

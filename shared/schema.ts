@@ -671,6 +671,31 @@ export const insertWebhookProcessedEventSchema = createInsertSchema(webhookProce
 export type InsertWebhookProcessedEvent = z.infer<typeof insertWebhookProcessedEventSchema>;
 export type WebhookProcessedEvent = typeof webhookProcessedEvents.$inferSelect;
 
+// Webhook logs table (logs detalhados de processamento)
+export const webhookLogs = pgTable("webhook_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  webhookEventId: varchar("webhook_event_id").notNull().references(() => webhookEvents.id, { onDelete: 'cascade' }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  step: text("step").notNull(),
+  payload: jsonb("payload"),
+  error: text("error"),
+  level: varchar("level", { enum: ['info', 'warning', 'error'] }).default('info').notNull(),
+});
+
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+export type InsertWebhookLog = typeof webhookLogs.$inferInsert;
+
+// Webhook event headers table (headers originais do webhook)
+export const webhookEventHeaders = pgTable("webhook_event_headers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  webhookEventId: varchar("webhook_event_id").notNull().references(() => webhookEvents.id, { onDelete: 'cascade' }),
+  headers: jsonb("headers").notNull(),
+  savedAt: timestamp("saved_at").defaultNow().notNull(),
+});
+
+export type WebhookEventHeader = typeof webhookEventHeaders.$inferSelect;
+export type InsertWebhookEventHeader = typeof webhookEventHeaders.$inferInsert;
+
 // Orders table (pedidos/cobranças)
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey(), // ID externo da Cakto (order.id)

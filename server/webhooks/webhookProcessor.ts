@@ -29,6 +29,29 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
   console.log(`[WEBHOOK-PROCESSOR] ========================================`);
 
   try {
+    // 0. Salvar headers do webhook (se existirem)
+    if (payload._headers) {
+      try {
+        await storage.saveWebhookHeaders(webhookId, payload._headers);
+        console.log(`[WEBHOOK-PROCESSOR] Headers salvos para webhook: ${webhookId}`);
+      } catch (headerError) {
+        console.warn(`[WEBHOOK-PROCESSOR] Erro ao salvar headers:`, headerError);
+      }
+    }
+
+    // Registrar log inicial
+    try {
+      await storage.saveWebhookLog({
+        webhookEventId: webhookId,
+        step: "Iniciando processamento",
+        level: "info",
+        timestamp: new Date(),
+        payload: { event: payload.event },
+      });
+    } catch (logError) {
+      console.warn(`[WEBHOOK-PROCESSOR] Erro ao salvar log inicial:`, logError);
+    }
+
     // 1. Verificar idempotência (apenas em produção)
     const isProd = process.env.NODE_ENV === "production";
     const eventId = extractEventId(payload);
@@ -69,11 +92,37 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
     console.log(`[WEBHOOK-PROCESSOR] ID da assinatura: ${subscriptionId || 'N/A'}`);
     console.log(`[WEBHOOK-PROCESSOR] Email do cliente: ${customerEmail || 'N/A'}`);
 
+    // Registrar log antes de processar
+    if (subscriptionId) {
+      try {
+        await storage.saveWebhookLog({
+          webhookEventId: webhookId,
+          step: "Assinatura encontrada no payload",
+          level: "info",
+          payload: { subscriptionId },
+        });
+      } catch (logError) {
+        console.warn(`[WEBHOOK-PROCESSOR] Erro ao salvar log:`, logError);
+      }
+    }
+
     // Processar usando o processador existente
     await handleWebhookEvent({
       event: payload.event,
       data: payload.data,
     });
+
+    // Registrar log de sucesso
+    try {
+      await storage.saveWebhookLog({
+        webhookEventId: webhookId,
+        step: "Webhook processado com sucesso",
+        level: "info",
+        payload: { event: payload.event, subscriptionId, customerEmail },
+      });
+    } catch (logError) {
+      console.warn(`[WEBHOOK-PROCESSOR] Erro ao salvar log de sucesso:`, logError);
+    }
 
     // 3. Marcar evento como processado (idempotência) - apenas em produção
     if (eventId && isProd) {
@@ -103,6 +152,22 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
     console.error(`[WEBHOOK-PROCESSOR] ❌ Erro ao processar webhook ${webhookId}:`, error);
     console.error(`[WEBHOOK-PROCESSOR] Stack:`, error.stack);
     console.error(`[WEBHOOK-PROCESSOR] Payload:`, JSON.stringify(payload, null, 2));
+
+    // Registrar log de erro
+    try {
+      await storage.saveWebhookLog({
+        webhookEventId: webhookId,
+        step: "Erro ao processar webhook",
+        level: "error",
+        error: error.message || error.toString(),
+        payload: { 
+          event: payload.event,
+          errorStack: error.stack,
+        },
+      });
+    } catch (logError) {
+      console.warn(`[WEBHOOK-PROCESSOR] Erro ao salvar log de erro:`, logError);
+    }
 
     // Obter webhook atual para incrementar retry_count
     const webhook = await storage.getWebhookEventById(webhookId);

@@ -60,11 +60,17 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
     webhookId = webhookRecord.id;
     console.log(`[WEBHOOK] ✅ Webhook registrado com ID: ${webhookId}`);
 
-    // 2. Processar webhook usando o processador completo
+    // 2. Adicionar headers ao payload antes de processar
+    const payloadWithHeaders = {
+      ...rawPayload,
+      _headers: req.headers,
+    };
+
+    // 3. Processar webhook usando o processador completo
     console.log(`[WEBHOOK] 🔄 Iniciando processamento do webhook ${webhookId}...`);
     
     try {
-      await processWebhook(webhookId, rawPayload);
+      await processWebhook(webhookId, payloadWithHeaders);
       console.log(`[WEBHOOK] ✅ Webhook ${webhookId} processado com sucesso`);
     } catch (processError: any) {
       // O processWebhook já atualizou o status como 'failed' no catch interno

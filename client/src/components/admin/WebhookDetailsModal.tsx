@@ -17,13 +17,23 @@ import { ptBR } from "date-fns/locale";
 import { Copy, Check, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+type WebhookLog = {
+  id: string;
+  webhookEventId: string;
+  timestamp: string;
+  step: string;
+  payload: any;
+  error: string | null;
+  level: 'info' | 'warning' | 'error';
+};
+
 type WebhookDetails = {
   id: string;
   event: string;
   type: string;
   status: 'pending' | 'processed' | 'failed';
   payload: any;
-  logs: string[];
+  logs: WebhookLog[];
   headers: Record<string, string> | null;
   retryCount: number;
   createdAt: string;
@@ -312,16 +322,31 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
               <TabsContent value="logs" className="mt-0">
                 <ScrollArea className="h-[60vh]">
                   {webhookDetails.logs && webhookDetails.logs.length > 0 ? (
-                    <div className="space-y-2 font-mono text-sm">
-                      {webhookDetails.logs.map((log, index) => (
-                        <div
-                          key={index}
-                          className="p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50"
+                    <ul className="space-y-3">
+                      {webhookDetails.logs.map((log) => (
+                        <li
+                          key={log.id}
+                          className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"
                         >
-                          {log}
-                        </div>
+                          <div className="font-mono text-xs opacity-70 mb-2">
+                            [{format(new Date(log.timestamp), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}] — {log.level.toUpperCase()}
+                          </div>
+                          <div className="font-semibold text-gray-900 dark:text-gray-50 mb-2">
+                            {log.step}
+                          </div>
+                          {log.payload && (
+                            <pre className="bg-gray-900 text-gray-100 p-2 mt-2 rounded overflow-auto text-xs font-mono">
+                              <code>{JSON.stringify(log.payload, null, 2)}</code>
+                            </pre>
+                          )}
+                          {log.error && (
+                            <div className="text-red-600 dark:text-red-400 mt-2 text-sm">
+                              {log.error}
+                            </div>
+                          )}
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   ) : (
                     <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
                       <p>Nenhum log disponível</p>
@@ -375,35 +400,9 @@ export function WebhookDetailsModal({ webhookId, onClose }: WebhookDetailsModalP
               <TabsContent value="headers" className="mt-0">
                 <ScrollArea className="h-[60vh]">
                   {webhookDetails.headers && Object.keys(webhookDetails.headers).length > 0 ? (
-                    <div className="space-y-2">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                            <th className="text-left p-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
-                              Header
-                            </th>
-                            <th className="text-left p-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
-                              Valor
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(webhookDetails.headers).map(([key, value]) => (
-                            <tr
-                              key={key}
-                              className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                            >
-                              <td className="p-3 text-sm font-mono text-gray-900 dark:text-gray-50">
-                                {key}
-                              </td>
-                              <td className="p-3 text-sm font-mono text-gray-600 dark:text-gray-400 break-all">
-                                {String(value)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg text-sm font-mono overflow-auto">
+                      <code>{JSON.stringify(webhookDetails.headers, null, 2)}</code>
+                    </pre>
                   ) : (
                     <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
                       <p>Nenhum header disponível</p>
