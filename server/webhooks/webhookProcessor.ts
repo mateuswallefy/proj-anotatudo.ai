@@ -29,23 +29,33 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
   console.log(`[WEBHOOK-PROCESSOR] ========================================`);
 
   try {
-    // 1. Verificar idempotência
+    // 1. Verificar idempotência (apenas em produção)
+    const isProd = process.env.NODE_ENV === "production";
     const eventId = extractEventId(payload);
+    
     if (eventId) {
-      const alreadyProcessed = await storage.checkEventProcessed(eventId);
-      if (alreadyProcessed) {
-        console.log(`[WEBHOOK-PROCESSOR] ⚠️  Evento já processado anteriormente: ${eventId}`);
-        console.log(`[WEBHOOK-PROCESSOR] Processado em: ${alreadyProcessed.processedAt}`);
-        
-        // Marcar webhook como processado (já foi processado antes)
-        await storage.updateWebhookStatus(webhookId, {
-          status: 'processed',
-          processedAt: new Date(),
-          errorMessage: null,
-        });
-        
-        console.log(`[WEBHOOK-PROCESSOR] ✅ Webhook marcado como processado (idempotência): ${webhookId}`);
-        return; // Não processar novamente
+      if (isProd) {
+        // Em produção: idempotência ATIVADA
+        const alreadyProcessed = await storage.checkEventProcessed(eventId);
+        if (alreadyProcessed) {
+          console.log(`[WEBHOOK-PROCESSOR] [IDEMPOTÊNCIA] Evento já processado → bloqueado (PROD)`);
+          console.log(`[WEBHOOK-PROCESSOR] Evento: ${eventId}`);
+          console.log(`[WEBHOOK-PROCESSOR] Processado em: ${alreadyProcessed.processedAt}`);
+          
+          // Marcar webhook como processado (já foi processado antes)
+          await storage.updateWebhookStatus(webhookId, {
+            status: 'processed',
+            processedAt: new Date(),
+            errorMessage: null,
+          });
+          
+          console.log(`[WEBHOOK-PROCESSOR] ✅ Webhook marcado como processado (idempotência): ${webhookId}`);
+          return; // Não processar novamente
+        }
+      } else {
+        // Em desenvolvimento: idempotência DESATIVADA
+        console.log(`[WEBHOOK-PROCESSOR] [IDEMPOTÊNCIA] DEV MODE → repetição permitida`);
+        console.log(`[WEBHOOK-PROCESSOR] Evento: ${eventId}`);
       }
     }
 
@@ -65,13 +75,16 @@ export async function processWebhook(webhookId: string, payload: any): Promise<v
       data: payload.data,
     });
 
-    // 3. Marcar evento como processado (idempotência)
-    if (eventId) {
+    // 3. Marcar evento como processado (idempotência) - apenas em produção
+    if (eventId && isProd) {
       await storage.markEventProcessed({
         eventId,
         eventType: payload.event,
         webhookEventId: webhookId,
       });
+      console.log(`[WEBHOOK-PROCESSOR] [IDEMPOTÊNCIA] Evento marcado como processado: ${eventId}`);
+    } else if (eventId && !isProd) {
+      console.log(`[WEBHOOK-PROCESSOR] [IDEMPOTÊNCIA] DEV MODE → evento não marcado como processado (permite repetição)`);
     }
 
     // 4. Marcar webhook como processado com sucesso

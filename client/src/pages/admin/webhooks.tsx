@@ -5,14 +5,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StripeSectionCard } from "@/components/admin/StripeSectionCard";
 import { StripeStatusBadge } from "@/components/admin/StripeStatusBadge";
 import { StripeEmptyState } from "@/components/admin/StripeEmptyState";
+import { WebhookDetailsModal } from "@/components/admin/WebhookDetailsModal";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -34,7 +28,6 @@ import {
   Webhook,
   AlertCircle,
   CheckCircle2,
-  User,
   ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -73,7 +66,7 @@ const WEBHOOK_URL = "https://anotatudo.com/api/webhooks/subscriptions";
 
 export default function AdminWebhooks() {
   const [copied, setCopied] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<WebhookGroup | null>(null);
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -373,8 +366,7 @@ export default function AdminWebhooks() {
               <TableHeader>
                 <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Evento</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Cliente</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Email</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">E-mail</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Assinatura</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tentativas</TableHead>
@@ -388,7 +380,6 @@ export default function AdminWebhooks() {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={`skeleton-${i}`}>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
@@ -401,7 +392,7 @@ export default function AdminWebhooks() {
                 )}
                 {!isLoading && (!webhookGroups || webhookGroups.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={8} className="p-0">
+                    <TableCell colSpan={7} className="p-0">
                       <StripeEmptyState
                         icon={Webhook}
                         title="Nenhum webhook recebido"
@@ -415,62 +406,60 @@ export default function AdminWebhooks() {
                   const getStatusBadge = () => {
                     if (status === 'processed') {
                       return (
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">Processado</span>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                          <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                          <span className="text-xs font-medium text-green-700 dark:text-green-400">Processado</span>
                         </div>
                       );
                     } else if (status === 'failed') {
                       return (
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">Falhou</span>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                          <div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>
+                          <span className="text-xs font-medium text-red-700 dark:text-red-400">Falhou</span>
                         </div>
                       );
                     } else {
                       return (
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-orange-500"></div>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">Pendente</span>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                          <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
+                          <span className="text-xs font-medium text-orange-700 dark:text-orange-400">Pendente</span>
                         </div>
                       );
                     }
                   };
 
-                  const customerName = group.customerName || "Desconhecido";
-                  const customerEmail = group.customerEmail || "Desconhecido";
+                  const customerEmail = group.customerEmail || null;
                   const subscriptionId = formatSubscriptionId(group.subscriptionId);
 
                   return (
                     <TableRow key={group.eventId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell>
+                      <TableCell className="py-3">
                         <span className="font-mono text-sm text-gray-900 dark:text-gray-50">
                           {group.eventType}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900 dark:text-gray-50">
-                            {customerName}
+                      <TableCell className="py-3">
+                        {customerEmail ? (
+                          <span 
+                            className="text-sm text-gray-900 dark:text-gray-50 cursor-text select-text"
+                            style={{ cursor: 'text' }}
+                          >
+                            {customerEmail}
                           </span>
-                        </div>
+                        ) : (
+                          <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
+                        )}
                       </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {customerEmail}
-                        </span>
-                      </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
                           {subscriptionId}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         {getStatusBadge()}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-0.5">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {group.successCount} sucesso
                           </span>
@@ -481,7 +470,7 @@ export default function AdminWebhooks() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         {group.lastAttempt.processedAt ? (
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {format(new Date(group.lastAttempt.processedAt), "dd/MM/yyyy 'às' HH:mm", {
@@ -489,15 +478,15 @@ export default function AdminWebhooks() {
                             })}
                           </span>
                         ) : (
-                          <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                          <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-3">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedGroup(group)}
+                            onClick={() => setSelectedWebhookId(group.lastAttempt.id)}
                             className="gap-2"
                           >
                             <Eye className="h-4 w-4" />
@@ -526,191 +515,11 @@ export default function AdminWebhooks() {
         </StripeSectionCard>
       </div>
 
-      {/* Webhook Group Details Dialog */}
-      <Dialog open={!!selectedGroup} onOpenChange={() => setSelectedGroup(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Webhook</DialogTitle>
-            <DialogDescription>
-              Informações completas do evento e tentativas
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedGroup && (
-            <div className="space-y-6 mt-4">
-              {/* Customer Information */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
-                  Informações do Cliente
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Nome
-                    </p>
-                    <p className="text-sm text-gray-900 dark:text-gray-50">
-                      {selectedGroup.customerName || "Desconhecido"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Email
-                    </p>
-                    <p className="text-sm text-gray-900 dark:text-gray-50">
-                      {selectedGroup.customerEmail || "Desconhecido"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Telefone
-                    </p>
-                    <p className="text-sm text-gray-900 dark:text-gray-50">
-                      {selectedGroup.customerPhone || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Subscription ID
-                    </p>
-                    <p className="text-sm font-mono text-gray-900 dark:text-gray-50">
-                      {selectedGroup.subscriptionId || "—"}
-                    </p>
-                  </div>
-                  {selectedGroup.customerId && (
-                    <div className="col-span-2 flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                          Customer ID (interno)
-                        </p>
-                        <p className="text-sm font-mono text-gray-900 dark:text-gray-50">
-                          {selectedGroup.customerId}
-                        </p>
-                      </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              if (selectedGroup.customerId) {
-                                setLocation(`/admin/clientes?highlight=${selectedGroup.customerId}`);
-                              } else {
-                                setLocation(`/admin/clientes`);
-                              }
-                              setSelectedGroup(null);
-                            }}
-                            className="gap-2"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            Ver Cliente
-                          </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Event Summary */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
-                  Resumo do Evento
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Tipo
-                    </p>
-                    <p className="text-sm font-mono text-gray-900 dark:text-gray-50">
-                      {selectedGroup.eventType}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Sucessos
-                    </p>
-                    <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
-                      {selectedGroup.successCount}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
-                      Falhas
-                    </p>
-                    <p className="text-sm text-red-600 dark:text-red-400 font-semibold">
-                      {selectedGroup.failureCount}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Attempts List */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
-                  Tentativas ({selectedGroup.attempts.length})
-                </h3>
-                <ScrollArea className="max-h-[40vh]">
-                  <div className="space-y-2">
-                    {selectedGroup.attempts.map((attempt, index) => (
-                      <div
-                        key={attempt.id}
-                        className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              #{index + 1}
-                            </span>
-                            {attempt.status === 'processed' && (
-                              <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                            )}
-                            {attempt.status === 'failed' && (
-                              <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                            )}
-                            {attempt.status === 'pending' && (
-                              <div className="h-2 w-2 rounded-full bg-orange-500"></div>
-                            )}
-                            <span className="text-sm text-gray-900 dark:text-gray-50">
-                              {attempt.status === 'processed' ? 'Processado' : 
-                               attempt.status === 'failed' ? 'Falhou' : 'Pendente'}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {format(new Date(attempt.receivedAt), "dd/MM/yyyy HH:mm", {
-                              locale: ptBR,
-                            })}
-                          </span>
-                        </div>
-                        {attempt.errorMessage && (
-                          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-xs text-red-700 dark:text-red-400">
-                            {attempt.errorMessage.substring(0, 200)}
-                            {attempt.errorMessage.length > 200 && "..."}
-                          </div>
-                        )}
-                        {attempt.processedAt && (
-                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            Processado em: {format(new Date(attempt.processedAt), "dd/MM/yyyy HH:mm", {
-                              locale: ptBR,
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* Payload */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 uppercase tracking-wide mb-3">
-                  Payload (Última Tentativa)
-                </h3>
-                <ScrollArea className="max-h-[30vh]">
-                  <pre className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-xs overflow-auto border border-gray-200 dark:border-gray-700">
-                    {JSON.stringify(selectedGroup.lastAttempt.payload || {}, null, 2)}
-                  </pre>
-                </ScrollArea>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Webhook Details Modal */}
+      <WebhookDetailsModal
+        webhookId={selectedWebhookId}
+        onClose={() => setSelectedWebhookId(null)}
+      />
     </AdminLayout>
   );
 }

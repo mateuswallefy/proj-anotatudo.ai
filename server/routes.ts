@@ -29,6 +29,7 @@ import {
   systemLogs,
   adminEventLogs,
   webhookEvents,
+  webhookProcessedEvents,
   whatsappLatency,
 } from "@shared/schema";
 import { eq, and, or, desc, sql as sqlOp, sql, inArray } from "drizzle-orm";
@@ -3580,6 +3581,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/webhooks/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const webhook = await storage.getWebhookEventById(id);
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+
+      // Buscar eventId (se existir) do webhookProcessedEvents
+      let eventId = null;
+      try {
+        const processedEvent = await db
+          .select()
+          .from(webhookProcessedEvents)
+          .where(eq(webhookProcessedEvents.webhookEventId, id))
+          .limit(1);
+        if (processedEvent.length > 0) {
+          eventId = processedEvent[0].eventId;
+        }
+      } catch (err) {
+        // Ignorar erro se não houver processed event
+      }
+
+      // Extrair subscriptionId do payload se existir
+      let subscriptionId = null;
+      let providerSubscriptionId = null;
+      if (webhook.payload?.data?.subscription?.id) {
+        providerSubscriptionId = webhook.payload.data.subscription.id;
+        // Tentar buscar assinatura pelo providerSubscriptionId
+        try {
+          const subscription = await (storage as any).findSubscriptionByIdentifier(providerSubscriptionId);
+          if (subscription) {
+            subscriptionId = subscription.id;
+          }
+        } catch (err) {
+          // Ignorar erro
+        }
+      }
+
+      // Buscar todas as tentativas do mesmo eventId (se existir)
+      let attempts: any[] = [];
+      if (eventId) {
+        try {
+          const processedEvents = await db
+            .select()
+            .from(webhookProcessedEvents)
+            .where(eq(webhookProcessedEvents.eventId, eventId));
+          
+          const webhookIds = processedEvents.map(e => e.webhookEventId);
+          if (webhookIds.length > 0) {
+            attempts = await db
+              .select()
+              .from(webhookEvents)
+              .where(inArray(webhookEvents.id, webhookIds))
+              .orderBy(desc(webhookEvents.receivedAt));
+          }
+        } catch (err) {
+          // Ignorar erro
+        }
+      }
+
+      // Se não houver tentativas, adicionar pelo menos a atual
+      if (attempts.length === 0) {
+        attempts = [webhook];
+      }
+
+      // Extrair headers se existirem (pode estar em payload ou em campo separado)
+      let headers: Record<string, string> | null = null;
+      if ((webhook as any).rawHeaders) {
+        headers = (webhook as any).rawHeaders;
+      } else if (webhook.payload?.headers) {
+        headers = webhook.payload.headers;
+      }
+
+      // Logs (por enquanto vazio, pode ser expandido no futuro)
+      const logs: string[] = [];
+
+      res.json({
+        id: webhook.id,
+        event: webhook.event,
+        type: webhook.type,
+        status: webhook.status,
+        payload: webhook.payload,
+        logs,
+        headers,
+        retryCount: webhook.retryCount,
+        createdAt: webhook.receivedAt,
+        processedAt: webhook.processedAt,
+        lastRetryAt: webhook.lastRetryAt,
+        errorMessage: webhook.errorMessage,
+        eventId,
+        subscriptionId,
+        providerSubscriptionId,
+        attempts: attempts.map(attempt => ({
+          id: attempt.id,
+          status: attempt.status,
+          receivedAt: attempt.receivedAt,
+          processedAt: attempt.processedAt,
+          errorMessage: attempt.errorMessage,
+          retryCount: attempt.retryCount,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error fetching webhook details:", error);
+      res.status(500).json({ message: "Failed to fetch webhook details" });
+    }
+  });
+
   app.post("/api/admin/webhooks/:id/reprocess", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;
@@ -3674,6 +3783,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const payload = testWebhookSchema.parse(req.body);
       
       console.log("[TEST] Simulando webhook:", payload.event);
+      
+      // Gerar UUIDs dinâmicos se não estiverem presentes no payload (para testes)
+      const crypto = await import('crypto');
+      if (payload.data?.subscription && !payload.data.subscription.id) {
+        payload.data.subscription.id = crypto.randomUUID();
+        console.log("[TEST] UUID gerado para subscription.id:", payload.data.subscription.id);
+      }
+      if (payload.data?.order && !payload.data.order.id) {
+        payload.data.order.id = crypto.randomUUID();
+        console.log("[TEST] UUID gerado para order.id:", payload.data.order.id);
+      }
+      if (payload.data?.customer && !payload.data.customer.id) {
+        payload.data.customer.id = crypto.randomUUID();
+        console.log("[TEST] UUID gerado para customer.id:", payload.data.customer.id);
+      }
       
       // Processar webhook usando o mesmo fluxo real
       const { processWebhook } = await import("./webhooks/webhookProcessor.js");
