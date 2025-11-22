@@ -20,7 +20,7 @@ export function StripeSectionCard({
     <div
       className={cn(
         "bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800",
-        "overflow-hidden",
+        "overflow-visible",
         className
       )}
     >

@@ -364,18 +364,18 @@ export default function AdminWebhooks() {
         <StripeSectionCard 
           title="🔥 TESTE DE PRODUÇÃO 🔥"
         >
-          <div className="w-full max-w-[1200px] mx-auto px-6">
+          <div className="max-w-[1200px] mx-auto px-6">
             <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                    <TableHead className="w-[160px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Evento</TableHead>
-                    <TableHead className="w-[210px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">E-mail</TableHead>
-                    <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Assinatura</TableHead>
-                    <TableHead className="w-[140px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
-                    <TableHead className="w-[130px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
-                    <TableHead className="w-[160px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
-                    <TableHead className="w-[140px] text-right px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                    <TableHead className="w-[150px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Evento</TableHead>
+                    <TableHead className="w-[180px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">E-mail</TableHead>
+                    <TableHead className="w-[100px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Assinatura</TableHead>
+                    <TableHead className="w-[130px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
+                    <TableHead className="w-[120px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
+                    <TableHead className="w-[150px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
+                    <TableHead className="w-[130px] text-right px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
@@ -389,7 +389,7 @@ export default function AdminWebhooks() {
                         <TableCell className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="w-[140px] px-4 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                        <TableCell className="w-[130px] px-4 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -485,7 +485,7 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="w-[140px] text-right px-4 py-3">
+                      <TableCell className="w-[130px] text-right px-4 py-3">
                         <div className="flex items-center justify-end gap-3 whitespace-nowrap">
                           <Button
                             variant="ghost"
