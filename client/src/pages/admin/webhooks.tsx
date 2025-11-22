@@ -111,6 +111,10 @@ export default function AdminWebhooks() {
     return id.length > 6 ? `...${id.slice(-6)}` : id;
   };
 
+  const pluralizeSuccess = (n: number): string => {
+    return n === 1 ? "1 sucesso" : `${n} sucessos`;
+  };
+
   const handleCopyUrl = async () => {
     try {
       await navigator.clipboard.writeText(WEBHOOK_URL);
@@ -364,28 +368,28 @@ export default function AdminWebhooks() {
           <ScrollArea className="w-full">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Evento</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">E-mail</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Assinatura</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tentativas</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Último Processamento</TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
+                <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                  <TableHead className="w-[220px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Evento</TableHead>
+                  <TableHead className="w-[260px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">E-mail</TableHead>
+                  <TableHead className="w-[140px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Assinatura</TableHead>
+                  <TableHead className="w-[140px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
+                  <TableHead className="w-[150px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
+                  <TableHead className="w-[180px] py-3 px-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
+                  <TableHead className="w-[100px] py-3 px-4 text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && (
                   <>
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={`skeleton-${i}`}>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                      <TableRow key={`skeleton-${i}`} className="border-b border-gray-100 dark:border-gray-700">
+                        <TableCell className="py-3 px-4"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="py-3 px-4"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="py-3 px-4 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -432,13 +436,13 @@ export default function AdminWebhooks() {
                   const subscriptionId = formatSubscriptionId(group.subscriptionId);
 
                   return (
-                    <TableRow key={group.eventId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="py-3">
+                    <TableRow key={group.eventId} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      <TableCell className="py-3 px-4">
                         <span className="font-mono text-sm text-gray-900 dark:text-gray-50">
                           {group.eventType}
                         </span>
                       </TableCell>
-                      <TableCell className="py-3">
+                      <TableCell className="py-3 px-4 hidden md:table-cell">
                         {customerEmail ? (
                           <span 
                             className="text-sm text-gray-900 dark:text-gray-50 cursor-text select-text"
@@ -450,27 +454,27 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="py-3">
+                      <TableCell className="py-3 px-4 hidden md:table-cell">
                         <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
                           {subscriptionId}
                         </span>
                       </TableCell>
-                      <TableCell className="py-3">
+                      <TableCell className="py-3 px-4">
                         {getStatusBadge()}
                       </TableCell>
-                      <TableCell className="py-3">
-                        <div className="flex flex-col gap-0.5">
+                      <TableCell className="py-3 px-4 hidden md:table-cell">
+                        <div className="flex flex-col items-start gap-0.5">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {group.successCount} sucesso
+                            {pluralizeSuccess(group.successCount)}
                           </span>
                           {group.failureCount > 0 && (
                             <span className="text-xs text-red-600 dark:text-red-400">
-                              {group.failureCount} falha
+                              {group.failureCount} {group.failureCount === 1 ? 'falha' : 'falhas'}
                             </span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="py-3">
+                      <TableCell className="py-3 px-4 hidden md:table-cell">
                         {group.lastAttempt.processedAt ? (
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {format(new Date(group.lastAttempt.processedAt), "dd/MM/yyyy 'às' HH:mm", {
@@ -481,28 +485,32 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right py-3">
+                      <TableCell className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setSelectedWebhookId(group.lastAttempt.id)}
-                            className="gap-2"
+                            className="gap-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-8 px-2"
                           >
                             <Eye className="h-4 w-4" />
-                            Detalhes
+                            <span className="text-sm">Detalhes</span>
                           </Button>
-                          {status !== 'processed' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
+                          {status === 'failed' && (
+                            <button
                               onClick={() => reprocessMutation.mutate(group.lastAttempt.id)}
                               disabled={reprocessMutation.isPending}
-                              className="gap-2"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <RefreshCw className={`h-4 w-4 ${reprocessMutation.isPending ? 'animate-spin' : ''}`} />
-                              Reprocessar
-                            </Button>
+                              {reprocessMutation.isPending ? (
+                                <span className="flex items-center gap-1.5">
+                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                  Reprocessando...
+                                </span>
+                              ) : (
+                                "Reprocessar"
+                              )}
+                            </button>
                           )}
                         </div>
                       </TableCell>
