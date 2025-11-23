@@ -1,9 +1,21 @@
+# .replit — IMUTÁVEL E 100% VÁLIDO
 modules = ["nodejs-20", "web"]
-run = ["npm", "run", "dev"]
-hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+hidden = [".git", ".config", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["nodejs-20", "pnpm", "lsof"]
+
+[env]
+PORT = "5000"
+
+# DEV PREVIEW — VITE SERVE NA 5173
+run = ["npm", "run", "dev"]
+
+[web]
+port = 5173
+open = true
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -11,8 +23,17 @@ build = ["npm", "install"]
 start = "npm run start:production"
 
 [[ports]]
-localPort = 5000
+localPort = 5050
 externalPort = 80
 
-[env]
-PORT = "5000"
+[[ports]]
+localPort = 5123
+externalPort = 3001
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
+
+[[ports]]
+localPort = 5174
+externalPort = 3000
