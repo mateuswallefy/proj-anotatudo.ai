@@ -46,12 +46,12 @@ app.use(express.urlencoded({ extended: false }));
     serveStatic(app);
   }
 
-  const isDev = process.env.NODE_ENV === "development";
-  const port = isDev
-    ? 5050
-    : parseInt(process.env.PORT || "5000", 10);
+  const isDev = process.env.NODE_ENV === "development" || app.get("env") === "development";
+  const port = isDev ? 5000 : parseInt(process.env.PORT || "5000", 10);
 
   server.listen(port, "0.0.0.0", () => {
-    console.log(`[SERVER] DEV=${isDev} running on port ${port}`);
+    log(`✅ Server started successfully on port ${port}`, "SERVER");
+    log(`Environment: ${isDev ? "development" : "production"}`, "SERVER");
+    log(`Public endpoint: http://localhost:${port}/api/user-status`, "SERVER");
   });
 })();
