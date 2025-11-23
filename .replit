@@ -1,30 +1,62 @@
-modules = ["nodejs-20", "web"]
-
-hidden = [".git", ".config", "node_modules", "dist"]
+modules = ["nodejs-20", "web", "postgresql-16"]
+run = "npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["nodejs-20", "pnpm", "lsof"]
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 37999
+externalPort = 3000
+
+[[ports]]
+localPort = 42685
+externalPort = 3002
+
+[[ports]]
+localPort = 43305
+externalPort = 3001
+
+[[ports]]
+localPort = 45433
+externalPort = 3003
+
+[[ports]]
+localPort = 46071
+externalPort = 4200
 
 [env]
 PORT = "5000"
 
-# PRODUÇÃO — Replit roda sempre com run = ["npm", "run", "start"]
-run = ["npm", "run", "start"]
+[workflows]
+runButton = "Project"
 
-[deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "install"]
-start = "npm run start:production"
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
 
-[[ports]]
-localPort = 5000
-externalPort = 5000
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
 
-[[ports]]
-localPort = 5173
-externalPort = 5173
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
 
-[[ports]]
-localPort = 5174
-externalPort = 80
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[agent]
+integrations = ["javascript_log_in_with_replit:1.0.0", "javascript_openai:1.0.0", "javascript_database:1.0.0"]
