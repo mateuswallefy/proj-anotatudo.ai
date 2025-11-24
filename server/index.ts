@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { execSync, spawnSync } from "child_process";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
@@ -50,12 +51,25 @@ app.use(express.urlencoded({ extended: false }));
     serveStatic(app);
   }
 
-  const port = parseInt(process.env.PORT || "3000", 10);
+  // Development mode: always use port 3000 (that's what .replit workflow expects)
+  // Production: use PORT env var or default 3000
+  const port = isDevelopment ? 3000 : parseInt(process.env.PORT || "3000", 10);
+
+  // If developing, kill any standalone Vite on 5173 (from concurrently npm:dev:vite)
+  // setupVite already integrates Vite middleware, so standalone Vite is redundant
+  if (isDevelopment) {
+    try {
+      spawnSync("pkill", ["-f", "vite.*5173"], { stdio: "ignore" });
+      log("Killed redundant Vite standalone server (Vite is integrated in Express)", "SERVER");
+    } catch (e) {
+      // Ignore errors
+    }
+  }
 
   server.listen(port, "0.0.0.0", () => {
-    console.log("Servidor iniciado.");
     log(`✅ Server started successfully on port ${port}`, "SERVER");
-    log(`Environment: ${process.env.NODE_ENV || "production"}`, "SERVER");
+    log(`Environment: ${isDevelopment ? "development" : "production"}`, "SERVER");
+    log(`Vite: ${isDevelopment ? "integrated in Express (frontend+backend on same port)" : "static files only"}`, "SERVER");
     log(`Public endpoint: http://localhost:${port}/api/user-status`, "SERVER");
   });
 })();

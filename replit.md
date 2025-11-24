@@ -6,13 +6,15 @@ AnotaTudo.AI is a SaaS financial management platform that leverages AI to transf
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (November 23, 2025)
-### Development Server Port Configuration
-- **Fixed Infinite Loop**: Resolved server crash loop caused by port 5000/5050 mismatch between workflow expectations and npm script configuration.
-- **Port Strategy**: `server/index.ts` now forces **port 5000 in development** regardless of npm script PORT override. Production continues to honor `process.env.PORT`.
-- **Rationale**: Replit workflow (`.replit` file) expects port 5000 to be opened. The npm `dev:server` script previously forced PORT=5050, creating a conflict that prevented the workflow from completing startup.
-- **Environment Variable**: Set `PORT=5000` in Replit shared environment as additional safety layer, though code-level enforcement takes precedence.
-- **Important**: Future contributors should understand that the development port is intentionally hardcoded in `server/index.ts` to align with Replit workflow requirements, not controlled by npm scripts.
+## Recent Changes (November 24, 2025)
+### Development Server Stabilization & Preview Fix
+- **Port Synchronization**: Fixed dev environment port mismatch - now using port 3000 consistently in development (as expected by Replit workflows).
+- **Vite Integration**: Re-enabled setupVite middleware to serve frontend + backend from single Express instance on port 3000.
+- **Standalone Vite Elimination**: Automatically kills redundant Vite standalone server (port 5173) that was created by `concurrently` - this eliminated "Your app is starting" loop and 500 errors.
+- **Preview URL Fix**: Development preview now fully functional at http://localhost:3000 with no infinite loops or connection errors.
+- **Production Compatibility**: Maintained proper port handling for production deployments.
+- **Temporary Startup Script**: Created `/home/runner/workspace/start-dev.sh` as direct alternative to `npm run dev` if needed for manual startup.
+- **Issue**: `npm run dev` with `concurrently` still has compatibility issues with Replit workflow system - will be addressed in future update. Workaround: Use `start-dev.sh` directly.
 
 ### Previous Changes (November 18, 2025)
 #### WhatsApp Authentication Architecture Redesign
