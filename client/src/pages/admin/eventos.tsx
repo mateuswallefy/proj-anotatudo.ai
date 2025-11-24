@@ -6,6 +6,7 @@ import { StripeSectionCard } from "@/components/admin/StripeSectionCard";
 import { StripeStatusBadge } from "@/components/admin/StripeStatusBadge";
 import { StripeEmptyState } from "@/components/admin/StripeEmptyState";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -204,28 +205,29 @@ export default function AdminEventos() {
           </div>
         </StripeSectionCard>
         {/* Table */}
-        <StripeSectionCard className="p-0 overflow-hidden">
-          <ScrollArea className="w-full">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tipo</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Origem</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Mensagem</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Data/Hora</TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
+        <StripeSectionCard>
+          <div className="max-w-[1200px] mx-auto px-4">
+            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                    <TableHead className="w-[180px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Tipo</TableHead>
+                    <TableHead className="w-[140px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Origem</TableHead>
+                    <TableHead className="w-[300px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Mensagem</TableHead>
+                    <TableHead className="w-[145px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Data/Hora</TableHead>
+                    <TableHead className="w-[150px] text-right px-2 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {isLoading && (
                   <>
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={`skeleton-${i}`}>
-                        <TableCell><Skeleton className="h-6 w-32 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md ml-auto" /></TableCell>
+                      <TableRow key={`skeleton-${i}`} className="border-b border-gray-100 dark:border-gray-700">
+                        <TableCell className="px-4 py-3"><Skeleton className="h-6 w-32 rounded-full" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="w-[150px] px-2 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -261,35 +263,38 @@ export default function AdminEventos() {
                     const source = event.source || "unknown";
                     
                     return (
-                    <TableRow key={event.id}>
-                      <TableCell>
+                    <TableRow key={event.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      <TableCell className="px-4 py-3">
                         <StripeStatusBadge
                           status={event.severity || (type.toLowerCase().includes("error") || message.toLowerCase().includes("error") ? "error" : type.toLowerCase().includes("warning") || message.toLowerCase().includes("warning") ? "warning" : "info")}
                           label={getEventTypeLabel(type, event.origin || "unknown")}
                         />
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="px-4 py-3 hidden md:table-cell font-mono text-sm">
                           <span className="text-xs text-muted-foreground">{event.origin || "unknown"}</span>
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
+                        <TableCell className="px-4 py-3 max-w-[200px] truncate">
                           {event.message || "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 hidden md:table-cell">
                         {format(new Date(event.createdAt), "dd/MM/yyyy 'às' HH:mm", {
                           locale: ptBR,
                         })}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <PremiumButton
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setSelectedEvent(event)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </PremiumButton>
-                          </DialogTrigger>
+                      <TableCell className="w-[150px] text-right px-2 py-3">
+                        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedEvent(event)}
+                                className="gap-0.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-7 px-1.5 text-xs shrink-0 min-w-0"
+                              >
+                                <Eye className="h-3.5 w-3.5 shrink-0 flex-shrink-0" />
+                                <span className="text-xs whitespace-nowrap flex-shrink-0">Detalhes</span>
+                              </Button>
+                            </DialogTrigger>
                           <DialogContent className="max-w-[90%] sm:max-w-[800px] rounded-2xl">
                             <DialogHeader>
                               <DialogTitle>Detalhes do Evento</DialogTitle>
@@ -339,14 +344,16 @@ export default function AdminEventos() {
                             </div>
                           </DialogContent>
                         </Dialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                     );
                   });
                 })()}
               </TableBody>
-            </Table>
-          </ScrollArea>
+              </Table>
+            </div>
+          </div>
         </StripeSectionCard>
       </div>
     </AdminLayout>

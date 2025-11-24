@@ -196,36 +196,37 @@ export default function AdminAssinaturas() {
         </StripeSectionCard>
 
         {/* Table */}
-        <StripeSectionCard className="p-0 overflow-hidden">
-          <ScrollArea className="w-full">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Cliente ID</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Subscription ID</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Provider ID</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Plano</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Valor</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Intervalo</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Próximo Vencimento</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Origem</TableHead>
-                </TableRow>
-              </TableHeader>
+        <StripeSectionCard>
+          <div className="max-w-[1200px] mx-auto px-4">
+            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                    <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Cliente ID</TableHead>
+                    <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Subscription ID</TableHead>
+                    <TableHead className="w-[120px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Provider ID</TableHead>
+                    <TableHead className="w-[130px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Plano</TableHead>
+                    <TableHead className="w-[100px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Valor</TableHead>
+                    <TableHead className="w-[100px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Intervalo</TableHead>
+                    <TableHead className="w-[125px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
+                    <TableHead className="w-[130px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Próximo Vencimento</TableHead>
+                    <TableHead className="w-[100px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Origem</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {isLoading && (
                   <>
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={`skeleton-${i}`}>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableRow key={`skeleton-${i}`} className="border-b border-gray-100 dark:border-gray-700">
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="px-4 py-3"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -267,34 +268,34 @@ export default function AdminAssinaturas() {
                     );
                   }
                   return items.map((sub) => (
-                    <TableRow key={sub.id}>
-                      <TableCell className="font-mono text-sm">
+                    <TableRow key={sub.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      <TableCell className="px-4 py-3 hidden md:table-cell font-mono text-sm">
                         {sub.userId.slice(0, 8)}...
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="px-4 py-3 hidden md:table-cell font-mono text-sm">
                         {sub.id.slice(0, 8)}...
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="px-4 py-3 hidden md:table-cell font-mono text-sm">
                         {sub.providerSubscriptionId.slice(0, 12)}...
                       </TableCell>
-                      <TableCell className="font-medium">{sub.planName}</TableCell>
-                      <TableCell className="font-mono font-bold tabular-nums">
+                      <TableCell className="px-4 py-3 font-medium">{sub.planName}</TableCell>
+                      <TableCell className="px-4 py-3 font-mono font-bold tabular-nums">
                         {formatCurrency(sub.priceCents / 100)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 hidden md:table-cell">
                         {sub.interval === "yearly" ? "Anual" : sub.interval === "monthly" ? "Mensal" : (sub.billingInterval === "month" ? "Mensal" : "Anual")}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3">
                         <StripeStatusBadge status={sub.status} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 hidden md:table-cell">
                         {sub.currentPeriodEnd
                           ? format(new Date(sub.currentPeriodEnd), "dd/MM/yyyy", {
                               locale: ptBR,
                             })
                           : "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-3 hidden md:table-cell">
                         <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                           {sub.provider === "caktos" ? "Caktos" : "Manual"}
                         </span>
@@ -303,8 +304,9 @@ export default function AdminAssinaturas() {
                   ));
                 })()}
               </TableBody>
-            </Table>
-          </ScrollArea>
+              </Table>
+            </div>
+          </div>
         </StripeSectionCard>
       </div>
     </AdminLayout>

@@ -4,24 +4,22 @@ import connectPg from "connect-pg-simple";
 export function getSession() {
   const sessionTtl = 30 * 24 * 60 * 60 * 1000; // 30 days
   const pgStore = connectPg(session);
+
+  const isReplit = process.env.REPL_SLUG !== undefined;
+  const isProd = process.env.NODE_ENV === "production";
+
+  // Secure apenas em PRODUÇÃO REAL, nunca no autoscale (replit)
+  const isSecure = isProd && !isReplit;
+
+  console.log("[SESSION] Secure:", isSecure);
+
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
   });
-  
-  // In production, only use secure cookies if we're actually on HTTPS
-  // Replit may not always use HTTPS, so we check the environment
-  const isSecure = process.env.NODE_ENV === 'production' && 
-                   (process.env.FORCE_SECURE_COOKIES === 'true' || 
-                    process.env.REPL_SLUG !== undefined);
-  
-  console.log('[SESSION] Configuring session middleware');
-  console.log('[SESSION] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[SESSION] Secure cookies:', isSecure);
-  console.log('[SESSION] Session store:', sessionStore ? 'PostgreSQL' : 'none');
-  
+
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -29,8 +27,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isSecure, // Only secure in production with HTTPS
-      sameSite: 'lax',
+      secure: isSecure,
+      sameSite: "lax",
       maxAge: sessionTtl,
     },
   });

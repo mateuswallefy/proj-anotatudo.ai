@@ -931,32 +931,33 @@ export default function AdminClientes() {
           </StripeSectionCard>
 
           {/* Table */}
-          <StripeSectionCard className="p-0 overflow-hidden">
-            <ScrollArea className="w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Nome</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Email</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">WhatsApp</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Plano</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Status</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Criado em</TableHead>
-                    <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
+          <StripeSectionCard>
+            <div className="max-w-[1200px] mx-auto px-4">
+              <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                      <TableHead className="w-[180px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Nome</TableHead>
+                      <TableHead className="w-[200px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Email</TableHead>
+                      <TableHead className="w-[140px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">WhatsApp</TableHead>
+                      <TableHead className="w-[120px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Plano</TableHead>
+                      <TableHead className="w-[125px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
+                      <TableHead className="w-[120px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Criado em</TableHead>
+                      <TableHead className="w-[150px] text-right px-2 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {isLoading && (
                     <>
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={`skeleton-${i}`}>
-                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md ml-auto" /></TableCell>
+                        <TableRow key={`skeleton-${i}`} className="border-b border-gray-100 dark:border-gray-700">
+                          <TableCell className="px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-40" /></TableCell>
+                          <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell className="px-4 py-3"><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell className="w-[150px] px-2 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                         </TableRow>
                       ))}
                     </>
@@ -989,10 +990,10 @@ export default function AdminClientes() {
                     return items.map((user) => (
                       <TableRow
                         key={user.id}
-                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${user.id === highlightedId ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+                        className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${user.id === highlightedId ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                         onClick={() => openEditDialog(user)}
                       >
-                        <TableCell className="font-medium">
+                        <TableCell className="px-4 py-3 font-medium">
                           {(() => {
                             if (user.firstName && user.lastName) {
                               return `${user.firstName} ${user.lastName}`;
@@ -1003,35 +1004,40 @@ export default function AdminClientes() {
                             return user.email?.split("@")[0] || "-";
                           })()}
                         </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{user.whatsappNumber || "-"}</TableCell>
-                        <TableCell>{user.planLabel || "-"}</TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell">{user.email}</TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell">{user.whatsappNumber || "-"}</TableCell>
+                        <TableCell className="px-4 py-3">{user.planLabel || "-"}</TableCell>
+                        <TableCell className="px-4 py-3">
                           <StripeStatusBadge
                             status={user.billingStatus}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3 hidden md:table-cell">
                           {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <PremiumButton
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditDialog(user);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </PremiumButton>
+                        <TableCell className="w-[150px] text-right px-2 py-3">
+                          <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditDialog(user);
+                              }}
+                              className="gap-0.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-50 h-7 px-1.5 text-xs shrink-0 min-w-0"
+                            >
+                              <Eye className="h-3.5 w-3.5 shrink-0 flex-shrink-0" />
+                              <span className="text-xs whitespace-nowrap flex-shrink-0">Detalhes</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ));
                   })()}
                 </TableBody>
-              </Table>
-            </ScrollArea>
+                </Table>
+              </div>
+            </div>
           </StripeSectionCard>
 
           {/* Pagination */}

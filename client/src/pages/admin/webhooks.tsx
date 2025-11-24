@@ -362,7 +362,7 @@ export default function AdminWebhooks() {
 
         {/* Webhook Events Table */}
         <StripeSectionCard 
-          title="🔥 TESTE DE PRODUÇÃO 🔥"
+          title="Últimos Webhooks Recebidos"
         >
           <div className="max-w-[1200px] mx-auto px-4">
             <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
