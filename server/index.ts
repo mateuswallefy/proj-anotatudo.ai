@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import { createServer } from "http";
 import { execSync, spawnSync } from "child_process";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
@@ -34,40 +35,61 @@ app.use(getSession());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// CRITICAL: Quick startup minimal endpoints
+// Add immediate health check endpoint (before any async operations)
 app.get("/_health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-// Register routes asynchronously WITHOUT blocking port listen
-const port = 3000;
-
-// Set up server first, THEN listen
-registerRoutes(app).then((server) => {
-  serveStatic(app);
-  
-  // NOW listen - this should be very fast
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`ready`);
-    console.log(`Listening on port ${port}`);
-  });
-  
-  // Run bg tasks
-  Promise.allSettled([
-    seedAdmin(),
-    ensureAdminRootExists(),
-    ensureWebhookEventsTable(),
-  ]);
-  
-  // Kill Vite
-  setTimeout(() => {
-    try {
-      spawnSync("pkill", ["-f", "vite.*5173"], { stdio: "ignore" });
-    } catch (e) {}
-  }, 500);
-}).catch((e) => {
-  console.error("Failed:", e);
-  process.exit(1);
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true });
 });
 
-export default app;
+// CRITICAL FOR REPLIT: Create server and listen IMMEDIATELY
+const port = 3000;
+const httpServer = createServer(app);
+
+// Open port IMMEDIATELY - this is SYNCHRONOUS
+httpServer.listen(port, "0.0.0.0", () => {
+  // Log in multiple formats for Replit port detection
+  console.log("ready");
+  console.log(`Listening on port ${port}`);
+  console.log(`Server ready at http://0.0.0.0:${port}`);
+  
+  log(`✅ Server listening on port ${port}`, "SERVER");
+  
+  // NOW run all async initialization in background (non-blocking)
+  initializeServer();
+});
+
+// Async initialization function (runs AFTER port is open)
+async function initializeServer() {
+  try {
+    // Register all routes (this adds routes to the app)
+    await registerRoutes(app);
+    
+    // Serve static files
+    serveStatic(app);
+    
+    // Run database initialization in parallel
+    await Promise.allSettled([
+      seedAdmin(),
+      ensureAdminRootExists(),
+      ensureWebhookEventsTable(),
+    ]);
+    
+    log("✅ All initialization complete", "SERVER");
+    
+    // Kill standalone Vite server if running
+    setTimeout(() => {
+      try {
+        spawnSync("pkill", ["-f", "vite.*5173"], { stdio: "ignore" });
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 1000);
+  } catch (error) {
+    log(`❌ Initialization error: ${error}`, "SERVER");
+  }
+}
+
+export default httpServer;

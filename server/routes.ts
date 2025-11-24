@@ -1,5 +1,5 @@
 import express, { type Express } from "express";
-import { createServer, type Server } from "http";
+// Server creation moved to server/index.ts for faster startup
 import * as pathModule from "path";
 import * as fs from "fs";
 import multer from "multer";
@@ -101,7 +101,7 @@ function extractTextFromMessage(message: any): string {
   ).toString().trim();
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   // Serve static files from server/uploads
   app.use('/uploads/avatars', express.static(pathModule.join(process.cwd(), 'server', 'uploads', 'avatars')));
 
@@ -4319,8 +4319,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
   // NOTA: O endpoint POST /api/webhooks/subscriptions foi movido para server/index.ts
   // para garantir que ele seja carregado ANTES dos middlewares de autenticação
-
-  const httpServer = createServer(app);
-
-  return httpServer;
+  
+  // Server is now created in server/index.ts for faster startup
 }
