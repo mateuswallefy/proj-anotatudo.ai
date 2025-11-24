@@ -44,8 +44,8 @@ app.get("/health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-// CRITICAL FOR REPLIT: Create server and listen IMMEDIATELY
-const port = 3000;
+// CRITICAL FOR REPLIT: Create server and listen on port 3000
+const port = parseInt(process.env.PORT || '3000');
 const httpServer = createServer(app);
 
 // Open port IMMEDIATELY - this is SYNCHRONOUS
