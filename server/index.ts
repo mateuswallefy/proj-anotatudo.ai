@@ -40,7 +40,11 @@ app.use(express.urlencoded({ extended: false }));
 
   const server = await registerRoutes(app);
 
-  if (app.get("env") === "development") {
+  // Use process.env.NODE_ENV directly for reliable environment detection
+  // Default to production if NODE_ENV is not set (production should always have it set)
+  const isDevelopment = process.env.NODE_ENV === "development";
+  
+  if (isDevelopment) {
     await setupVite(app, server);
   } else {
     serveStatic(app);
@@ -51,7 +55,7 @@ app.use(express.urlencoded({ extended: false }));
   server.listen(port, "0.0.0.0", () => {
     console.log("Servidor iniciado.");
     log(`✅ Server started successfully on port ${port}`, "SERVER");
-    log(`Environment: ${app.get("env")}`, "SERVER");
+    log(`Environment: ${process.env.NODE_ENV || "production"}`, "SERVER");
     log(`Public endpoint: http://localhost:${port}/api/user-status`, "SERVER");
   });
 })();
