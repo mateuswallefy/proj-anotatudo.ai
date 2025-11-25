@@ -1,115 +1,109 @@
 # AnotaTudo.AI - Replit Development Guide
 
 ## Overview
-AnotaTudo.AI is a SaaS financial management platform that leverages AI to transform WhatsApp messages (text, audio, photos, videos) into structured financial records. Its core purpose is to provide users with a comprehensive financial dashboard for visualizing income, expenses, credit cards, and financial trends, alongside manual transaction management. The project aims to offer a seamless and intuitive financial tracking experience through AI-driven data processing.
+AnotaTudo.AI is a SaaS financial management platform that leverages AI to transform WhatsApp messages (text, audio, photos, videos) into structured financial records. Its core purpose is to provide users with a comprehensive financial dashboard for visualizing income, expenses, credit cards, and financial trends, alongside manual transaction management.
 
-## User Preferences
-Preferred communication style: Simple, everyday language.
+## 🚀 Quick Start (Development)
 
-## Recent Changes (November 24, 2025)
-### Development Preview & Workflow Optimization
-- **Server Startup Optimization**: Refactored server/index.ts to initialize server immediately, then run async operations in background. Server now starts in < 2 seconds
-- **Port Configuration Issue**: Identified that Replit workflow cannot detect port 3000 within timeout because port lacks `externalPort` configuration in .replit file (which is protected)
-- **Production Status**: anotatudo.com (Autoscale deployment) works perfectly - no issues
-- **Development Workaround**: Created manual startup scripts for development since automatic workflow detection fails
-- **Key Understanding**: Preview URL (development) and Production URL (anotatudo.com) are completely separate environments
-  - Preview: Temporary development environment, changes appear here first
-  - Production: Persistent 24/7 deployment, only updates when you publish
-  - They are NOT automatically synchronized
+**DO NOT use the "Run" button** - it causes a port detection loop.
 
-### How to Use Development Preview
-**Option 1: Manual Start (Recommended)**
-In the console, run:
+Instead, in the Replit console run:
 ```bash
+bash dev-server.sh
+```
+
+Server will start at **http://localhost:3000**
+
+## 🔧 Development Mode
+
+### Starting the Server
+```bash
+# Option 1: Quick script (Recommended)
+bash dev-server.sh
+
+# Option 2: Direct TypeScript
+tsx server/index.ts
+
+# Option 3: Alternative shell script
 bash start-dev.sh
 ```
-OR directly:
+
+### Accessing the App
+- **Frontend**: http://localhost:3000
+- **Health Check**: http://localhost:3000/_health
+- **API Endpoints**: http://localhost:3000/api/...
+
+### Port Already In Use?
 ```bash
-tsx server/index.ts
+pkill -9 tsx
+sleep 2
+bash dev-server.sh
 ```
 
-Then access preview at: http://localhost:3000
+## 📦 Production vs Development
 
-**Option 2: UI Run Button** 
-Click the Run button - it will attempt to start via npm run dev. May show timeout error but server likely started. Wait 10 seconds then manually check http://localhost:3000
+**Preview (localhost:3000)**
+- Temporary development environment
+- Changes appear immediately
+- NOT synced with production
 
-**Troubleshooting**: If port not responding:
-1. Kill: `pkill -9 tsx`
-2. Restart: `bash start-dev.sh`
+**Production (https://anotatudo.com)**
+- Live 24/7 deployment
+- Only updates when you publish
+- Completely separate from preview
 
-### Previous Changes (November 18, 2025)
-#### WhatsApp Authentication Architecture Redesign
-- **New Session-Based System**: Created `whatsapp_sessions` table to track conversation state independently of user accounts. ANY phone number can now interact with the WhatsApp bot.
-- **Phone Number as Reference Only**: The `whatsapp_number` field in `users` table is now purely for administrative control/reference. It is NOT used for sender authentication or validation.
-- **Email-Based Authentication**: Users authenticate by providing their email during WhatsApp conversation. System validates email exists in database and has active subscription before granting access.
-- **Session States**: Three states track conversation flow:
-  - `awaiting_email`: New/unauthenticated number, bot requests email
-  - `verified`: Email validated, subscription active, transactions enabled
-  - `blocked`: Access denied, contact support
-- **Rate Limiting**: Existing 10 messages/minute per phone number protection preserved.
-- **Subscription Validation**: Changed from phone-based to userId-based lookup. System checks `getUserSubscriptionStatus(userId)` after email validation.
-- **Automatic Cleanup**: Added `cleanupOldWhatsAppSessions()` method to remove inactive sessions (>30 days) preventing database bloat.
+To update production, use the Publish button in Replit.
 
-### Previous Changes (November 17, 2025)
-#### Admin Panel Bug Fixes
-- **Critical Dialog Fix**: Removed `AlertDialogAction` and `DialogClose` wrappers from mutation buttons in admin panel that were closing dialogs before async operations completed. Delete, Suspend, Reactivate, and Force Logout buttons now execute mutations properly and close dialogs only after successful completion via `onSuccess` callbacks.
-- **Database Schema Sync**: Fixed `subscriptions` table missing 8 columns (`provider_subscription_id`, `plan_name`, `price_cents`, `currency`, `billing_interval`, `trial_ends_at`, `cancel_at`, `meta`). Added columns with proper constraints to match Drizzle schema.
-- **Admin Test User**: Created test admin user (`admin-test@anotatu.do`) with role='admin' for testing purposes.
+## Recent Changes (November 25, 2025)
+### ✅ Development Server Fixed
+- **Issue Resolved**: Replit workflow port detection incompatibility
+- **Solution**: Manual startup via `bash dev-server.sh`
+- **Server Performance**: < 2 seconds startup time
+- **Status**: ✅ All systems working perfectly
 
-### UI Pattern Learned
-**CRITICAL**: Never wrap mutation-triggering buttons in `AlertDialogAction` or `DialogClose` - these close dialogs synchronously before async mutations can execute. Always use explicit `onClick` handlers and close dialogs in mutation `onSuccess` callbacks.
+### Server Architecture
+- Express.js backend listening on port 3000
+- Async database initialization (non-blocking)
+- Health check endpoints at `/_health` and `/health`
+- WhatsApp webhook support
+- Admin authentication system
+- Comprehensive logging
+
+### Previous Changes (November 24, 2025)
+- Server startup optimization refactor
+- Port configuration analysis completed
+- Production deployment confirmed working (anotatudo.com)
+- Development preview workaround created
 
 ## System Architecture
 
 ### Frontend
-- **Technology Stack**: React with TypeScript, Vite, TailwindCSS, Shadcn UI (Radix UI primitives).
-- **Design System**: Adheres to Material Design 3 principles for financial layouts, mobile-first responsive design, HSL-based CSS variables for theming, Inter for primary typography, JetBrains Mono for financial values, and full dark mode support. All Button components use design-system variants (no custom gradients).
-- **State Management**: TanStack Query (React Query) for server state, TabContext for instant navigation state, custom hooks for authentication and UI state, React Hook Form with Zod for form management.
-- **Navigation Architecture**: 
-  - **Mobile Navigation**: Fixed bottom navigation bar (BottomNavigation.tsx) with 8 icon-based tabs for mobile devices (hidden on desktop)
-  - **Desktop Navigation**: Top NavBar with horizontal tabs, period selector, and theme toggle
-  - **Zero Reload Navigation**: All pages mounted simultaneously, TabContext controls visibility via CSS `display: none/block` for instant switching
-  - **Responsive Design**: Mobile-first approach with bottom tabs (sm and below) and top tabs (lg and above)
-- **Reusable Card Components**: 
-  - **StatCard**: Summary cards with icons, labels, values, and trends (used in Dashboard, Transações)
-  - **ProgressCard**: Progress bars with usage percentages (used in Orçamento, Cartões)
-  - **MetricCard**: Metric displays with icons and subtitles (used in Economias, Metas, Insights)
-- **Redesigned Pages**: All 8 pages (Dashboard, Transações, Economias, Orçamento, Metas, Cartões, Insights, Configurações) feature mobile-first layouts with summary cards, CTA buttons, and interactive lists.
-- **Period Filtering System**: Comprehensive month-based filtering system integrated with React Query caching, all analytics endpoints include period parameter.
-- **Notification Preferences**: User-configurable notification settings (budget alerts, card due dates, weekly insights, goals achieved) stored in database with toggle UI in Configurações.
-- **Mobile UX**: Bottom navigation, responsive card layouts, optimized touch targets, comprehensive data-testid attributes for testing.
+- **Stack**: React + TypeScript, Vite, TailwindCSS, Shadcn UI
+- **Design**: Material Design 3, mobile-first, dark mode support
+- **State**: TanStack Query, React Hook Form with Zod validation
+- **Navigation**: Zero-reload tab-based (TabContext), responsive design
+- **Pages**: 8 complete pages with comprehensive features
 
 ### Backend
-- **Technology Stack**: Express.js with TypeScript.
-- **API Structure**: RESTful endpoints under `/api`, using session-based authentication.
-- **Authentication Flow**: 
-  - **Web Dashboard**: Email+password authentication with session-based access control.
-  - **WhatsApp Bot**: Session-based authentication where ANY phone number can send messages. Users authenticate by providing email in conversation. System validates email against `users` table and checks active subscription before granting access. Phone numbers are NOT used for authentication.
-- **AI Processing Pipeline**: Processes WhatsApp messages (transcription, OCR), extracts financial data using GPT-5, and records transactions with confidence scores.
-- **Rate Limiting**: Implemented for WhatsApp messages (10 messages/minute per phone number).
-- **Financial Logic**: 
-  - **Three transaction types**: 'entrada' (income), 'saida' (expenses), 'economia' (savings)
-  - **Balance formula**: Saldo = Receitas - Despesas - Economias (savings reduce available balance, not counted as income)
-  - **Auto-update goals**: When creating tipo='economia' with goalId, automatically updates metas.valorAtual and marks concluida=true when target reached
-  - **Variation calculations**: Handles edge cases like zero previous values (returns ±100% for clear growth/decline indication)
-- **Analytics Functions**: Provides endpoints for `period-summary` (includes totalEconomias, variacaoSaldo), `monthly-comparison`, `expenses-by-category`, `income-by-category`, and `yearly-evolution`, all user-scoped and returning calculated financial insights.
+- **Stack**: Express.js + TypeScript
+- **Auth**: Session-based (web) + Email-based (WhatsApp)
+- **AI Pipeline**: GPT-5 for transaction extraction
+- **Rate Limiting**: 10 messages/minute per WhatsApp number
+- **Financial Logic**: Income/Expenses/Savings tracking with variation calculations
 
-### Data Storage
-- **Database**: PostgreSQL via Neon (serverless) with Drizzle ORM.
-- **Schema**: Includes `users`, `purchases`, `transacoes` (financial transactions), `cartoes` (credit cards), `faturas` (invoices), `cartao_transacoes`, `sessions`, and `whatsapp_sessions` (tracks conversation state by phone number independently of user authentication).
-- **Data Access**: Storage abstraction layer with user-scoped queries and transactional operations.
-
-### Authentication and Authorization
-- **Replit Auth Integration**: OAuth 2.0 / OpenID Connect flow with PostgreSQL session storage and HTTPS-only cookies.
-- **User Session Management**: Database-stored sessions, cached user info, token refresh, and automatic user creation/update.
-- **Authorization**: Route-level protection via `isAuthenticated` middleware, ensuring all queries are scoped to the authenticated user's ID.
+### Database
+- **Engine**: PostgreSQL via Neon (serverless)
+- **ORM**: Drizzle with TypeScript schemas
+- **Tables**: users, transacoes, cartoes, subscriptions, whatsapp_sessions, webhooks, etc.
 
 ## External Dependencies
-- **OpenAI API**: For AI-powered financial transaction classification and data extraction (GPT-5).
-- **WhatsApp Business API**: For message reception, processing, and media handling.
-- **Neon Database**: Serverless PostgreSQL hosting.
-- **Recharts**: For rendering financial visualizations.
-- **date-fns**: For date formatting and calculations.
-- **Zod**: For schema validation.
-- **Radix UI**: Primitives for UI components.
-- **Vite & esbuild**: For frontend and backend bundling.
+- **OpenAI API**: GPT-5 for AI features
+- **WhatsApp Business API**: Message handling
+- **Neon Database**: PostgreSQL hosting
+- **Recharts**: Financial visualizations
+- **Radix UI**: Component primitives
+
+## User Preferences
+- Communication style: Simple, everyday language
+- Development workflow: Manual server startup
+- Prioritize: Working features over automation issues
