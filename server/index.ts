@@ -36,8 +36,8 @@ app.use(express.urlencoded({ extended: false }));
 app.get("/_health", (req, res) => res.status(200).json({ ok: true }));
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
-// Server startup - Port 5000 (maps to external port 80 via .replit)
-const port = parseInt(process.env.PORT || '5000');
+// Server startup - Port 3000 (what Replit expects)
+const port = parseInt(process.env.PORT || '3000');
 const httpServer = createServer(app);
 
 httpServer.listen(port, "0.0.0.0", () => {
