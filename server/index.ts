@@ -35,7 +35,7 @@ app.use(getSession());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add immediate health check endpoint (before any async operations)
+// Add immediate health check endpoint
 app.get("/_health", (req, res) => {
   res.status(200).json({ ok: true });
 });
@@ -44,51 +44,43 @@ app.get("/health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-// CRITICAL FOR REPLIT: Create server and listen on port 3000
-const port = parseInt(process.env.PORT || '3000');
+// Create the HTTP server
+const port = 3000;
 const httpServer = createServer(app);
 
-// Open port IMMEDIATELY - this is SYNCHRONOUS
+// Listen immediately on port 3000 - SYNCHRONOUS operation
 httpServer.listen(port, "0.0.0.0", () => {
-  // Log in multiple formats for Replit port detection
-  console.log("ready");
-  console.log(`Listening on port ${port}`);
-  console.log(`Server ready at http://0.0.0.0:${port}`);
+  // Signal Replit that port is ready - CRITICAL!
+  process.stderr.write(`\n✅ Listening on http://0.0.0.0:${port}\n`);
+  console.log(`✅ Ready on http://0.0.0.0:${port}`);
+  console.error(`✅ Ready on http://0.0.0.0:${port}`);
   
-  log(`✅ Server listening on port ${port}`, "SERVER");
-  
-  // NOW run all async initialization in background (non-blocking)
+  // Initialize async
   initializeServer();
 });
 
-// Async initialization function (runs AFTER port is open)
+// Async initialization
 async function initializeServer() {
   try {
-    // Register all routes (this adds routes to the app)
     await registerRoutes(app);
-    
-    // Serve static files
     serveStatic(app);
     
-    // Run database initialization in parallel
     await Promise.allSettled([
       seedAdmin(),
       ensureAdminRootExists(),
       ensureWebhookEventsTable(),
     ]);
     
-    log("✅ All initialization complete", "SERVER");
+    log("✅ Initialization complete", "SERVER");
     
-    // Kill standalone Vite server if running
+    // Kill Vite standalone
     setTimeout(() => {
       try {
         spawnSync("pkill", ["-f", "vite.*5173"], { stdio: "ignore" });
-      } catch (e) {
-        // Ignore errors
-      }
+      } catch (e) {}
     }, 1000);
   } catch (error) {
-    log(`❌ Initialization error: ${error}`, "SERVER");
+    log(`Error: ${error}`, "SERVER");
   }
 }
 
