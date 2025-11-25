@@ -1,8 +1,7 @@
 import express from "express";
-import { createServer } from "http";
-import { spawnSync } from "child_process";
+import { createServer, IncomingMessage, ServerResponse } from "http";
 import { registerRoutes } from "./routes.js";
-import { serveStatic, log } from "./vite.js";
+import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
@@ -10,8 +9,9 @@ import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
 import { storage } from "./storage.js";
 
 const app = express();
+const isProd = process.env.NODE_ENV === 'production';
 
-// Webhook endpoint - no auth
+// Webhook endpoint - no auth (must be before json middleware)
 app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (req, res) => {
   try {
     await storage.createWebhookEvent({
@@ -36,21 +36,47 @@ app.use(express.urlencoded({ extended: false }));
 app.get("/_health", (req, res) => res.status(200).json({ ok: true }));
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
-// Server startup - Port 5000 (maps to external port 80 via Autoscale)
-const port = parseInt(process.env.PORT || '5000');
+// Server startup
 const httpServer = createServer(app);
 
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log(`ready`);
-  console.log(`✅ Server listening on http://0.0.0.0:${port}`);
-  initializeAsync();
-});
+if (isProd) {
+  // Production: Use PORT env from Autoscale (maps to 80)
+  const port = parseInt(process.env.PORT || '5000');
+  httpServer.listen(port, "0.0.0.0", () => {
+    console.log(`ready`);
+    console.log(`✅ Server listening on http://0.0.0.0:${port}`);
+    initializeAsync();
+  });
+} else {
+  // Development: Listen on port 5000 (has externalPort in .replit for preview)
+  httpServer.listen(5000, "0.0.0.0", () => {
+    console.log(`ready`);
+    console.log(`✅ Server listening on http://0.0.0.0:5000`);
+    initializeAsync();
+    
+    // Also create a tiny server on port 3000 to satisfy the workflow's waitForPort
+    const proxyServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+      res.writeHead(302, { 'Location': `http://localhost:5000${req.url}` });
+      res.end();
+    });
+    proxyServer.listen(3000, "0.0.0.0", () => {
+      console.log(`📍 Proxy on port 3000 → 5000`);
+    });
+  });
+}
 
 // Async initialization in background
 async function initializeAsync() {
   try {
     await registerRoutes(app);
-    serveStatic(app);
+    
+    // In development, use Vite middleware for HMR
+    // In production, serve static files
+    if (isProd) {
+      serveStatic(app);
+    } else {
+      await setupVite(app, httpServer);
+    }
     
     await Promise.allSettled([
       seedAdmin(),
@@ -59,12 +85,6 @@ async function initializeAsync() {
     ]);
     
     log("✅ Initialization complete", "SERVER");
-    
-    setTimeout(() => {
-      try {
-        spawnSync("pkill", ["-f", "vite.*5173"], { stdio: "ignore" });
-      } catch (e) {}
-    }, 1000);
   } catch (error) {
     console.error("Init error:", error);
   }
