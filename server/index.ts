@@ -42,9 +42,13 @@ app.get("/_health", (req, res) => res.status(200).json({ ok: true }));
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
 // Server startup
+// CRITICAL: Autoscale default detection - must listen on 0.0.0.0
+// Autoscale binds first port to external 80. Port must be 5000 per .replit config
 const httpServer = createServer(app);
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+// Default to 5000 (configured in .replit as localPort)
+// Autoscale doesn't pass PORT env, so we hardcode the configured port
+const port = 5000;
 
 httpServer.listen(port, "0.0.0.0", () => {
   console.log(`ready`);
