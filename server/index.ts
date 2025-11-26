@@ -11,11 +11,6 @@ import { storage } from "./storage.js";
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
-// Healthcheck para Autoscale — responde imediatamente
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
-});
-
 // Webhook endpoint - no auth (must be before json middleware)
 app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (req, res) => {
   try {
@@ -37,8 +32,9 @@ app.use(getSession());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Health endpoints
-app.get("/_health", (req, res) => res.status(200).json({ ok: true }));
+// Health endpoints - for Autoscale and uptime monitoring
+// /_health must respond immediately without database/initialization checks
+app.get("/_health", (req, res) => res.status(200).send("OK"));
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
 // Server startup
