@@ -5,10 +5,6 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-// NEON DATABASE URL - This is the ONLY source of truth for the database connection
-// This overrides any Replit-managed PG* variables that might interfere
-const NEON_DATABASE_URL = "postgresql://neondb_owner:npg_TlZvP3kd2icV@ep-plain-art-acnjwa7b-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require";
-
 // Force clear any Replit PG* variables that might override our connection
 // This ensures we ALWAYS connect to Neon, not Replit's managed database
 delete process.env.PGHOST;
@@ -17,8 +13,15 @@ delete process.env.PGUSER;
 delete process.env.PGPASSWORD;
 delete process.env.PGDATABASE;
 
-// Use Neon URL directly - bypass any Replit environment interference
-const databaseUrl = NEON_DATABASE_URL;
+// Use NEON_DATABASE_URL (custom name that Replit won't override)
+// Fallback to DATABASE_URL for compatibility
+const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error(
+    "NEON_DATABASE_URL must be set. Add it in Replit Secrets.",
+  );
+}
 
 console.log(`[DB] Connecting to: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`);
 

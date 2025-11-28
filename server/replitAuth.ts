@@ -8,8 +8,15 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage.js";
 
-// NEON DATABASE URL - This is the ONLY source of truth for the database connection
-const NEON_DATABASE_URL = "postgresql://neondb_owner:npg_TlZvP3kd2icV@ep-plain-art-acnjwa7b-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require";
+// Use NEON_DATABASE_URL (custom name that Replit won't override)
+// Throws error if neither is set - fail fast instead of silently using wrong DB
+const getDatabaseUrl = () => {
+  const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("[AUTH] NEON_DATABASE_URL must be set. Add it in Replit Secrets.");
+  }
+  return url;
+};
 
 const getOidcConfig = memoize(
   async () => {
@@ -25,7 +32,7 @@ export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    conString: NEON_DATABASE_URL,
+    conString: getDatabaseUrl(),
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",

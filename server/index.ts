@@ -40,18 +40,20 @@ app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 // Diagnostic endpoint to verify DATABASE_URL in production
 // This helps confirm which database the container is actually using
 app.get("/_db-check", (req, res) => {
-  // HARDCODED Neon URL - this is what we're actually using now
-  const NEON_DATABASE_URL = "postgresql://neondb_owner:npg_TlZvP3kd2icV@ep-plain-art-acnjwa7b-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require";
-  const maskedUrl = NEON_DATABASE_URL.replace(/:[^:@]+@/, ":****@");
+  const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
+  const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
+  const isNeon = dbUrl.includes("neon");
+  const isBrazil = dbUrl.includes("sa-east-1");
   
   res.json({
     status: "ok",
-    database: "NEON-HARDCODED",
+    database: isNeon ? "NEON" : "UNKNOWN",
     url: maskedUrl,
-    region: "sa-east-1 (Brazil)",
+    region: isBrazil ? "sa-east-1 (Brazil)" : "other",
+    source: process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL (secure)" : "DATABASE_URL",
     env: process.env.NODE_ENV || "development",
     timestamp: new Date().toISOString(),
-    correct: "YES - Hardcoded Neon URL (bypasses Replit PG* variables)"
+    correct: isNeon ? "YES - Using Neon via secure env var" : "NO - Check configuration"
   });
 });
 
