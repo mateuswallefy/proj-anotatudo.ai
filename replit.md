@@ -8,25 +8,29 @@ AnotaTudo.AI is a SaaS financial management platform that leverages AI to transf
 ### Architecture
 ```
 DEV (eumateus3435/workspace)
-    ↓ git push
+    ↓ git push to GitHub
 GitHub (proj-anotatudo.ai.git)
-    ↓ git pull
+    ↓ git pull to PROD
 PROD (eumateus3435/prod)
 ```
 
-### Databases (Neon)
-**DEV:**
-```
-postgresql://neondb_owner:npg_aUvt8L9IKjMW@ep-shy-recipe-aco7vd4h-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-```
+### Databases (Neon) - Separate Instances
+Each environment has its own isolated Neon database (never sync between envs).
 
-**PROD:** [Separate Neon instance - kept isolated via NEON_DATABASE_URL env var]
+**DEV:**
+- Instance: `ep-shy-recipe-aco7vd4h`
+- URL stored in: `NEON_DATABASE_URL` secret (DEV environment)
+
+**PROD:**
+- Instance: `ep-plain-art-acnjwa7b`
+- URL stored in: `NEON_DATABASE_URL` secret (PROD environment)
 
 ### Workflow
 1. **Make changes in DEV** (this workspace)
 2. **Push to GitHub:** `git push origin main`
 3. **Pull to PROD:** On prod workspace, run `git pull origin main`
-4. Each environment maintains its own `NEON_DATABASE_URL` secret (never committed)
+4. **Each environment maintains its own `NEON_DATABASE_URL` secret** (never committed to git)
+5. Databases stay isolated, code stays synchronized
 
 ## Quick Start (Development)
 
@@ -83,7 +87,9 @@ This binds internal port 5000 to external port 80 for Replit Preview.
 ## Recent Changes (November 28, 2025)
 
 ### ✅ DEV/PROD Separation Implemented
-- Implemented secure development workflow with GitHub synchronization
+- Secure development workflow with GitHub synchronization
+- **DEV workspace**: eumateus3435/workspace (ep-shy-recipe-aco7vd4h)
+- **PROD workspace**: eumateus3435/prod (ep-plain-art-acnjwa7b)
 - Each environment maintains separate Neon database via NEON_DATABASE_URL
 - Code syncs via git (GitHub), databases stay isolated
 - Express server running on port 5000 with Vite middleware
