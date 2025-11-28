@@ -179,7 +179,7 @@ export default function Auth() {
               <CardTitle className="text-2xl font-bold">AnotaTudo.AI</CardTitle>
             </div>
             <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">
-              {activeTab === "login" ? "Bem-vindo de volta" : "Criar conta"}
+              {activeTab === "login" ? "Bem-vindo TESTE" : "Criar conta"}
             </CardTitle>
             <CardDescription className="text-base">
               {activeTab === "login"
