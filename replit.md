@@ -3,107 +3,100 @@
 ## Overview
 AnotaTudo.AI is a SaaS financial management platform that leverages AI to transform WhatsApp messages (text, audio, photos, videos) into structured financial records. Its core purpose is to provide users with a comprehensive financial dashboard for visualizing income, expenses, credit cards, and financial trends, alongside manual transaction management.
 
-## 🚀 Quick Start (Development)
+## 🚀 DEV/PROD Workflow (November 28, 2025)
 
-**DO NOT use the "Run" button** - it causes a port detection loop.
-
-Instead, in the Replit console run:
-```bash
-bash dev-server.sh
+### Architecture
+```
+DEV (eumateus3435/workspace)
+    ↓ git push
+GitHub (proj-anotatudo.ai.git)
+    ↓ git pull
+PROD (eumateus3435/prod)
 ```
 
-Server will start at **http://localhost:3000**
-
-## 🔧 Development Mode
-
-### Starting the Server
-```bash
-# Option 1: Quick script (Recommended)
-bash dev-server.sh
-
-# Option 2: Direct TypeScript
-tsx server/index.ts
-
-# Option 3: Alternative shell script
-bash start-dev.sh
+### Databases (Neon)
+**DEV:**
 ```
+postgresql://neondb_owner:npg_aUvt8L9IKjMW@ep-shy-recipe-aco7vd4h-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```
+
+**PROD:** [Separate Neon instance - kept isolated via NEON_DATABASE_URL env var]
+
+### Workflow
+1. **Make changes in DEV** (this workspace)
+2. **Push to GitHub:** `git push origin main`
+3. **Pull to PROD:** On prod workspace, run `git pull origin main`
+4. Each environment maintains its own `NEON_DATABASE_URL` secret (never committed)
+
+## Quick Start (Development)
+
+### Running the Server (Port 5000)
+```bash
+npm run dev:server
+```
+
+Server will start at **http://localhost:5000**
 
 ### Accessing the App
-- **Frontend**: http://localhost:3000
-- **Health Check**: http://localhost:3000/_health
-- **API Endpoints**: http://localhost:3000/api/...
+- **Frontend**: http://localhost:5000 (via Replit Preview on external port 80)
+- **Health Check**: http://localhost:5000/_health
+- **API Endpoints**: http://localhost:5000/api/...
 
 ### Port Already In Use?
 ```bash
-pkill -9 tsx
-sleep 2
-bash dev-server.sh
+pkill -9 -f node
+sleep 1
+npm run dev:server
 ```
 
-## 📦 Production vs Development
+## 🔧 Configuration
 
-**Preview (localhost:3000)**
-- Temporary development environment
-- Changes appear immediately
-- NOT synced with production
+### .replit File
+```
+modules = ["nodejs-20"]
+run = "npm run dev:server"
 
-**Production (https://anotatudo.com)**
-- Live 24/7 deployment
-- Only updates when you publish
-- Completely separate from preview
+[[ports]]
+localPort = 5000
+externalPort = 80
+```
 
-To update production, use the Publish button in Replit.
+This binds internal port 5000 to external port 80 for Replit Preview.
 
-## Recent Changes (November 25, 2025)
-### ✅ Development Server Fixed
-- **Issue Resolved**: Replit workflow port detection incompatibility
-- **Solution**: Manual startup via `bash dev-server.sh`
-- **Server Performance**: < 2 seconds startup time
-- **Status**: ✅ All systems working perfectly
+## 📦 Server Architecture
 
-### Server Architecture
-- Express.js backend listening on port 3000
-- Async database initialization (non-blocking)
-- Health check endpoints at `/_health` and `/health`
+### Tech Stack
+- **Backend**: Express.js + TypeScript
+- **Frontend**: React + Vite, TailwindCSS, Shadcn UI
+- **Database**: PostgreSQL via Neon (serverless)
+- **ORM**: Drizzle with TypeScript schemas
+- **Auth**: Session-based (web) + Email-based (WhatsApp)
+
+### Key Components
+- Express server with Vite middleware (development mode)
+- Health check endpoints at `/_health`
 - WhatsApp webhook support
 - Admin authentication system
-- Comprehensive logging
+- AI pipeline (GPT integration)
+- Financial logic (Income/Expenses/Savings)
 
-### Previous Changes (November 24, 2025)
-- Server startup optimization refactor
-- Port configuration analysis completed
-- Production deployment confirmed working (anotatudo.com)
-- Development preview workaround created
+## Recent Changes (November 28, 2025)
 
-## System Architecture
+### ✅ DEV/PROD Separation Implemented
+- Implemented secure development workflow with GitHub synchronization
+- Each environment maintains separate Neon database via NEON_DATABASE_URL
+- Code syncs via git (GitHub), databases stay isolated
+- Express server running on port 5000 with Vite middleware
+- Port mapping configured in .replit for Preview access
 
-### Frontend
-- **Stack**: React + TypeScript, Vite, TailwindCSS, Shadcn UI
-- **Design**: Material Design 3, mobile-first, dark mode support
-- **State**: TanStack Query, React Hook Form with Zod validation
-- **Navigation**: Zero-reload tab-based (TabContext), responsive design
-- **Pages**: 8 complete pages with comprehensive features
-
-### Backend
-- **Stack**: Express.js + TypeScript
-- **Auth**: Session-based (web) + Email-based (WhatsApp)
-- **AI Pipeline**: GPT-5 for transaction extraction
-- **Rate Limiting**: 10 messages/minute per WhatsApp number
-- **Financial Logic**: Income/Expenses/Savings tracking with variation calculations
-
-### Database
-- **Engine**: PostgreSQL via Neon (serverless)
-- **ORM**: Drizzle with TypeScript schemas
-- **Tables**: users, transacoes, cartoes, subscriptions, whatsapp_sessions, webhooks, etc.
-
-## External Dependencies
-- **OpenAI API**: GPT-5 for AI features
-- **WhatsApp Business API**: Message handling
-- **Neon Database**: PostgreSQL hosting
-- **Recharts**: Financial visualizations
-- **Radix UI**: Component primitives
+### Previous Fixes
+- Resolved package.json synchronization across environments
+- Fixed Git merge conflicts (.gitignore, .replit)
+- Corrected server architecture (Express+Vite instead of standalone Vite)
+- Resolved EADDRINUSE port conflicts
 
 ## User Preferences
 - Communication style: Simple, everyday language
-- Development workflow: Manual server startup
-- Prioritize: Working features over automation issues
+- Development workflow: Code editing in DEV → git push → GitHub → git pull to PROD
+- Each environment has isolated Neon database
+- Prioritize: Working features over automation
