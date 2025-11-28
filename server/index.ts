@@ -37,6 +37,24 @@ app.use(express.urlencoded({ extended: false }));
 app.get("/_health", (req, res) => res.status(200).send("OK"));
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
+// Diagnostic endpoint to verify DATABASE_URL in production
+// This helps confirm which database the container is actually using
+app.get("/_db-check", (req, res) => {
+  const dbUrl = process.env.DATABASE_URL || "NOT_SET";
+  const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
+  const isNeon = dbUrl.includes("neon");
+  const isReplit = dbUrl.includes("replit") || dbUrl.includes("localhost");
+  
+  res.json({
+    status: "ok",
+    database: isNeon ? "NEON" : isReplit ? "REPLIT" : "UNKNOWN",
+    url: maskedUrl,
+    env: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+    correct: isNeon ? "YES - Using Neon (external)" : "NO - Should be Neon"
+  });
+});
+
 // Server startup
 // CRITICAL: Autoscale default detection - must listen on 0.0.0.0
 // Autoscale binds first port to external 80. Port must be 5000 per .replit config
