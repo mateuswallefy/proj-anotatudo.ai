@@ -1,0 +1,217 @@
+Campos do webhook
+​
+Campo
+Versão
+Testar
+Assinar
+account_alerts
+Seletor da versão de assinatura para o campo de webhook account_alerts. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+account_review_update
+Seletor da versão de assinatura para o campo de webhook account_review_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+account_settings_update
+Seletor da versão de assinatura para o campo de webhook account_settings_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+account_update
+Seletor da versão de assinatura para o campo de webhook account_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+automatic_events
+Seletor da versão de assinatura para o campo de webhook automatic_events. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+business_capability_update
+Seletor da versão de assinatura para o campo de webhook business_capability_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+business_status_update
+Seletor da versão de assinatura para o campo de webhook business_status_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+calls
+Seletor da versão de assinatura para o campo de webhook calls. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+flows
+Seletor da versão de assinatura para o campo de webhook flows. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+group_lifecycle_update
+Seletor da versão de assinatura para o campo de webhook group_lifecycle_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+group_participants_update
+Seletor da versão de assinatura para o campo de webhook group_participants_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+group_settings_update
+Seletor da versão de assinatura para o campo de webhook group_settings_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+group_status_update
+Seletor da versão de assinatura para o campo de webhook group_status_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+history
+Seletor da versão de assinatura para o campo de webhook history. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+message_echoes
+Seletor da versão de assinatura para o campo de webhook message_echoes. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+message_template_components_update
+Seletor da versão de assinatura para o campo de webhook message_template_components_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+message_template_quality_update
+Seletor da versão de assinatura para o campo de webhook message_template_quality_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+message_template_status_update
+Seletor da versão de assinatura para o campo de webhook message_template_status_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+messages
+Seletor da versão de assinatura para o campo de webhook messages. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_handovers
+Seletor da versão de assinatura para o campo de webhook messaging_handovers. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+partner_solutions
+Seletor da versão de assinatura para o campo de webhook partner_solutions. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+payment_configuration_update
+Seletor da versão de assinatura para o campo de webhook payment_configuration_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+phone_number_name_update
+Seletor da versão de assinatura para o campo de webhook phone_number_name_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+phone_number_quality_update
+Seletor da versão de assinatura para o campo de webhook phone_number_quality_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+security
+Seletor da versão de assinatura para o campo de webhook security. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+smb_app_state_sync
+Seletor da versão de assinatura para o campo de webhook smb_app_state_sync. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+smb_message_echoes
+Seletor da versão de assinatura para o campo de webhook smb_message_echoes. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+template_category_update
+Seletor da versão de assinatura para o campo de webhook template_category_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+template_correct_category_detection
+Seletor da versão de assinatura para o campo de webhook template_correct_category_detection. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+tracking_events
+Seletor da versão de assinatura para o campo de webhook tracking_events. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+user_preferences

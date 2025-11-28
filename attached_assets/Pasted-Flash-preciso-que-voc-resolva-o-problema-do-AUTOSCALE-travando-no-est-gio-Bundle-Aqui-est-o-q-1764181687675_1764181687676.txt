@@ -1,0 +1,119 @@
+Flash, preciso que você resolva o problema do AUTOSCALE travando no estágio “Bundle”.
+
+Aqui está o que já está funcionando:
+
+O server inicia corretamente em 0.0.0.0:5000
+
+O healthcheck em /_health retorna “OK”
+
+O deploy não quebra no build
+
+O Vite dev mode não está mais ativo
+
+O healthcheck não está bloqueando o frontend
+
+O .replit está configurado para Autoscale
+
+O server está usando a porta correta
+
+Não há mais porta 3000
+
+O preview responde OK e o server sobe
+
+Mas o Autoscale trava no estágio:
+
+Bundle
+
+
+O que isso significa:
+➡️ O Replit Autoscale não está conseguindo carregar o bundle final do frontend.
+➡️ Pode ser por falta dos arquivos gerados pelo Vite
+➡️ Ou por eles estarem no lugar errado
+➡️ Ou porque serveStatic está apontando para um caminho incorreto
+➡️ Ou porque o deploy não está incluindo a pasta dist/public
+➡️ Ou porque o build não está produzindo index.html no local esperado
+
+Preciso que você:
+
+1. Valide o conteúdo real de:
+
+dist/
+
+dist/public/
+
+dist/public/index.html
+
+dist/assets/
+
+2. Rode:
+vite build
+
+
+e verifique para onde os arquivos estão indo.
+
+3. Confirme qual é o valor de:
+const distPath = path.resolve(process.cwd(), "dist", "public");
+
+
+no server.
+
+4. Verifique se index.html está realmente em:
+dist/public/index.html
+
+5. Corrija quaisquer problemas no:
+
+caminho do build client
+
+caminho do serveStatic
+
+config do Vite build
+
+outputDir
+
+root
+
+base path
+
+estrutura do dist
+
+6. Aplique qualquer patch necessário automaticamente:
+
+ajustar vite.config.js
+
+consertar outDir
+
+mover arquivos
+
+corrigir serveStatic(app)
+
+criar dist/public se estiver faltando
+
+corrigir paths de assets
+
+garantir que o deploy inclua o bundle completo
+
+7. No final, gere um relatório COM DETALHES:
+
+O que estava faltando no bundle
+
+Por que o Autoscale travava
+
+Quais arquivos estavam ausentes ou no lugar errado
+
+O que você corrigiu
+
+Como garantir que a build do cliente está funcionando
+
+O que mudou no Vite ou server
+
+8. Finalmente, teste você mesmo:
+
+Rode “npm run build”
+
+Rode “node dist/server.js”
+
+Acesse “/” e verifique se NÃO retorna mais “OK”
+
+Verifique se o frontend React aparece corretamente (ou o HTML bruto)
+
+Finalize com o relatório completo.
