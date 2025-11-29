@@ -67,24 +67,29 @@ const httpServer = createServer(app);
 const port = 5000;
 
 httpServer.listen(port, "0.0.0.0", () => {
+  // Log "ready" FIRST - Autoscale detects port immediately
   console.log(`ready`);
-  console.log(`✅ Server listening on http://0.0.0.0:${port}`);
-  initializeAsync();
+  
+  // Trigger initialization in background - don't await or wait
+  initializeAsync().catch(error => {
+    console.error("Initialization error:", error);
+  });
 });
 
-// Async initialization in background
+// Async initialization in background - runs AFTER port is open
 async function initializeAsync() {
   try {
+    // Register all routes
     await registerRoutes(app);
     
-    // In development, use Vite middleware for HMR
-    // In production, serve static files
+    // Setup static files or Vite middleware
     if (isProd) {
       serveStatic(app);
     } else {
       await setupVite(app, httpServer);
     }
     
+    // Database setup tasks - these are most slow
     await Promise.allSettled([
       seedAdmin(),
       ensureAdminRootExists(),
@@ -93,7 +98,7 @@ async function initializeAsync() {
     
     log("✅ Initialization complete", "SERVER");
   } catch (error) {
-    console.error("Init error:", error);
+    console.error("Initialization error:", error);
   }
 }
 
