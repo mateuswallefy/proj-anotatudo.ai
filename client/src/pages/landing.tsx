@@ -24,7 +24,7 @@ export default function Landing() {
         {/* Hero Section */}
         <div className="text-center mb-20">
           <h2 className="text-5xl font-bold mb-6 leading-tight">
-            Seu Assessor Financeiro
+            Bem-vindo! Seu Assessor Financeiro
             <br />
             <span className="text-primary">no WhatsApp</span>
           </h2>
