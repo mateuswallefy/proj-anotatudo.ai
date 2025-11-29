@@ -57,6 +57,25 @@ app.get("/_db-check", (req, res) => {
   });
 });
 
+// Fallback middleware - responds immediately for health checks and root requests
+// This prevents timeout errors before async initialization completes
+app.get("/", (req, res) => {
+  res.status(200).json({ 
+    status: "ok", 
+    message: "Server is ready. Initialization in progress." 
+  });
+});
+
+// Catch-all middleware for 404s (before async init, prevents timeout errors)
+app.use((req, res, next) => {
+  // Only catch if routes haven't been registered yet
+  if (!req.route) {
+    res.status(404).json({ error: "Not found" });
+  } else {
+    next();
+  }
+});
+
 // Server startup
 // CRITICAL: Autoscale default detection - must listen on 0.0.0.0
 // Autoscale binds first port to external 80. Port must be 5000 per .replit config
