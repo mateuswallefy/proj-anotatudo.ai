@@ -28,10 +28,10 @@ const server = httpServer.listen(PORT, "0.0.0.0", () => {
 });
 
 // ============================================================
-// ALL MIDDLEWARES - After healthcheck routes and server start
+// MIDDLEWARES - After healthcheck routes and server start
+// NO SESSION HERE - Session only on /api and /admin routes
 // ============================================================
 app.set("trust proxy", 1);
-app.use(getSession());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -88,7 +88,11 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
       });
     }
     
-    // Register routes AFTER server is listening
+    // Session middleware - ONLY for /api and /admin routes (after server is up)
+    app.use("/api", getSession());
+    app.use("/admin", getSession());
+    
+    // Register routes AFTER server is listening and session is configured
     await registerRoutes(app);
     
     // Initialize database AFTER routes are registered (completely non-blocking)
