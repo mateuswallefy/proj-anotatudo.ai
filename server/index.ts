@@ -11,34 +11,15 @@ import { storage } from "./storage.js";
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
-// Webhook endpoint - no auth (must be before json middleware)
-app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (req, res) => {
-  try {
-    await storage.createWebhookEvent({
-      event: req.body?.event ?? "unknown",
-      type: req.body?.event ?? "unknown",
-      payload: req.body,
-      status: "pending",
-      processed: false,
-    });
-    res.status(200).json({ ok: true });
-  } catch (e) {
-    res.status(200).json({ ok: true });
-  }
-});
-
-app.set("trust proxy", 1);
-app.use(getSession());
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Health endpoints - for Autoscale and uptime monitoring
-// /_health must respond immediately without database/initialization checks
+// ============================================================
+// HEALTH CHECK ENDPOINTS - MUST BE FIRST, BEFORE ANY MIDDLEWARE
+// These respond instantly without database or session checks
+// ============================================================
+app.get("/", (req, res) => res.status(200).send("OK"));
 app.get("/_health", (req, res) => res.status(200).send("OK"));
-app.get("/health", (req, res) => res.status(200).json({ ok: true }));
+app.get("/health", (req, res) => res.status(200).send("OK"));
 
-// Diagnostic endpoint to verify DATABASE_URL in production
-// This helps confirm which database the container is actually using
+// Diagnostic endpoint (no DB connection required)
 app.get("/_db-check", (req, res) => {
   const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
   const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
@@ -57,10 +38,31 @@ app.get("/_db-check", (req, res) => {
   });
 });
 
-// Simple root endpoint - responds immediately with 200 OK
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
+// ============================================================
+// WEBHOOKS - Before session middleware (no auth required)
+// ============================================================
+app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (req, res) => {
+  try {
+    await storage.createWebhookEvent({
+      event: req.body?.event ?? "unknown",
+      type: req.body?.event ?? "unknown",
+      payload: req.body,
+      status: "pending",
+      processed: false,
+    });
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    res.status(200).json({ ok: true });
+  }
 });
+
+// ============================================================
+// MIDDLEWARES - Session, JSON parsing, etc.
+// ============================================================
+app.set("trust proxy", 1);
+app.use(getSession());
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // Server startup
 // CRITICAL: Autoscale default detection - must listen on 0.0.0.0
