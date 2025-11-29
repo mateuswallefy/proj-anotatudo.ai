@@ -57,23 +57,9 @@ app.get("/_db-check", (req, res) => {
   });
 });
 
-// Fallback middleware - responds immediately for health checks and root requests
-// This prevents timeout errors before async initialization completes
+// Simple root endpoint - responds immediately with 200 OK
 app.get("/", (req, res) => {
-  res.status(200).json({ 
-    status: "ok", 
-    message: "Server is ready. Initialization in progress." 
-  });
-});
-
-// Catch-all middleware for 404s (before async init, prevents timeout errors)
-app.use((req, res, next) => {
-  // Only catch if routes haven't been registered yet
-  if (!req.route) {
-    res.status(404).json({ error: "Not found" });
-  } else {
-    next();
-  }
+  res.status(200).send("OK");
 });
 
 // Server startup
