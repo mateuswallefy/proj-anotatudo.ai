@@ -74,28 +74,34 @@ const httpServer = createServer(app);
 const port = 5000;
 
 // ============================================================
-// START SERVER - SYNCHRONOUS ROUTE REGISTRATION BEFORE LISTEN
+// START SERVER IMMEDIATELY - Routes load in parallel
 // ============================================================
 async function startServer() {
   try {
-    // 1. Register all routes BEFORE listening (sync guarantee)
-    await registerRoutes(app);
-    
-    // 2. Setup static files or Vite (also before listening)
+    // 1. Setup static files OR Vite in background (don't await on prod)
     if (isProd) {
       serveStatic(app);
     } else {
-      await setupVite(app, httpServer);
+      setupVite(app, httpServer).catch(error => {
+        console.error("Failed to setup Vite:", error);
+      });
     }
     
-    // 3. NOW start listening - all routes and middleware ready
+    // 2. START SERVER IMMEDIATELY (health checks already registered)
     httpServer.listen(port, "0.0.0.0", () => {
       // Log "ready" FIRST - Autoscale detects port immediately
       console.log(`ready`);
       
-      // 4. Only run database tasks in background
-      initializeDatabaseAsync().catch(error => {
-        console.error("Database initialization error:", error);
+      // 3. Register routes in parallel (non-blocking)
+      registerRoutes(app).catch(error => {
+        console.error("Failed to register routes:", error);
+      });
+      
+      // 4. Initialize database in separate event loop (completely non-blocking)
+      setImmediate(() => {
+        initializeDatabaseAsync().catch(error => {
+          console.error("Database initialization error:", error);
+        });
       });
     });
   } catch (error) {
@@ -104,7 +110,7 @@ async function startServer() {
   }
 }
 
-// Only database tasks in background - routes and static files already loaded
+// Database initialization - completely background
 async function initializeDatabaseAsync() {
   try {
     await Promise.allSettled([
@@ -119,7 +125,7 @@ async function initializeDatabaseAsync() {
   }
 }
 
-// Start the server
+// Start the server immediately
 startServer().catch(error => {
   console.error("Critical server startup error:", error);
   process.exit(1);
