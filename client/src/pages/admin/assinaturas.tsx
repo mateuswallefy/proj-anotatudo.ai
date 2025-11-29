@@ -119,7 +119,7 @@ export default function AdminAssinaturas() {
         subtitle="Controle de planos, status e cobrança"
         />
 
-      <div className="space-y-6">
+      <div className="space-y-6 px-4 max-w-[1200px] mx-auto">
         {/* Search and Filters */}
         <StripeSectionCard>
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -197,9 +197,9 @@ export default function AdminAssinaturas() {
 
         {/* Table */}
         <StripeSectionCard>
-          <div className="max-w-[1200px] mx-auto px-4">
-            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
-              <Table>
+          <div className="max-w-[1200px] mx-auto">
+            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                     <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Cliente ID</TableHead>

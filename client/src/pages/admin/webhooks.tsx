@@ -144,7 +144,7 @@ export default function AdminWebhooks() {
         subtitle="Configure e monitore webhooks de plataformas externas"
       />
 
-      <div className="space-y-6">
+      <div className="space-y-6 px-4 max-w-[1200px] mx-auto">
         {/* Webhook URL Section */}
         <StripeSectionCard>
           <div className="space-y-4">
@@ -364,18 +364,18 @@ export default function AdminWebhooks() {
         <StripeSectionCard 
           title="Últimos Webhooks Recebidos"
         >
-          <div className="max-w-[1200px] mx-auto px-4">
-            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm">
-              <Table>
+          <div className="max-w-[1200px] mx-auto">
+            <div className="rounded-lg border bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                    <TableHead className="w-[145px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Evento</TableHead>
-                    <TableHead className="w-[175px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">E-mail</TableHead>
-                    <TableHead className="w-[95px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Assinatura</TableHead>
-                    <TableHead className="w-[125px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
+                    <TableHead className="w-[170px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Evento</TableHead>
+                    <TableHead className="w-[200px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">E-mail</TableHead>
+                    <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Assinatura</TableHead>
+                    <TableHead className="w-[120px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Status</TableHead>
                     <TableHead className="w-[110px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Tentativas</TableHead>
-                    <TableHead className="w-[145px] px-4 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
-                    <TableHead className="w-[150px] text-right px-2 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Ações</TableHead>
+                    <TableHead className="w-[110px] px-2 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium hidden md:table-cell">Último Processamento</TableHead>
+                    <TableHead className="w-[90px] px-2 py-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
@@ -383,13 +383,13 @@ export default function AdminWebhooks() {
                   <>
                     {Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={`skeleton-${i}`} className="border-b border-gray-100 dark:border-gray-700">
-                        <TableCell className="px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell className="w-[150px] px-2 py-3 text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                        <TableCell className="w-[170px] px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="w-[200px] px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="w-[110px] px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="w-[120px] px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell className="w-[110px] px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="w-[110px] px-2 py-3 hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="w-[90px] px-2 text-center"><Skeleton className="h-8 w-24 mx-auto" /></TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -437,12 +437,12 @@ export default function AdminWebhooks() {
 
                   return (
                     <TableRow key={group.eventId} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <TableCell className="px-4 py-3">
+                      <TableCell className="w-[170px] px-4 py-3">
                         <span className="font-mono text-sm text-gray-900 dark:text-gray-50">
                           {group.eventType}
                         </span>
                       </TableCell>
-                      <TableCell className="px-4 py-3 hidden md:table-cell">
+                      <TableCell className="w-[200px] px-4 py-3 hidden md:table-cell">
                         {customerEmail ? (
                           <span 
                             className="text-sm text-gray-900 dark:text-gray-50 cursor-text select-text"
@@ -454,15 +454,15 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-3 hidden md:table-cell">
+                      <TableCell className="w-[110px] px-4 py-3 hidden md:table-cell">
                         <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
                           {subscriptionId}
                         </span>
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell className="w-[120px] px-4 py-3">
                         {getStatusBadge()}
                       </TableCell>
-                      <TableCell className="px-4 py-3 hidden md:table-cell">
+                      <TableCell className="w-[110px] px-4 py-3 hidden md:table-cell">
                         <div className="flex flex-col items-start gap-0.5">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {pluralizeSuccess(group.successCount)}
@@ -474,7 +474,7 @@ export default function AdminWebhooks() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 hidden md:table-cell">
+                      <TableCell className="w-[110px] px-2 py-3 hidden md:table-cell">
                         {group.lastAttempt.processedAt ? (
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {format(new Date(group.lastAttempt.processedAt), "dd/MM/yyyy 'às' HH:mm", {
@@ -485,8 +485,8 @@ export default function AdminWebhooks() {
                           <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="w-[150px] text-right px-2 py-3">
-                        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                      <TableCell className="w-[90px] px-2 text-center">
+                        <div className="flex items-center justify-center gap-1 whitespace-nowrap w-fit mx-auto">
                           <Button
                             variant="ghost"
                             size="sm"
