@@ -105,15 +105,6 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Serve static files from server/uploads
   app.use('/uploads/avatars', express.static(pathModule.join(process.cwd(), 'server', 'uploads', 'avatars')));
 
-  // Health check endpoints for Cloud Run (must be first)
-  app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
-  app.get('/_health', (_req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
   // Public endpoint: User status by email (for WhatsApp integration)
   // This endpoint MUST be public and never require authentication
   // IMPORTANT: This route is registered BEFORE any auth middleware

@@ -97,12 +97,13 @@ async function startServer() {
         console.error("Failed to register routes:", error);
       });
       
-      // 4. Initialize database in separate event loop (completely non-blocking)
-      setImmediate(() => {
+      // 4. Initialize database AFTER first request cycle (completely non-blocking)
+      // Use setTimeout(0) to ensure it runs AFTER all I/O operations
+      setTimeout(() => {
         initializeDatabaseAsync().catch(error => {
           console.error("Database initialization error:", error);
         });
-      });
+      }, 0);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
