@@ -11,13 +11,29 @@ import { storage } from "./storage.js";
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
-// ============================================================
-// HEALTH CHECK ENDPOINTS - MUST BE FIRST, BEFORE ANY MIDDLEWARE
-// These respond instantly without database or session checks
-// ============================================================
+// Healthchecks INSTANTÂNEOS — precisam ser as primeiras rotas
 app.get("/", (req, res) => res.status(200).send("OK"));
-app.get("/_health", (req, res) => res.status(200).send("OK"));
 app.get("/health", (req, res) => res.status(200).send("OK"));
+
+// Default to 5000 (configured in .replit as localPort)
+const PORT = 5000;
+
+// Create HTTP server
+const httpServer = createServer(app);
+
+// START SERVER IMMEDIATELY - Before any heavy logic
+const server = httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`ready`);
+});
+
+// ============================================================
+// ALL MIDDLEWARES - After healthcheck routes and server start
+// ============================================================
+app.set("trust proxy", 1);
+app.use(getSession());
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // Diagnostic endpoint (no DB connection required)
 app.get("/_db-check", (req, res) => {
@@ -38,6 +54,8 @@ app.get("/_db-check", (req, res) => {
   });
 });
 
+app.get("/_health", (req, res) => res.status(200).send("OK"));
+
 // ============================================================
 // WEBHOOKS - Before session middleware (no auth required)
 // ============================================================
@@ -57,28 +75,11 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
 });
 
 // ============================================================
-// MIDDLEWARES - Session, JSON parsing, etc.
+// HEAVY LOGIC - Runs AFTER server is listening (background)
 // ============================================================
-app.set("trust proxy", 1);
-app.use(getSession());
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Server startup
-// CRITICAL: Autoscale default detection - must listen on 0.0.0.0
-// Autoscale binds first port to external 80. Port must be 5000 per .replit config
-const httpServer = createServer(app);
-
-// Default to 5000 (configured in .replit as localPort)
-// Autoscale doesn't pass PORT env, so we hardcode the configured port
-const port = 5000;
-
-// ============================================================
-// START SERVER IMMEDIATELY - Routes load in parallel
-// ============================================================
-async function startServer() {
+(async () => {
   try {
-    // 1. Setup static files OR Vite in background (don't await on prod)
+    // Setup static files OR Vite in background
     if (isProd) {
       serveStatic(app);
     } else {
@@ -87,31 +88,15 @@ async function startServer() {
       });
     }
     
-    // 2. START SERVER IMMEDIATELY (health checks already registered)
-    httpServer.listen(port, "0.0.0.0", () => {
-      // Log "ready" FIRST - Autoscale detects port immediately
-      console.log(`ready`);
-      
-      // 3. Register routes AFTER server is listening
-      // Delay to ensure health check passes first (Autoscale checks within 3 seconds)
-      setTimeout(() => {
-        registerRoutes(app).catch(error => {
-          console.error("Failed to register routes:", error);
-        });
-      }, 500);
-      
-      // 4. Initialize database AFTER routes are registered (completely non-blocking)
-      setTimeout(() => {
-        initializeDatabaseAsync().catch(error => {
-          console.error("Database initialization error:", error);
-        });
-      }, 1500);
-    });
+    // Register routes AFTER server is listening
+    await registerRoutes(app);
+    
+    // Initialize database AFTER routes are registered (completely non-blocking)
+    await initializeDatabaseAsync();
   } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
+    console.error("Erro pós-startup:", error);
   }
-}
+})();
 
 // Database initialization - completely background
 async function initializeDatabaseAsync() {
@@ -127,11 +112,5 @@ async function initializeDatabaseAsync() {
     console.error("Database initialization error:", error);
   }
 }
-
-// Start the server immediately
-startServer().catch(error => {
-  console.error("Critical server startup error:", error);
-  process.exit(1);
-});
 
 export default httpServer;
