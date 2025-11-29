@@ -71,39 +71,42 @@ const httpServer = createServer(app);
 // Autoscale doesn't pass PORT env, so we hardcode the configured port
 const port = 5000;
 
+// Register routes IMMEDIATELY (synchronous setup)
+registerRoutes(app).catch(error => {
+  console.error("Failed to register routes:", error);
+});
+
+// Setup static/vite in background
+if (isProd) {
+  serveStatic(app);
+} else {
+  setupVite(app, httpServer).catch(error => {
+    console.error("Failed to setup Vite:", error);
+  });
+}
+
 httpServer.listen(port, "0.0.0.0", () => {
   // Log "ready" FIRST - Autoscale detects port immediately
   console.log(`ready`);
   
-  // Trigger initialization in background - don't await or wait
-  initializeAsync().catch(error => {
-    console.error("Initialization error:", error);
+  // Only run database tasks in background
+  initializeDatabaseAsync().catch(error => {
+    console.error("Database initialization error:", error);
   });
 });
 
-// Async initialization in background - runs AFTER port is open
-async function initializeAsync() {
+// Only database tasks in background - routes and static files already loaded
+async function initializeDatabaseAsync() {
   try {
-    // Register all routes
-    await registerRoutes(app);
-    
-    // Setup static files or Vite middleware
-    if (isProd) {
-      serveStatic(app);
-    } else {
-      await setupVite(app, httpServer);
-    }
-    
-    // Database setup tasks - these are most slow
     await Promise.allSettled([
       seedAdmin(),
       ensureAdminRootExists(),
       ensureWebhookEventsTable(),
     ]);
     
-    log("✅ Initialization complete", "SERVER");
+    log("✅ Database initialization complete", "SERVER");
   } catch (error) {
-    console.error("Initialization error:", error);
+    console.error("Database initialization error:", error);
   }
 }
 
