@@ -73,29 +73,36 @@ const httpServer = createServer(app);
 // Autoscale doesn't pass PORT env, so we hardcode the configured port
 const port = 5000;
 
-// Register routes IMMEDIATELY (synchronous setup)
-registerRoutes(app).catch(error => {
-  console.error("Failed to register routes:", error);
-});
-
-// Setup static/vite in background
-if (isProd) {
-  serveStatic(app);
-} else {
-  setupVite(app, httpServer).catch(error => {
-    console.error("Failed to setup Vite:", error);
-  });
+// ============================================================
+// START SERVER - SYNCHRONOUS ROUTE REGISTRATION BEFORE LISTEN
+// ============================================================
+async function startServer() {
+  try {
+    // 1. Register all routes BEFORE listening (sync guarantee)
+    await registerRoutes(app);
+    
+    // 2. Setup static files or Vite (also before listening)
+    if (isProd) {
+      serveStatic(app);
+    } else {
+      await setupVite(app, httpServer);
+    }
+    
+    // 3. NOW start listening - all routes and middleware ready
+    httpServer.listen(port, "0.0.0.0", () => {
+      // Log "ready" FIRST - Autoscale detects port immediately
+      console.log(`ready`);
+      
+      // 4. Only run database tasks in background
+      initializeDatabaseAsync().catch(error => {
+        console.error("Database initialization error:", error);
+      });
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 }
-
-httpServer.listen(port, "0.0.0.0", () => {
-  // Log "ready" FIRST - Autoscale detects port immediately
-  console.log(`ready`);
-  
-  // Only run database tasks in background
-  initializeDatabaseAsync().catch(error => {
-    console.error("Database initialization error:", error);
-  });
-});
 
 // Only database tasks in background - routes and static files already loaded
 async function initializeDatabaseAsync() {
@@ -111,5 +118,11 @@ async function initializeDatabaseAsync() {
     console.error("Database initialization error:", error);
   }
 }
+
+// Start the server
+startServer().catch(error => {
+  console.error("Critical server startup error:", error);
+  process.exit(1);
+});
 
 export default httpServer;
