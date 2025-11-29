@@ -92,18 +92,20 @@ async function startServer() {
       // Log "ready" FIRST - Autoscale detects port immediately
       console.log(`ready`);
       
-      // 3. Register routes in parallel (non-blocking)
-      registerRoutes(app).catch(error => {
-        console.error("Failed to register routes:", error);
-      });
+      // 3. Register routes AFTER server is listening
+      // Delay to ensure health check passes first (Autoscale checks within 3 seconds)
+      setTimeout(() => {
+        registerRoutes(app).catch(error => {
+          console.error("Failed to register routes:", error);
+        });
+      }, 500);
       
-      // 4. Initialize database AFTER first request cycle (completely non-blocking)
-      // Use setTimeout(0) to ensure it runs AFTER all I/O operations
+      // 4. Initialize database AFTER routes are registered (completely non-blocking)
       setTimeout(() => {
         initializeDatabaseAsync().catch(error => {
           console.error("Database initialization error:", error);
         });
-      }, 0);
+      }, 1500);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
