@@ -64,13 +64,8 @@ import {
   extractEmail, 
   checkRateLimit, 
   downloadWhatsAppMedia,
-  randomMessage,
-  ASK_EMAIL_MESSAGES,
-  EMAIL_NOT_FOUND_MESSAGES,
-  ERROR_MESSAGES,
-  GREETING_RESPONSES,
-  NON_TEXT_WHILE_AWAITING_EMAIL,
   sendWhatsAppTransactionMessage,
+  sendAIMessage,
 } from "./whatsapp.js";
 import {
   canDeleteUser,
@@ -735,10 +730,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Se não existe usuário, criar com status='awaiting_email'
       if (!user) {
         user = await storage.createUserFromPhone(phoneNumber);
-        await sendWhatsAppReply(
-          phoneNumber,
-          randomMessage(GREETING_RESPONSES)
-        );
+        await sendAIMessage(phoneNumber, "pedir_email_inicial", {});
         res.status(200).json({ success: true });
         return;
       }
@@ -756,12 +748,9 @@ export async function registerRoutes(app: Express): Promise<void> {
           
           // If it's a greeting, respond with empathy
           if (isGreeting) {
-            await sendWhatsAppReply(phoneNumber, randomMessage(GREETING_RESPONSES));
+            await sendAIMessage(phoneNumber, "pedir_email_inicial", {});
           } else {
-            await sendWhatsAppReply(
-              phoneNumber,
-              randomMessage(ASK_EMAIL_MESSAGES)
-            );
+            await sendAIMessage(phoneNumber, "pedir_email", {});
           }
           res.status(200).json({ success: true });
           return;
@@ -771,10 +760,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         const purchase = await storage.getPurchaseByEmail(email);
 
         if (!purchase || purchase.status !== 'approved') {
-          await sendWhatsAppReply(
-            phoneNumber,
-            randomMessage(EMAIL_NOT_FOUND_MESSAGES)
-          );
+          await sendAIMessage(phoneNumber, "email_nao_encontrado", {});
           res.status(200).json({ success: true });
           return;
         }
@@ -1526,7 +1512,7 @@ export async function registerRoutes(app: Express): Promise<void> {
             // Rate limiting - 10 messages per minute
             if (!checkRateLimit(fromNumber, 10, 60000)) {
               console.log(`[WhatsApp] Rate limit exceeded for ${fromNumber} (10 msg/min)`);
-              await sendWhatsAppReply(fromNumber, "⚠️ Você está enviando muitas mensagens. Por favor, aguarde um momento.", latencyId);
+                  await sendAIMessage(fromNumber, "erro_geral", { context: { rateLimit: true } }, undefined, latencyId);
               continue;
             }
             
@@ -1551,8 +1537,8 @@ export async function registerRoutes(app: Express): Promise<void> {
                 lastMessageAt: new Date(),
               });
               console.log(`[WhatsApp] Session created with status: ${session.status}`);
-              // Send welcome message
-              await sendWhatsAppReply(fromNumber, "Olá! 👋 Para começar, me diga seu email cadastrado.", latencyId);
+              // Send welcome message via AI
+              await sendAIMessage(fromNumber, "pedir_email_inicial", {}, undefined, latencyId);
               continue;
             }
             
@@ -1575,7 +1561,7 @@ export async function registerRoutes(app: Express): Promise<void> {
               // Handle DELETE button
               if (buttonId.startsWith("delete_")) {
                 if (!user) {
-                  await sendWhatsAppReply(fromNumber, "⚠️ Você precisa estar autenticado para excluir transações.", latencyId);
+                  await sendAIMessage(fromNumber, "pedir_email", {}, undefined, latencyId);
                   continue;
                 }
                 
@@ -1584,17 +1570,19 @@ export async function registerRoutes(app: Express): Promise<void> {
                 // Verify transaction belongs to user
                 const transaction = await storage.getTransacaoById(transactionId);
                 if (!transaction || transaction.userId !== user.id) {
-                  await sendWhatsAppReply(fromNumber, "⚠️ Transação não encontrada ou você não tem permissão para excluí-la.", latencyId);
+                  await sendAIMessage(fromNumber, "erro_geral", {}, undefined, latencyId);
                   continue;
                 }
                 
                 await storage.deleteTransacao(transactionId, user.id);
                 
-                await sendWhatsAppReply(
-                  fromNumber,
-                  "🗑 A transação foi excluída com sucesso!",
-                  latencyId
-                );
+                  await sendAIMessage(
+                    fromNumber,
+                    "exclusao_confirmada",
+                    { user: { firstName: user.firstName || null, id: user.id } },
+                    undefined,
+                    latencyId
+                  );
                 
                 continue;
               }
@@ -1602,7 +1590,7 @@ export async function registerRoutes(app: Express): Promise<void> {
               // Handle EDIT button
               if (buttonId.startsWith("edit_")) {
                 if (!user) {
-                  await sendWhatsAppReply(fromNumber, "⚠️ Você precisa estar autenticado para editar transações.", latencyId);
+                  await sendAIMessage(fromNumber, "pedir_email", {}, undefined, latencyId);
                   continue;
                 }
                 
@@ -1611,7 +1599,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 // Verify transaction belongs to user
                 const transaction = await storage.getTransacaoById(transactionId);
                 if (!transaction || transaction.userId !== user.id) {
-                  await sendWhatsAppReply(fromNumber, "⚠️ Transação não encontrada ou você não tem permissão para editá-la.", latencyId);
+                  await sendAIMessage(fromNumber, "erro_geral", { user: { firstName: user.firstName || null, id: user.id } }, undefined, latencyId);
                   continue;
                 }
                 
@@ -1620,9 +1608,11 @@ export async function registerRoutes(app: Express): Promise<void> {
                   transactionId
                 });
                 
-                await sendWhatsAppReply(
+                await sendAIMessage(
                   fromNumber,
-                  "✏️ Claro! Me diga agora a nova descrição/valor/categoria da transação que você deseja alterar.",
+                  "edicao_iniciada",
+                  { user: { firstName: user.firstName || null, id: user.id } },
+                  undefined,
                   latencyId
                 );
                 
@@ -1652,7 +1642,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 // Try to use extracted text as fallback
                 messageContent = extractedText || '';
                 if (!messageContent) {
-                  await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES), latencyId);
+                  await sendAIMessage(fromNumber, "erro_processamento", {}, undefined, latencyId);
                   continue;
                 }
               }
@@ -1767,24 +1757,25 @@ export async function registerRoutes(app: Express): Promise<void> {
                       // The admin must use regenerate-password endpoint to generate and send a new password
                       if (hasPassword && !sentInitialPassword) {
                         // Inform user that they need to contact support or admin will send password
-                        await sendWhatsAppReply(
+                        await sendAIMessage(
                           fromNumber,
-                          `🎉 *Seu acesso ao AnotaTudo.AI foi liberado!*\n\nSeus dados de login serão enviados em breve.\n\n🔐 Acesse seu painel:\nhttps://anotatudo.com/login\n\nSe você não receber a senha, entre em contato com o suporte.`
+                          "boas_vindas_autenticado",
+                          { user: { firstName: userByEmail.firstName || null, id: userByEmail.id, email: userByEmail.email || null }, context: { passwordPending: true } },
+                          undefined,
+                          latencyId
                         );
                         
                         // Don't mark as sent since we didn't actually send the password
                         // Admin will need to use regenerate-password to send it
                       } else {
-                        // Normal authentication message - humanized
-                      const authSuccessMessages = [
-                        "Perfeito! ✅ Já encontrei seu cadastro e sua assinatura está ativa.\n\nPode me mandar os registros de hoje. Exemplos:\n• \"Entrada 250 salário\"\n• \"Despesa 80 mercado\"\n• Foto de recibo\n• Áudio descrevendo",
-                        "Ótimo! ✅ Seu acesso está liberado e ativo.\n\nAgora pode enviar suas transações:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Foto ou áudio também funcionam!",
-                        "Tudo certo! ✅ Assinatura ativa confirmada.\n\nPode começar a enviar seus registros financeiros. Me manda texto, foto ou áudio!",
-                      ];
-                      await sendWhatsAppReply(
-                        fromNumber,
-                        randomMessage(authSuccessMessages)
-                      );
+                        // Normal authentication message - AI generated
+                        await sendAIMessage(
+                          fromNumber,
+                          "boas_vindas_autenticado",
+                          { user: { firstName: userByEmail.firstName || null, id: userByEmail.id, email: userByEmail.email || null } },
+                          undefined,
+                          latencyId
+                        );
                       }
                       
                       // Log WhatsApp authentication event (system log, not admin event)
@@ -1803,16 +1794,12 @@ export async function registerRoutes(app: Express): Promise<void> {
                         subscriptionStatus === 'canceled' ? 'cancelada' :
                         'inativa';
                       
-                      // Humanized messages for inactive subscription
-                      const inactiveSubscriptionMessages = [
-                        `😕 Sua assinatura está ${statusMessage} no momento.\n\nPara reativar, entre em contato com o suporte, por favor.`,
-                        `Ops! Sua assinatura está ${statusMessage}.\n\nPrecisa reativar? Fale com o suporte que eles resolvem rapidinho. 😊`,
-                        `Sua assinatura está ${statusMessage}.\n\nEntre em contato com o suporte para reativar seu acesso.`,
-                      ];
-                      
-                      await sendWhatsAppReply(
+                      // AI generated message for inactive subscription
+                      await sendAIMessage(
                         fromNumber,
-                        randomMessage(inactiveSubscriptionMessages),
+                        "assinatura_inativa",
+                        { user: { firstName: userByEmail.firstName || null, id: userByEmail.id }, context: { statusMessage } },
+                        undefined,
                         latencyId
                       );
                     }
@@ -1842,15 +1829,12 @@ export async function registerRoutes(app: Express): Promise<void> {
                       
                       console.log(`[WhatsApp] ✅ Session verified via purchase: ${extractedEmail}`);
                       
-                      // Humanized authentication success message
-                      const authSuccessMessages = [
-                        "Perfeito! ✅ Já encontrei seu cadastro e sua assinatura está ativa.\n\nPode me mandar os registros de hoje. Exemplos:\n• \"Entrada 250 salário\"\n• \"Despesa 80 mercado\"\n• Foto de recibo\n• Áudio descrevendo",
-                        "Ótimo! ✅ Seu acesso está liberado e ativo.\n\nAgora pode enviar suas transações:\n• \"Gastei R$ 45 no mercado\"\n• \"Recebi R$ 5000 de salário\"\n• Foto ou áudio também funcionam!",
-                        "Tudo certo! ✅ Assinatura ativa confirmada.\n\nPode começar a enviar seus registros financeiros. Me manda texto, foto ou áudio!",
-                      ];
-                      await sendWhatsAppReply(
+                      // AI generated authentication success message
+                      await sendAIMessage(
                         fromNumber,
-                        randomMessage(authSuccessMessages),
+                        "boas_vindas_autenticado",
+                        { user: { firstName: purchaseUser.firstName || null, id: purchaseUser.id, email: purchaseUser.email || null } },
+                        undefined,
                         latencyId
                       );
                     } else {
@@ -1864,9 +1848,11 @@ export async function registerRoutes(app: Express): Promise<void> {
                         meta: { email: extractedEmail, phoneNumber: fromNumber, type: 'EMAIL_NOT_FOUND' },
                       });
                       
-                      await sendWhatsAppReply(
+                      await sendAIMessage(
                         fromNumber,
-                        randomMessage(EMAIL_NOT_FOUND_MESSAGES),
+                        "email_nao_encontrado",
+                        {},
+                        undefined,
                         latencyId
                       );
                     }
@@ -1878,12 +1864,14 @@ export async function registerRoutes(app: Express): Promise<void> {
                   const isGreeting = ["oi", "olá", "ola"].includes(normalizedContent);
                   
                   if (isGreeting) {
-                    await sendWhatsAppReply(fromNumber, randomMessage(GREETING_RESPONSES), latencyId);
+                    await sendAIMessage(fromNumber, "pedir_email_inicial", {}, undefined, latencyId);
                   } else {
                     console.log(`[WhatsApp] Invalid email format in message: "${messageContent}"`);
-                    await sendWhatsAppReply(
+                    await sendAIMessage(
                       fromNumber,
-                      randomMessage(ASK_EMAIL_MESSAGES),
+                      "pedir_email",
+                      {},
+                      undefined,
                       latencyId
                     );
                   }
@@ -1896,7 +1884,7 @@ export async function registerRoutes(app: Express): Promise<void> {
             
             else if (session.status === 'blocked') {
               console.log(`[WhatsApp] Blocked session for phone ${fromNumber}`);
-              await sendWhatsAppReply(fromNumber, "⛔ Seu acesso está bloqueado. Entre em contato com o suporte.", latencyId);
+              await sendAIMessage(fromNumber, "assinatura_inativa", { context: { blocked: true } }, undefined, latencyId);
               continue;
             }
             
@@ -1911,7 +1899,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 console.log(`[WhatsApp] Subscription not active for session ${fromNumber}: ${subscriptionStatus}. Resetting session.`);
                 // Update session to awaiting_email to force re-authentication
                 await storage.updateWhatsAppSession(fromNumber, { status: 'awaiting_email', userId: null, email: null });
-                await sendWhatsAppReply(fromNumber, "⚠️ Sua assinatura não está mais ativa. Por favor, entre em contato com o suporte ou forneça seu email para reativar.", latencyId);
+                await sendAIMessage(fromNumber, "assinatura_inativa", { user: user ? { firstName: user.firstName || null, id: user.id } : {} }, undefined, latencyId);
                 continue;
               }
               
@@ -1926,7 +1914,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                   email: null,
                   status: 'awaiting_email',
                 });
-                await sendWhatsAppReply(fromNumber, "⚠️ Houve um problema com sua sessão. Por favor, me envie seu email novamente.", latencyId);
+                await sendAIMessage(fromNumber, "pedir_email", { context: { sessionError: true } }, undefined, latencyId);
                 continue;
               }
               
@@ -1949,7 +1937,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 
                 if (!transactionId) {
                   await storage.setUserState(fromNumber, null);
-                  await sendWhatsAppReply(fromNumber, "⚠️ Erro ao identificar a transação. Tente novamente.", latencyId);
+                  await sendAIMessage(fromNumber, "erro_geral", { user: { firstName: user.firstName || null, id: user.id } }, undefined, latencyId);
                   continue;
                 }
                 
@@ -1957,7 +1945,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 const existingTransaction = await storage.getTransacaoById(transactionId);
                 if (!existingTransaction || existingTransaction.userId !== user.id) {
                   await storage.setUserState(fromNumber, null);
-                  await sendWhatsAppReply(fromNumber, "⚠️ Transação não encontrada ou você não tem permissão para editá-la.", latencyId);
+                  await sendAIMessage(fromNumber, "erro_geral", { user: { firstName: user.firstName || null, id: user.id } }, undefined, latencyId);
                   continue;
                 }
                 
@@ -1988,7 +1976,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                     const updatedTransaction = await storage.getTransacaoById(transactionId);
                     
                     if (updatedTransaction) {
-                      // Send updated transaction message with buttons
+                      // Send updated transaction message with buttons (edição concluída)
                       await sendWhatsAppTransactionMessage(fromNumber, {
                         id: updatedTransaction.id,
                         tipo: updatedTransaction.tipo,
@@ -1996,22 +1984,39 @@ export async function registerRoutes(app: Express): Promise<void> {
                         categoria: updatedTransaction.categoria,
                         descricao: updatedTransaction.descricao || 'N/A',
                         data: updatedTransaction.dataReal || null,
-                        confianca: 100 // Assume 100% confidence for manual edits
-                      });
+                      }, { firstName: user.firstName || null, id: user.id, email: user.email || null });
                     } else {
-                      await sendWhatsAppReply(fromNumber, "✅ Transação atualizada com sucesso!", latencyId);
+                      // Get updated transaction and send AI message
+                      const updatedTrans = await storage.getTransacaoById(transactionId);
+                      if (updatedTrans) {
+                        await sendWhatsAppTransactionMessage(fromNumber, {
+                          id: updatedTrans.id,
+                          tipo: updatedTrans.tipo,
+                          valor: updatedTrans.valor,
+                          categoria: updatedTrans.categoria,
+                          descricao: updatedTrans.descricao || 'N/A',
+                          data: updatedTrans.dataReal || null,
+                        }, { firstName: user.firstName || null, id: user.id });
+                      } else {
+                        await sendAIMessage(fromNumber, "edicao_concluida", {
+                          user: { firstName: user.firstName || null, id: user.id },
+                          transaction: { tipo: result.tipo, valor: result.valor.toString(), categoria: result.categoria, descricao: result.descricao || 'N/A' }
+                        }, undefined, latencyId);
+                      }
                     }
                   } else {
-                    await sendWhatsAppReply(
+                    await sendAIMessage(
                       fromNumber,
-                      "⚠️ Não consegui entender a atualização.\n\nTente novamente com mais detalhes:\n• Valor\n• Tipo (gasto ou recebimento)\n• Descrição ou categoria",
+                      "transacao_nao_entendida",
+                      { user: { firstName: user.firstName || null, id: user.id } },
+                      undefined,
                       latencyId
                     );
                   }
                 } catch (editError: any) {
                   console.error("[WhatsApp] Error editing transaction:", editError);
                   await storage.setUserState(fromNumber, null);
-                  await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES), latencyId);
+                  await sendAIMessage(fromNumber, "erro_processamento", { user: { firstName: user.firstName || null, id: user.id } }, undefined, latencyId);
                 }
                 
                 continue;
@@ -2066,22 +2071,27 @@ export async function registerRoutes(app: Express): Promise<void> {
                     categoria: result.categoria,
                     descricao: result.descricao || 'N/A',
                     data: result.dataReal || null,
-                    confianca: Number((result.confianca * 100).toFixed(0))
-                  });
+                  }, { firstName: user.firstName || null, id: user.id, email: user.email || null });
                 } else {
                   console.log(`[WhatsApp] ⚠️ No valid transaction data extracted`);
                   
-                  await sendWhatsAppReply(
+                  await sendAIMessage(
                     fromNumber,
-                    "⚠️ Não consegui entender a transação.\n\nTente novamente com mais detalhes:\n• Valor\n• Tipo (gasto ou recebimento)\n• Descrição ou categoria"
+                    "transacao_nao_entendida",
+                    { user: { firstName: user.firstName || null, id: user.id } },
+                    undefined,
+                    latencyId
                   );
                 }
               } catch (aiError) {
                 console.error("[WhatsApp] AI processing error:", aiError);
                 
-                await sendWhatsAppReply(
+                await sendAIMessage(
                   fromNumber,
-                  randomMessage(ERROR_MESSAGES)
+                  "erro_processamento",
+                  { user: { firstName: user.firstName || null, id: user.id } },
+                  undefined,
+                  latencyId
                 );
               }
             }
