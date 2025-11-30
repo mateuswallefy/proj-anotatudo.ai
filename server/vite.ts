@@ -49,6 +49,17 @@ export async function setupVite(app: Express, server: Server) {
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
+    // Don't serve Vite HTML for healthchecks or API routes
+    // These routes are handled by Express route handlers defined earlier
+    if (
+      url === "/health" ||
+      url.startsWith("/api") ||
+      url.startsWith("/_health") ||
+      url.startsWith("/_db-check")
+    ) {
+      return next(); // Let other routes handle these
+    }
+
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,
@@ -83,10 +94,26 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Serve static files
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // BUT: exclude healthcheck and API routes (these are handled by Express routes)
+  app.use("*", (req, res, next) => {
+    // Don't serve static files for healthchecks or API routes
+    // These routes are handled by Express route handlers defined earlier
+    if (
+      req.originalUrl === "/health" ||
+      req.originalUrl.startsWith("/api") ||
+      req.originalUrl.startsWith("/_health") ||
+      req.originalUrl.startsWith("/_db-check") ||
+      req.originalUrl.startsWith("/admin")
+    ) {
+      return next(); // Let other routes handle these
+    }
+    
+    // For all other routes (including "/"), serve index.html (SPA fallback)
+    // This allows the React app to handle client-side routing
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

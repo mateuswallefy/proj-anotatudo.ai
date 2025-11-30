@@ -1,7 +1,26 @@
 modules = ["nodejs-20"]
 
+# Development mode - usado quando você clica em "Run"
 run = "npm run dev:server"
+
+# Production deployment - usado pelo Autoscale
+[deployment]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
 
 [[ports]]
 localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 5173
 externalPort = 80
+
+[[ports]]
+localPort = 5174
+externalPort = 3000
+
+[[ports]]
+localPort = 5175
+externalPort = 3001

@@ -12,7 +12,10 @@ const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
 // Healthchecks INSTANTÂNEOS — precisam ser as primeiras rotas
-app.get("/", (req, res) => res.status(200).send("OK"));
+// IMPORTANTE: Estas rotas devem estar ANTES de qualquer middleware
+// para garantir resposta instantânea sem dependências
+// Em produção, "/health" é usado pelo Replit para healthcheck
+// A rota "/" será servida pelo serveStatic (index.html da aplicação)
 app.get("/health", (req, res) => res.status(200).send("OK"));
 
 // Default to 5000 (configured in .replit as localPort)
