@@ -406,7 +406,16 @@ export async function sendAIMessage(
   } catch (error: any) {
     console.error("[WhatsApp] Erro ao enviar mensagem IA:", error);
     
-    // Fallback para mensagem simples em caso de erro
-    return await sendWhatsAppReply(to, "Desculpe, aconteceu um problema. Pode tentar novamente?", latencyId);
+    // Fallback para mensagem simples em caso de erro - usar IA mesmo no fallback
+    try {
+      const { generateAIResponse } = await import("./ai.js");
+      const fallbackMessage = await generateAIResponse("erro_inesperado", {
+        user: { firstName: null, id: undefined, email: null }
+      });
+      return await sendWhatsAppReply(to, fallbackMessage, latencyId);
+    } catch (fallbackError) {
+      // Último recurso: mensagem mínima
+      return await sendWhatsAppReply(to, "Opa, aconteceu algo inesperado. Pode tentar novamente? 😊", latencyId);
+    }
   }
 }

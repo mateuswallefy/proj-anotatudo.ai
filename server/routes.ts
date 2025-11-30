@@ -686,9 +686,11 @@ export async function registerRoutes(app: Express): Promise<void> {
           content = extractTextFromMessage(message);
           // Vídeo não suportado ainda - requer extração de frames via ffmpeg
           if (!content) {
-            await sendWhatsAppReply(
+            const user = await storage.getUserByPhone(phoneNumber);
+            await sendAIMessage(
               phoneNumber,
-              "Vídeos ainda não são suportados.\n\nPor favor, envie:\n• Texto: Almoço R$ 45\n• Áudio com sua transação\n• Foto de nota fiscal ou comprovante"
+              "video_nao_suportado",
+              { user: { firstName: user?.firstName || null, id: user?.id, email: user?.email || null } }
             );
             res.status(200).json({ success: true });
             return;
@@ -716,9 +718,11 @@ export async function registerRoutes(app: Express): Promise<void> {
 
       // Rate limiting: 10 mensagens por minuto por telefone
       if (!checkRateLimit(phoneNumber)) {
-        await sendWhatsAppReply(
+        const user = await storage.getUserByPhone(phoneNumber);
+        await sendAIMessage(
           phoneNumber,
-          "Você está enviando mensagens muito rápido. Por favor, aguarde um momento."
+          "rate_limit_excedido",
+          { user: { firstName: user?.firstName || null, id: user?.id, email: user?.email || null } }
         );
         res.status(200).json({ success: true });
         return;
@@ -787,19 +791,22 @@ export async function registerRoutes(app: Express): Promise<void> {
 
           console.log(`[WhatsApp] ✅ Temporary password generated for ${email}`);
 
-          await sendWhatsAppReply(
+          const userByEmail = await storage.getUserByEmail(email);
+          await sendAIMessage(
             phoneNumber,
-            `✅ *Acesso liberado!*\n\n` +
-            `📱 Suas transações via WhatsApp já aparecem no dashboard automaticamente.\n\n` +
-            `🌐 *Acesse:*\n${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\n` +
-            `📧 *Email:* ${email}\n` +
-            `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
-            `⚠️ *IMPORTANTE:* Troque sua senha após o primeiro login!\n\n` +
-            `💡 *Comece a enviar:*\n` +
-            `• Almoço R$ 45\n` +
-            `• Gasolina 200 reais\n` +
-            `• Foto de recibo\n` +
-            `• Áudio descrevendo compra`
+            "senha_temporaria_enviada",
+            {
+              user: {
+                firstName: userByEmail?.firstName || null,
+                id: userByEmail?.id,
+                email: userByEmail?.email || null
+              },
+              context: {
+                email: email,
+                tempPassword: tempPassword,
+                domain: process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'
+              }
+            }
           );
         } else {
           // Usuário não existe - atualizar dados do usuário temporário
@@ -815,19 +822,22 @@ export async function registerRoutes(app: Express): Promise<void> {
 
           console.log(`[WhatsApp] ✅ Temporary password generated for ${email}`);
 
-          await sendWhatsAppReply(
+          const userByEmail = await storage.getUserByEmail(email);
+          await sendAIMessage(
             phoneNumber,
-            `✅ *Acesso liberado!*\n\n` +
-            `📱 Suas transações via WhatsApp já aparecem no dashboard automaticamente.\n\n` +
-            `🌐 *Acesse:*\n${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\n` +
-            `📧 *Email:* ${email}\n` +
-            `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
-            `⚠️ *IMPORTANTE:* Troque sua senha após o primeiro login!\n\n` +
-            `💡 *Comece a enviar:*\n` +
-            `• Almoço R$ 45\n` +
-            `• Gasolina 200 reais\n` +
-            `• Foto de recibo\n` +
-            `• Áudio descrevendo compra`
+            "senha_temporaria_enviada",
+            {
+              user: {
+                firstName: userByEmail?.firstName || null,
+                id: userByEmail?.id,
+                email: userByEmail?.email || null
+              },
+              context: {
+                email: email,
+                tempPassword: tempPassword,
+                domain: process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'
+              }
+            }
           );
         }
 
@@ -849,13 +859,21 @@ export async function registerRoutes(app: Express): Promise<void> {
 
             console.log(`[WhatsApp] 🔑 Password reset for user ${user.id}`);
 
-            await sendWhatsAppReply(
+            await sendAIMessage(
               phoneNumber,
-              `🔑 *Nova senha gerada!*\n\n` +
-              `📧 *Email:* ${user.email}\n` +
-              `🔑 *Senha temporária:* \`${tempPassword}\`\n\n` +
-              `🌐 *Acesse:* ${process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'}\n\n` +
-              `⚠️ *IMPORTANTE:* Esta é uma senha temporária. Recomendamos que você a troque após o login!`
+              "senha_temporaria_enviada",
+              {
+                user: {
+                  firstName: user.firstName || null,
+                  id: user.id,
+                  email: user.email || null
+                },
+                context: {
+                  email: user.email || '',
+                  tempPassword: tempPassword,
+                  domain: process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'
+                }
+              }
             );
 
             res.status(200).json({ success: true });
@@ -886,9 +904,11 @@ export async function registerRoutes(app: Express): Promise<void> {
               }
             } catch (mediaError) {
               console.error("[WhatsApp] Error downloading media:", mediaError);
-              await sendWhatsAppReply(
+              const userForError = await storage.getUserByPhone(phoneNumber);
+              await sendAIMessage(
                 phoneNumber,
-                "Erro ao baixar mídia. Por favor, tente novamente."
+                "erro_download_midia",
+                { user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null } }
               );
               res.status(200).json({ success: true });
               return;
@@ -901,9 +921,14 @@ export async function registerRoutes(app: Express): Promise<void> {
             extractedData = await processWhatsAppMessage(messageType, processedContent || content, user.id);
           } catch (aiError: any) {
             console.error("[WhatsApp] AI processing error:", aiError);
-            await sendWhatsAppReply(
+            const userForError = await storage.getUserByPhone(phoneNumber);
+            await sendAIMessage(
               phoneNumber,
-              `Erro ao processar ${messageType === 'text' ? 'mensagem' : 'mídia'}.\n\nTente novamente ou envie uma mensagem de texto:\n• Almoço R$ 45\n• Gasolina 200 reais`
+              "erro_processar_midia",
+              {
+                user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null },
+                context: { messageType: messageType }
+              }
             );
             res.status(200).json({ success: true });
             return;
@@ -923,23 +948,34 @@ export async function registerRoutes(app: Express): Promise<void> {
 
             console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}: ${extractedData.tipo} R$ ${extractedData.valor}`);
 
-            await sendWhatsAppReply(
-              phoneNumber,
-              `Transação registrada!\n\n${extractedData.tipo === 'entrada' ? 'Entrada' : 'Saída'}: R$ ${extractedData.valor}\nCategoria: ${extractedData.categoria}\n\nVeja no dashboard: https://anotatudo.replit.app`
-            );
+            // This code path should not be reached as new code uses sendWhatsAppTransactionMessage
+            // But keeping AI-generated message just in case
+            await sendWhatsAppTransactionMessage(phoneNumber, {
+              id: transacao.id,
+              tipo: extractedData.tipo,
+              valor: extractedData.valor.toString(),
+              categoria: extractedData.categoria,
+              descricao: extractedData.descricao || content || `${messageType} recebido`,
+              data: extractedData.dataReal || null,
+            }, { firstName: user.firstName || null, id: user.id, email: user.email || null });
           } else {
             console.log(`[WhatsApp] ⚠️ Could not extract transaction data from ${messageType}`);
-            await sendWhatsAppReply(
+            // This code path should not be reached as new code uses sendAIMessage
+            // But keeping AI-generated message just in case
+            await sendAIMessage(
               phoneNumber,
-              "Não consegui entender essa transação.\n\nTente novamente:\n• Almoço R$ 45\n• Gasolina 200 reais\n• Salário recebido 5000"
+              "transacao_nao_entendida",
+              { user: { firstName: user.firstName || null, id: user.id } }
             );
           }
         } catch (error: any) {
           console.error("[WhatsApp] Unexpected error processing transaction:", error);
-          await sendWhatsAppReply(
-            phoneNumber,
-            "Erro inesperado. Por favor, tente novamente."
-          );
+            const userForError = await storage.getUserByPhone(phoneNumber);
+            await sendAIMessage(
+              phoneNumber,
+              "erro_inesperado",
+              { user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null } }
+            );
         }
       }
 
@@ -2463,9 +2499,23 @@ export async function registerRoutes(app: Express): Promise<void> {
       let whatsappSent = false;
       if (whatsappNumber) {
         try {
-          const welcomeMessage = `🎉 *Seu acesso ao AnotaTudo.AI foi liberado!*\n\nAqui estão seus dados de login:\n\n• Email: ${email}\n• Senha temporária: ${tempPassword}\n\n🔐 Acesse seu painel:\nhttps://anotatudo.com/login\n\nRecomendamos trocar a senha ao entrar.`;
-          
-          await sendWhatsAppReply(whatsappNumber, welcomeMessage);
+          const userForWelcome = await storage.getUserByEmail(email);
+          await sendAIMessage(
+            whatsappNumber,
+            "senha_temporaria_enviada",
+            {
+              user: {
+                firstName: userForWelcome?.firstName || null,
+                id: userForWelcome?.id,
+                email: userForWelcome?.email || null
+              },
+              context: {
+                email: email,
+                tempPassword: tempPassword,
+                domain: "anotatudo.com"
+              }
+            }
+          );
           whatsappSent = true;
           
           // Mark as sent - preserve existing metadata
@@ -3185,9 +3235,22 @@ export async function registerRoutes(app: Express): Promise<void> {
       let whatsappSent = false;
       if (user.whatsappNumber) {
         try {
-          const welcomeMessage = `🎉 *Seu acesso ao AnotaTudo.AI foi liberado!*\n\nAqui estão seus dados de login:\n\n• Email: ${user.email}\n• Senha temporária: ${tempPassword}\n\n🔐 Acesse seu painel:\nhttps://anotatudo.com/login\n\nRecomendamos trocar a senha ao entrar.`;
-          
-          await sendWhatsAppReply(user.whatsappNumber, welcomeMessage);
+          await sendAIMessage(
+            user.whatsappNumber,
+            "senha_temporaria_enviada",
+            {
+              user: {
+                firstName: user.firstName || null,
+                id: user.id,
+                email: user.email || null
+              },
+              context: {
+                email: user.email || '',
+                tempPassword: tempPassword,
+                domain: "anotatudo.com"
+              }
+            }
+          );
           whatsappSent = true;
           
           // Mark as sent - get fresh user data to ensure we have latest metadata
