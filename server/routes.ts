@@ -70,6 +70,7 @@ import {
   ERROR_MESSAGES,
   GREETING_RESPONSES,
   NON_TEXT_WHILE_AWAITING_EMAIL,
+  sendWhatsAppTransactionMessage,
 } from "./whatsapp.js";
 import {
   canDeleteUser,
@@ -1549,6 +1550,77 @@ export async function registerRoutes(app: Express): Promise<void> {
             // Update last message time
             await storage.updateWhatsAppSession(fromNumber, { lastMessageAt: new Date() });
             
+            // ========================================
+            // HANDLE INTERACTIVE BUTTONS
+            // ========================================
+            if (messageType === 'interactive' && message.interactive?.button_reply) {
+              const buttonId = message.interactive.button_reply.id;
+              console.log(`[WhatsApp] Interactive button clicked: ${buttonId}`);
+              
+              // Get user from session if available
+              let user: any = null;
+              if (session.status === 'verified' && session.userId) {
+                user = await storage.getUser(session.userId);
+              }
+              
+              // Handle DELETE button
+              if (buttonId.startsWith("delete_")) {
+                if (!user) {
+                  await sendWhatsAppReply(fromNumber, "⚠️ Você precisa estar autenticado para excluir transações.", latencyId);
+                  continue;
+                }
+                
+                const transactionId = buttonId.replace("delete_", "");
+                
+                // Verify transaction belongs to user
+                const transaction = await storage.getTransacaoById(transactionId);
+                if (!transaction || transaction.userId !== user.id) {
+                  await sendWhatsAppReply(fromNumber, "⚠️ Transação não encontrada ou você não tem permissão para excluí-la.", latencyId);
+                  continue;
+                }
+                
+                await storage.deleteTransacao(transactionId, user.id);
+                
+                await sendWhatsAppReply(
+                  fromNumber,
+                  "🗑 A transação foi excluída com sucesso!",
+                  latencyId
+                );
+                
+                continue;
+              }
+              
+              // Handle EDIT button
+              if (buttonId.startsWith("edit_")) {
+                if (!user) {
+                  await sendWhatsAppReply(fromNumber, "⚠️ Você precisa estar autenticado para editar transações.", latencyId);
+                  continue;
+                }
+                
+                const transactionId = buttonId.replace("edit_", "");
+                
+                // Verify transaction belongs to user
+                const transaction = await storage.getTransacaoById(transactionId);
+                if (!transaction || transaction.userId !== user.id) {
+                  await sendWhatsAppReply(fromNumber, "⚠️ Transação não encontrada ou você não tem permissão para editá-la.", latencyId);
+                  continue;
+                }
+                
+                await storage.setUserState(fromNumber, {
+                  mode: "editing_transaction",
+                  transactionId
+                });
+                
+                await sendWhatsAppReply(
+                  fromNumber,
+                  "✏️ Claro! Me diga agora a nova descrição/valor/categoria da transação que você deseja alterar.",
+                  latencyId
+                );
+                
+                continue;
+              }
+            }
+            
             // Extract message content using safe extraction function
             let messageContent = '';
             const extractedText = extractTextFromMessage(message);
@@ -1860,6 +1932,82 @@ export async function registerRoutes(app: Express): Promise<void> {
                 console.error(`[WhatsApp] Erro ao atualizar userId na latência:`, error);
               }
               
+              // Check if user is in editing mode
+              const userState = await storage.getUserState(fromNumber);
+              
+              if (userState?.mode === "editing_transaction") {
+                const transactionId = userState.transactionId;
+                
+                if (!transactionId) {
+                  await storage.setUserState(fromNumber, null);
+                  await sendWhatsAppReply(fromNumber, "⚠️ Erro ao identificar a transação. Tente novamente.", latencyId);
+                  continue;
+                }
+                
+                // Verify transaction belongs to user
+                const existingTransaction = await storage.getTransacaoById(transactionId);
+                if (!existingTransaction || existingTransaction.userId !== user.id) {
+                  await storage.setUserState(fromNumber, null);
+                  await sendWhatsAppReply(fromNumber, "⚠️ Transação não encontrada ou você não tem permissão para editá-la.", latencyId);
+                  continue;
+                }
+                
+                try {
+                  // Process the new message as a transaction update
+                  const processStartTime = Date.now();
+                  const result = await processWhatsAppMessage(
+                    messageType as 'text' | 'audio' | 'image' | 'video',
+                    messageContent,
+                    user.id
+                  );
+                  const processEndTime = Date.now();
+                  
+                  if (result && result.valor !== null) {
+                    // Update transaction in database
+                    await storage.updateTransacao(transactionId, user.id, {
+                      tipo: result.tipo,
+                      categoria: result.categoria,
+                      valor: result.valor.toString(),
+                      dataReal: result.dataReal,
+                      descricao: result.descricao || '',
+                    });
+                    
+                    // Clear editing state
+                    await storage.setUserState(fromNumber, null);
+                    
+                    // Get updated transaction to send in response
+                    const updatedTransaction = await storage.getTransacaoById(transactionId);
+                    
+                    if (updatedTransaction) {
+                      // Send updated transaction message with buttons
+                      await sendWhatsAppTransactionMessage(fromNumber, {
+                        id: updatedTransaction.id,
+                        tipo: updatedTransaction.tipo,
+                        valor: updatedTransaction.valor,
+                        categoria: updatedTransaction.categoria,
+                        descricao: updatedTransaction.descricao || 'N/A',
+                        data: updatedTransaction.dataReal || null,
+                        confianca: 100 // Assume 100% confidence for manual edits
+                      });
+                    } else {
+                      await sendWhatsAppReply(fromNumber, "✅ Transação atualizada com sucesso!", latencyId);
+                    }
+                  } else {
+                    await sendWhatsAppReply(
+                      fromNumber,
+                      "⚠️ Não consegui entender a atualização.\n\nTente novamente com mais detalhes:\n• Valor\n• Tipo (gasto ou recebimento)\n• Descrição ou categoria",
+                      latencyId
+                    );
+                  }
+                } catch (editError: any) {
+                  console.error("[WhatsApp] Error editing transaction:", editError);
+                  await storage.setUserState(fromNumber, null);
+                  await sendWhatsAppReply(fromNumber, randomMessage(ERROR_MESSAGES), latencyId);
+                }
+                
+                continue;
+              }
+              
               try {
                 // Call AI to process the message
                 const processStartTime = Date.now();
@@ -1889,7 +2037,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 
                 // Create transaction if AI extracted valid financial data
                 if (result && result.valor !== null) {
-                  await storage.createTransacao({
+                  const newTransaction = await storage.createTransacao({
                     userId: user.id,
                     tipo: result.tipo,
                     categoria: result.categoria,
@@ -1901,17 +2049,16 @@ export async function registerRoutes(app: Express): Promise<void> {
                   
                   console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}`);
                   
-                  // Send confirmation
-                  const tipoEmoji = result.tipo === 'entrada' ? '💰' : '💸';
-                  await sendWhatsAppReply(
-                    fromNumber,
-                    `${tipoEmoji} *Transação registrada!*\n\n` +
-                    `Tipo: ${result.tipo === 'entrada' ? 'Entrada' : 'Saída'}\n` +
-                    `Valor: R$ ${result.valor}\n` +
-                    `Categoria: ${result.categoria}\n` +
-                    `Descrição: ${result.descricao || 'N/A'}\n\n` +
-                    `Confiança: ${(result.confianca * 100).toFixed(0)}%`
-                  );
+                  // Send confirmation with interactive buttons
+                  await sendWhatsAppTransactionMessage(fromNumber, {
+                    id: newTransaction.id,
+                    tipo: result.tipo,
+                    valor: result.valor.toString(),
+                    categoria: result.categoria,
+                    descricao: result.descricao || 'N/A',
+                    data: result.dataReal || null,
+                    confianca: Number((result.confianca * 100).toFixed(0))
+                  });
                 } else {
                   console.log(`[WhatsApp] ⚠️ No valid transaction data extracted`);
                   

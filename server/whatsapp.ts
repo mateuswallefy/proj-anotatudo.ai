@@ -152,6 +152,39 @@ export async function sendWhatsAppInteractiveMessage(
   }
 }
 
+export async function sendWhatsAppTransactionMessage(
+  to: string,
+  content: {
+    id: string;
+    tipo: string;
+    valor: string;
+    categoria: string;
+    descricao: string;
+    data?: string;
+    confianca: number;
+  }
+) {
+  const emojiTipo = content.tipo === "entrada" ? "💰" : "💸";
+
+  const beautified =
+`${emojiTipo} *Transação registrada!*
+
+📄 *Descrição:* ${content.descricao}
+💵 *Valor:* R$ ${content.valor}
+🏷️ *Categoria:* ${content.categoria}
+📅 *Data:* ${content.data || "Hoje"}
+🎯 *Confiança:* ${content.confianca}%`;
+
+  return await sendWhatsAppInteractiveMessage(
+    to,
+    beautified,
+    [
+      { id: `edit_${content.id}`, title: "✏️ Editar transação" },
+      { id: `delete_${content.id}`, title: "🗑 Excluir transação" }
+    ]
+  );
+}
+
 // Helper to send replies to users
 export async function sendWhatsAppReply(to: string, message: string, latencyId?: string): Promise<{ success: boolean; messageId?: string }> {
   const responseQueuedAt = new Date();

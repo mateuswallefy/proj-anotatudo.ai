@@ -231,6 +231,8 @@ export interface IStorage {
   updateWhatsAppSession(phoneNumber: string, data: Partial<WhatsAppSession>): Promise<WhatsAppSession>;
   incrementFailedAttempts(phoneNumber: string): Promise<void>;
   cleanupOldWhatsAppSessions(daysOld: number): Promise<number>;
+  getUserState(phoneNumber: string): Promise<{ mode?: string; transactionId?: string } | null>;
+  setUserState(phoneNumber: string, state: { mode?: string; transactionId?: string } | null): Promise<void>;
 
   // Admin event logs operations
   createAdminEventLog(log: InsertAdminEventLog): Promise<AdminEventLog>;
@@ -1561,6 +1563,34 @@ export class DatabaseStorage implements IStorage {
     }
     
     return deletedCount;
+  }
+
+  // User state management for WhatsApp (stored in metadata)
+  async getUserState(phoneNumber: string): Promise<{ mode?: string; transactionId?: string } | null> {
+    const session = await this.getWhatsAppSession(phoneNumber);
+    if (!session || !session.metadata) {
+      return null;
+    }
+    const metadata = session.metadata as any;
+    if (!metadata.state) {
+      return null;
+    }
+    return metadata.state;
+  }
+
+  async setUserState(phoneNumber: string, state: { mode?: string; transactionId?: string } | null): Promise<void> {
+    const session = await this.getWhatsAppSession(phoneNumber);
+    const currentMetadata = (session?.metadata as any) || {};
+    
+    if (state === null) {
+      // Clear state
+      delete currentMetadata.state;
+    } else {
+      // Set state
+      currentMetadata.state = state;
+    }
+    
+    await this.updateWhatsAppSession(phoneNumber, { metadata: currentMetadata });
   }
 
   // Admin event logs operations
