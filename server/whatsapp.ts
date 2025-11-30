@@ -161,14 +161,14 @@ export async function sendWhatsAppTransactionMessage(
     categoria: string;
     descricao: string;
     data?: string;
-    confianca?: number;
   },
   user?: { firstName?: string | null; id?: string; email?: string | null }
 ) {
-  // Usar IA para gerar mensagem personalizada
   const { generateAIResponse } = await import("./ai.js");
+  const { pickEmoji } = await import("./emoji.js");
   
-  const messageText = await generateAIResponse("transacao_registrada", {
+  // Gerar apenas a headline via IA
+  const headlineText = await generateAIResponse("transacao_registrada", {
     user: user ? {
       id: user.id,
       firstName: user.firstName,
@@ -183,15 +183,103 @@ export async function sendWhatsAppTransactionMessage(
       data: content.data
     }
   });
+  
+  // Pegar emojis conforme categoria e tipo
+  const emojis = pickEmoji(content.categoria, content.tipo === "entrada" ? "entrada" : "saida");
+  
+  // Formatar data
+  let dataFormatada = "Hoje";
+  if (content.data) {
+    try {
+      const dataObj = new Date(content.data + "T00:00:00");
+      if (!isNaN(dataObj.getTime())) {
+        dataFormatada = dataObj.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      }
+    } catch (e) {
+      // Se falhar, usar "Hoje"
+    }
+  }
+  
+  // Construir headline final
+  const headline = `${headlineText} ${emojis}`;
+  
+  // Montar mensagem final no padrão
+  const finalMessage = `${headline}
+
+🧾 *Descrição:* ${content.descricao}
+💰 *Valor:* R$ ${content.valor}
+🏷️ *Categoria:* ${content.categoria}
+📅 *Data:* ${dataFormatada}
+
+${content.tipo === "entrada" ? "✅ Pago com sucesso!" : "📝 Registrado com sucesso!"}
+`;
 
   return await sendWhatsAppInteractiveMessage(
     to,
-    messageText,
+    finalMessage,
     [
       { id: `edit_${content.id}`, title: "✏️ Editar transação" },
       { id: `delete_${content.id}`, title: "🗑 Excluir transação" }
     ]
   );
+}
+
+/**
+ * Envia mensagem de transação excluída com formato estruturado
+ */
+export async function sendWhatsAppTransactionDeletedMessage(
+  to: string,
+  transaction: {
+    descricao: string;
+    valor: string;
+    categoria: string;
+    dataReal?: string;
+  },
+  user?: { firstName?: string | null; id?: string; email?: string | null }
+) {
+  const { generateAIResponse } = await import("./ai.js");
+  const { pickEmoji } = await import("./emoji.js");
+  
+  // Gerar apenas a headline via IA
+  const headlineText = await generateAIResponse("exclusao_confirmada", {
+    user: user ? {
+      id: user.id,
+      firstName: user.firstName,
+      email: user.email
+    } : undefined
+  });
+  
+  // Pegar emojis conforme categoria
+  const emojis = pickEmoji(transaction.categoria);
+  
+  // Formatar data
+  let dataFormatada = "Hoje";
+  if (transaction.dataReal) {
+    try {
+      const dataObj = new Date(transaction.dataReal + "T00:00:00");
+      if (!isNaN(dataObj.getTime())) {
+        dataFormatada = dataObj.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      }
+    } catch (e) {
+      // Se falhar, usar "Hoje"
+    }
+  }
+  
+  // Construir headline final
+  const headline = `${headlineText} ${emojis}`;
+  
+  // Montar mensagem final
+  const finalMessage = `${headline}
+
+🧾 *Descrição:* ${transaction.descricao}
+💰 *Valor:* R$ ${transaction.valor}
+🏷️ *Categoria:* ${transaction.categoria}
+📅 *Data:* ${dataFormatada}
+
+🗑️ Excluída com sucesso!
+`;
+
+  return await sendWhatsAppReply(to, finalMessage);
 }
 
 // Helper to send replies to users

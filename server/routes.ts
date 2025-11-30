@@ -65,6 +65,7 @@ import {
   checkRateLimit, 
   downloadWhatsAppMedia,
   sendWhatsAppTransactionMessage,
+  sendWhatsAppTransactionDeletedMessage,
   sendAIMessage,
 } from "./whatsapp.js";
 import {
@@ -1612,13 +1613,17 @@ export async function registerRoutes(app: Express): Promise<void> {
                 
                 await storage.deleteTransacao(transactionId, user.id);
                 
-                  await sendAIMessage(
-                    fromNumber,
-                    "exclusao_confirmada",
-                    { user: { firstName: user.firstName || null, id: user.id } },
-                    undefined,
-                    latencyId
-                  );
+                // Send structured deletion message
+                await sendWhatsAppTransactionDeletedMessage(
+                  fromNumber,
+                  {
+                    descricao: transaction.descricao || 'N/A',
+                    valor: transaction.valor,
+                    categoria: transaction.categoria,
+                    dataReal: transaction.dataReal || undefined,
+                  },
+                  { firstName: user.firstName || null, id: user.id, email: user.email || null }
+                );
                 
                 continue;
               }
