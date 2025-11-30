@@ -98,8 +98,8 @@ export function CardsMensais() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6" data-testid="cards-mensais">
-      {cards.map((card, index) => {
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" data-testid="cards-mensais">
+      {cards.slice(0, 3).map((card, index) => {
         const Icon = card.icon;
         const isPositive = card.variation >= 0;
         const TrendIcon = isPositive ? TrendingUp : TrendingDown;
@@ -107,33 +107,36 @@ export function CardsMensais() {
         return (
           <Card 
             key={index}
-            className={`p-6 bg-gradient-to-br ${card.gradient} hover-elevate active-elevate-2`}
+            className={`p-4 bg-gradient-to-br ${card.gradient} hover:shadow-md transition-shadow border-0 shadow-sm`}
             data-testid={card.testId}
           >
             <CardContent className="p-0">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-semibold text-muted-foreground tracking-wide">
-                  {card.title}
-                </p>
-                <div className={`p-3 rounded-full ${card.iconBg}`}>
-                  <Icon className={`h-6 w-6 ${card.iconColor}`} />
+              {/* Title */}
+              <p className="text-xs font-semibold text-muted-foreground tracking-wide mb-3">
+                {card.title}
+              </p>
+              
+              {/* Value and Icon Row */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-2xl font-bold leading-tight" data-testid={`${card.testId}-value`}>
+                    R$ {card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-lg ${card.iconBg} flex-shrink-0`}>
+                  <Icon className={`h-5 w-5 ${card.iconColor}`} />
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <p className="text-3xl font-bold" data-testid={`${card.testId}-value`}>
-                  R$ {card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                
-                <div className="flex items-center gap-1 text-sm">
-                  <TrendIcon className={`h-4 w-4 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} />
-                  <span className={isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
-                    {isPositive ? '+' : ''}{card.variation.toFixed(1)}%
-                  </span>
-                  <span className="text-muted-foreground">
-                    {card.variationLabel}
-                  </span>
-                </div>
+              {/* Variation */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <TrendIcon className={`h-3.5 w-3.5 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} />
+                <span className={isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                  {isPositive ? '+' : ''}{card.variation.toFixed(1)}%
+                </span>
+                <span className="text-muted-foreground">
+                  vs mês anterior
+                </span>
               </div>
             </CardContent>
           </Card>

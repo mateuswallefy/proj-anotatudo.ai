@@ -25,11 +25,8 @@ export function RecentTransactions({ transacoes }: RecentTransactionsProps) {
 
   return (
     <Card className="h-full" data-testid="card-recent-transactions">
-      <CardHeader>
-        <CardTitle>Transações Recentes</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Últimas {recentTransactions.length} movimentações
-        </p>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Últimas transações</CardTitle>
       </CardHeader>
       <CardContent>
         {recentTransactions.length > 0 ? (

@@ -18,6 +18,8 @@ import { CardsMensais } from "@/components/CardsMensais";
 import { LightbulbIcon } from "lucide-react";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { PageHeader, AppCard } from "@/components/design-system";
+import { QuickSummary } from "@/components/dashboard/QuickSummary";
+import { QuickActions } from "@/components/dashboard/QuickActions";
 
 interface FinancialInsights {
   mediaDiariaGastos: number;
@@ -152,30 +154,43 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-        {/* Premium Header */}
-        <PageHeader
-          title="Dashboard Financeiro"
-          subtitle="Visão geral das suas finanças"
-        />
-
+      <div className="space-y-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Alertas Importantes */}
         <AlertasImportantes />
 
-      {/* Cards Mensais - ENTRADAS, DESPESAS, ECONOMIAS, SALDO */}
-      <CardsMensais />
+        {/* Cards Mensais - ENTRADAS, DESPESAS, ECONOMIAS */}
+        <CardsMensais />
 
-      {/* Monthly Comparison Chart */}
-      <MonthlyComparisonChart />
+        {/* Seções extras - Mobile First */}
+        <div className="space-y-6">
+          {/* Resumo rápido */}
+          <QuickSummary />
 
-      {/* Category Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ExpensesByCategoryChart />
-        <IncomeByCategoryChart />
-      </div>
+          {/* Últimas transações */}
+          {transacoes && transacoes.length > 0 && (
+            <RecentTransactions transacoes={transacoes.slice(0, 5)} />
+          )}
 
-      {/* Yearly Evolution */}
-      <YearlyEvolutionChart />
+          {/* Ações rápidas */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Ações rápidas</h2>
+            <QuickActions />
+          </div>
+        </div>
+
+      {/* Additional sections - Hidden on mobile, shown on desktop */}
+      <div className="hidden lg:block space-y-6">
+        {/* Monthly Comparison Chart */}
+        <MonthlyComparisonChart />
+
+        {/* Category Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ExpensesByCategoryChart />
+          <IncomeByCategoryChart />
+        </div>
+
+        {/* Yearly Evolution */}
+        <YearlyEvolutionChart />
 
       {/* Insights Cards */}
       {insights && (
@@ -229,10 +244,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Recent Transactions */}
-      {transacoes && transacoes.length > 0 && (
-        <RecentTransactions transacoes={transacoes} />
-      )}
+      {/* Additional sections - Hidden on mobile, shown on desktop */}
+      <div className="hidden lg:block space-y-6">
 
         {/* Tips Section - Premium Design */}
         {insights && insights.dicasEconomia.length > 1 && (

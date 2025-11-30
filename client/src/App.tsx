@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavBar } from "@/components/NavBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { PeriodSelectorBar } from "@/components/layout/PeriodSelectorBar";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { TabProvider, useTab } from "@/contexts/TabContext";
@@ -47,7 +48,12 @@ function AuthenticatedShell() {
     <div className="flex flex-col h-screen w-full">
       <NavBar />
       
-      <main className="flex-1 overflow-auto w-full pb-16 lg:pb-0">
+      {/* Period Selector Bar - Mobile only */}
+      <div className="lg:hidden">
+        <PeriodSelectorBar />
+      </div>
+      
+      <main className="flex-1 overflow-auto w-full pb-14 lg:pb-0">
         <div className="w-full" style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
           <Dashboard />
         </div>
