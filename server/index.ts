@@ -6,7 +6,7 @@ import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
 import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
-import { storage } from "./storage.js";
+import { initializeDatabaseAsync } from "./db.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -57,28 +57,13 @@ app.get("/_db-check", (req, res) => {
 app.get("/_health", (req, res) => res.status(200).send("OK"));
 
 // ============================================================
-// WEBHOOKS - Before session middleware (no auth required)
-// ============================================================
-app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (req, res) => {
-  try {
-    await storage.createWebhookEvent({
-      event: req.body?.event ?? "unknown",
-      type: req.body?.event ?? "unknown",
-      payload: req.body,
-      status: "pending",
-      processed: false,
-    });
-    res.status(200).json({ ok: true });
-  } catch (e) {
-    res.status(200).json({ ok: true });
-  }
-});
-
-// ============================================================
 // HEAVY LOGIC - Runs AFTER server is listening (background)
 // ============================================================
 (async () => {
   try {
+    // Initialize database connection FIRST (before routes that might use it)
+    await initializeDatabaseAsync();
+    
     // Setup static files OR Vite in background
     if (isProd) {
       serveStatic(app);
@@ -92,18 +77,18 @@ app.post("/api/webhooks/subscriptions", express.json({ type: "*/*" }), async (re
     app.use("/api", getSession());
     app.use("/admin", getSession());
     
-    // Register routes AFTER server is listening and session is configured
+    // Register routes AFTER database is initialized
     await registerRoutes(app);
     
-    // Initialize database AFTER routes are registered (completely non-blocking)
-    await initializeDatabaseAsync();
+    // Run seeds and database setup AFTER routes are registered
+    await runDatabaseSetup();
   } catch (error) {
     console.error("Erro pós-startup:", error);
   }
 })();
 
-// Database initialization - completely background
-async function initializeDatabaseAsync() {
+// Database setup - seeds, tables, etc (runs after DB is initialized)
+async function runDatabaseSetup() {
   try {
     await Promise.allSettled([
       seedAdmin(),
@@ -111,9 +96,9 @@ async function initializeDatabaseAsync() {
       ensureWebhookEventsTable(),
     ]);
     
-    log("✅ Database initialization complete", "SERVER");
+    log("✅ Database setup complete", "SERVER");
   } catch (error) {
-    console.error("Database initialization error:", error);
+    console.error("Database setup error:", error);
   }
 }
 

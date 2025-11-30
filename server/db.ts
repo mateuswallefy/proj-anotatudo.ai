@@ -15,15 +15,28 @@ delete process.env.PGDATABASE;
 
 // Use NEON_DATABASE_URL (custom name that Replit won't override)
 // Fallback to DATABASE_URL for compatibility
-const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+const getDatabaseUrl = () => {
+  const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error(
+      "NEON_DATABASE_URL must be set. Add it in Replit Secrets.",
+    );
+  }
+  return databaseUrl;
+};
 
-if (!databaseUrl) {
-  throw new Error(
-    "NEON_DATABASE_URL must be set. Add it in Replit Secrets.",
-  );
+// Lazy initialization - no connection until initializeDatabaseAsync is called
+export let pool: Pool | null = null;
+export let db: ReturnType<typeof drizzle> | null = null;
+
+export async function initializeDatabaseAsync() {
+  if (!db) {
+    const databaseUrl = getDatabaseUrl();
+    console.log(`[DB] Connecting to: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`);
+    
+    pool = new Pool({ connectionString: databaseUrl });
+    db = drizzle({ client: pool, schema });
+    
+    console.log(`[DB] Database connection initialized`);
+  }
 }
-
-console.log(`[DB] Connecting to: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`);
-
-export const pool = new Pool({ connectionString: databaseUrl });
-export const db = drizzle({ client: pool, schema });
