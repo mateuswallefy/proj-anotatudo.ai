@@ -100,6 +100,58 @@ export async function sendWhatsAppTemplate({ to, templateName, languageCode, com
   }
 }
 
+export async function sendWhatsAppInteractiveMessage(
+  to: string,
+  bodyText: string,
+  buttons: { id: string; title: string }[]
+) {
+  try {
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const token = process.env.WHATSAPP_TOKEN;
+
+    if (!phoneNumberId || !token) {
+      console.error('[WhatsApp] Missing credentials');
+      return { success: false };
+    }
+
+    const payload = {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: bodyText },
+        action: {
+          buttons: buttons.map(btn => ({
+            type: "reply",
+            reply: { id: btn.id, title: btn.title }
+          }))
+        }
+      }
+    };
+
+    const response = await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      payload,
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const messageId = response.data?.messages?.[0]?.id;
+    console.log("[WhatsApp] Interactive message sent:", response.data);
+
+    return { success: true, messageId };
+
+  } catch (error: any) {
+    console.error("[WhatsApp] Error sending interactive message:", error.response?.data || error.message);
+    return { success: false };
+  }
+}
+
 // Helper to send replies to users
 export async function sendWhatsAppReply(to: string, message: string, latencyId?: string): Promise<{ success: boolean; messageId?: string }> {
   const responseQueuedAt = new Date();
