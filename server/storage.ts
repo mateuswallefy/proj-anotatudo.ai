@@ -6,6 +6,7 @@ import {
   cartaoTransacoes,
   goals,
   spendingLimits,
+  monthlySavings,
   accountMembers,
   purchases,
   categoriasCustomizadas,
@@ -46,6 +47,8 @@ import {
   type InsertGoal,
   type SpendingLimit,
   type InsertSpendingLimit,
+  type MonthlySavings,
+  type InsertMonthlySavings,
   type AccountMember,
   type InsertAccountMember,
   type Purchase,
@@ -119,11 +122,51 @@ export interface IStorage {
   updateGoal(id: string, userId: string, goal: Partial<InsertGoal>): Promise<Goal | undefined>;
   updateGoalValorAtual(id: string, userId: string, valorAtual: string): Promise<void>;
   updateGoalStatus(id: string, userId: string, status: 'ativa' | 'concluida' | 'cancelada'): Promise<void>;
+  deleteGoal(id: string, userId: string): Promise<void>;
 
-  // Spending limits operations
+  // Monthly savings operations
+  getOrCreateMonthlySavings(userId: string, year: number, month: number): Promise<MonthlySavings>;
+  updateMonthlySavings(userId: string, year: number, month: number, updates: Partial<InsertMonthlySavings>): Promise<MonthlySavings>;
+
+  // Spending limits operations (used as budgets)
   getSpendingLimits(userId: string): Promise<SpendingLimit[]>;
+  getSpendingLimitsByPeriod(userId: string, year: number, month: number): Promise<SpendingLimit[]>;
   createSpendingLimit(limit: InsertSpendingLimit): Promise<SpendingLimit>;
   updateSpendingLimit(id: string, valorLimite: string): Promise<void>;
+  deleteSpendingLimit(id: string, userId: string): Promise<void>;
+  upsertSpendingLimit(userId: string, limit: InsertSpendingLimit): Promise<SpendingLimit>;
+
+  // Card operations (extended)
+  updateCartao(id: string, userId: string, updates: Partial<InsertCartao>): Promise<Cartao | undefined>;
+  deleteCartao(id: string, userId: string): Promise<void>;
+
+  // Dashboard operations
+  getDashboardOverview(userId: string, year: number, month: number): Promise<{
+    entradas: string;
+    despesas: string;
+    saldo: string;
+    economias: string;
+    variacaoEntradas: string;
+    variacaoDespesas: string;
+    variacaoSaldo: string;
+  }>;
+  getBudgetsOverview(userId: string, year: number, month: number): Promise<Array<SpendingLimit & {
+    spent: string;
+    percent: string;
+    status: 'ok' | 'atenção' | 'estourado';
+  }>>;
+  getCardsOverview(userId: string, year: number, month: number): Promise<Array<Cartao & {
+    faturaAtual: string;
+    percent: string;
+    status: 'Tranquilo' | 'Atenção' | 'Alerta';
+    closingDay: number;
+    dueDay: number;
+  }>>;
+  getInsightsOverview(userId: string, year: number, month: number): Promise<{
+    topCategory?: { name: string; amount: number; percentageOfTotal: number };
+    spendingChange?: { diffPercent: number; status: 'up' | 'down' | 'flat' };
+    categoriesOverBudget: Array<{ category: string; spent: number; limit: number; percent: number }>;
+  }>;
 
   // Account members operations
   getAccountMembers(userId: string): Promise<AccountMember[]>;
@@ -438,6 +481,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cartoes.id, id));
   }
 
+  async updateCartao(id: string, userId: string, updates: Partial<InsertCartao>): Promise<Cartao | undefined> {
+    const [updated] = await db
+      .update(cartoes)
+      .set(updates)
+      .where(and(eq(cartoes.id, id), eq(cartoes.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCartao(id: string, userId: string): Promise<void> {
+    await db
+      .delete(cartoes)
+      .where(and(eq(cartoes.id, id), eq(cartoes.userId, userId)));
+  }
+
   // Invoice operations
   async getFaturas(cartaoId: string): Promise<Fatura[]> {
     return await db
@@ -578,6 +636,64 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(goals.id, id), eq(goals.userId, userId)));
   }
 
+  async deleteGoal(id: string, userId: string): Promise<void> {
+    await db
+      .delete(goals)
+      .where(and(eq(goals.id, id), eq(goals.userId, userId)));
+  }
+
+  // Monthly savings operations
+  async getOrCreateMonthlySavings(userId: string, year: number, month: number): Promise<MonthlySavings> {
+    const [existing] = await db
+      .select()
+      .from(monthlySavings)
+      .where(
+        and(
+          eq(monthlySavings.userId, userId),
+          eq(monthlySavings.year, year),
+          eq(monthlySavings.month, month)
+        )
+      );
+
+    if (existing) {
+      return existing;
+    }
+
+    const [newSavings] = await db
+      .insert(monthlySavings)
+      .values({
+        userId,
+        year,
+        month,
+        targetAmount: '0',
+        savedAmount: '0',
+      })
+      .returning();
+
+    return newSavings;
+  }
+
+  async updateMonthlySavings(userId: string, year: number, month: number, updates: Partial<InsertMonthlySavings>): Promise<MonthlySavings> {
+    const [updated] = await db
+      .update(monthlySavings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(
+        and(
+          eq(monthlySavings.userId, userId),
+          eq(monthlySavings.year, year),
+          eq(monthlySavings.month, month)
+        )
+      )
+      .returning();
+
+    if (!updated) {
+      // Se não existe, cria
+      return await this.getOrCreateMonthlySavings(userId, year, month);
+    }
+
+    return updated;
+  }
+
   // Spending limits operations
   async getSpendingLimits(userId: string): Promise<SpendingLimit[]> {
     return await db
@@ -600,6 +716,58 @@ export class DatabaseStorage implements IStorage {
       .update(spendingLimits)
       .set({ valorLimite })
       .where(eq(spendingLimits.id, id));
+  }
+
+  async getSpendingLimitsByPeriod(userId: string, year: number, month: number): Promise<SpendingLimit[]> {
+    return await db
+      .select()
+      .from(spendingLimits)
+      .where(
+        and(
+          eq(spendingLimits.userId, userId),
+          or(
+            and(eq(spendingLimits.ano, year), eq(spendingLimits.mes, month)),
+            and(eq(spendingLimits.ano, null), eq(spendingLimits.mes, null)) // Limites permanentes
+          ),
+          eq(spendingLimits.ativo, 'sim')
+        )
+      )
+      .orderBy(desc(spendingLimits.createdAt));
+  }
+
+  async deleteSpendingLimit(id: string, userId: string): Promise<void> {
+    await db
+      .delete(spendingLimits)
+      .where(and(eq(spendingLimits.id, id), eq(spendingLimits.userId, userId)));
+  }
+
+  async upsertSpendingLimit(userId: string, limit: InsertSpendingLimit): Promise<SpendingLimit> {
+    // Se tem categoria e período, tenta encontrar existente
+    if (limit.categoria && limit.mes && limit.ano) {
+      const [existing] = await db
+        .select()
+        .from(spendingLimits)
+        .where(
+          and(
+            eq(spendingLimits.userId, userId),
+            eq(spendingLimits.categoria, limit.categoria),
+            eq(spendingLimits.mes, limit.mes),
+            eq(spendingLimits.ano, limit.ano)
+          )
+        );
+
+      if (existing) {
+        const [updated] = await db
+          .update(spendingLimits)
+          .set(limit)
+          .where(eq(spendingLimits.id, existing.id))
+          .returning();
+        return updated;
+      }
+    }
+
+    // Cria novo
+    return await this.createSpendingLimit(limit);
   }
 
   // Account members operations
@@ -2419,6 +2587,299 @@ export class DatabaseStorage implements IStorage {
          )
     `);
     return result.rowCount || 0;
+  }
+
+  // Dashboard overview operations
+  async getDashboardOverview(userId: string, year: number, month: number) {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0);
+    const startDate = format(startOfMonth, 'yyyy-MM-dd');
+    const endDate = format(endOfMonth, 'yyyy-MM-dd');
+
+    // Get transactions for current month
+    const transacoesMes = await db
+      .select()
+      .from(transacoes)
+      .where(
+        and(
+          eq(transacoes.userId, userId),
+          sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`,
+          sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`
+        ) as any
+      );
+
+    // Calculate totals
+    const entradas = transacoesMes
+      .filter(t => t.tipo === 'entrada')
+      .reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    const despesas = transacoesMes
+      .filter(t => t.tipo === 'saida')
+      .reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    const economias = transacoesMes
+      .filter(t => t.tipo === 'economia')
+      .reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    const saldo = entradas - despesas;
+
+    // Get previous month for comparison
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevStartOfMonth = new Date(prevYear, prevMonth - 1, 1);
+    const prevEndOfMonth = new Date(prevYear, prevMonth, 0);
+    const prevStartDate = format(prevStartOfMonth, 'yyyy-MM-dd');
+    const prevEndDate = format(prevEndOfMonth, 'yyyy-MM-dd');
+
+    const transacoesMesAnterior = await db
+      .select()
+      .from(transacoes)
+      .where(
+        and(
+          eq(transacoes.userId, userId),
+          sqlOp`DATE(${transacoes.dataReal}) >= ${prevStartDate}`,
+          sqlOp`DATE(${transacoes.dataReal}) <= ${prevEndDate}`
+        ) as any
+      );
+
+    const entradasAnterior = transacoesMesAnterior
+      .filter(t => t.tipo === 'entrada')
+      .reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    const despesasAnterior = transacoesMesAnterior
+      .filter(t => t.tipo === 'saida')
+      .reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    const saldoAnterior = entradasAnterior - despesasAnterior;
+
+    // Calculate variations
+    const variacaoEntradas = entradasAnterior > 0 
+      ? ((entradas - entradasAnterior) / entradasAnterior) * 100 
+      : 0;
+    
+    const variacaoDespesas = despesasAnterior > 0
+      ? ((despesas - despesasAnterior) / despesasAnterior) * 100
+      : 0;
+
+    const variacaoSaldo = saldoAnterior !== 0
+      ? ((saldo - saldoAnterior) / Math.abs(saldoAnterior)) * 100
+      : 0;
+
+    // Get monthly savings
+    const monthlySavingsData = await this.getOrCreateMonthlySavings(userId, year, month);
+    const economiasDoMes = parseFloat(monthlySavingsData.savedAmount || '0');
+
+    return {
+      entradas: entradas.toFixed(2),
+      despesas: despesas.toFixed(2),
+      saldo: saldo.toFixed(2),
+      economias: economiasDoMes.toFixed(2),
+      variacaoEntradas: variacaoEntradas.toFixed(1),
+      variacaoDespesas: variacaoDespesas.toFixed(1),
+      variacaoSaldo: variacaoSaldo.toFixed(1),
+    };
+  }
+
+  async getBudgetsOverview(userId: string, year: number, month: number) {
+    const budgets = await this.getSpendingLimitsByPeriod(userId, year, month);
+    
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0);
+    const startDate = format(startOfMonth, 'yyyy-MM-dd');
+    const endDate = format(endOfMonth, 'yyyy-MM-dd');
+
+    const budgetsWithSpent = await Promise.all(
+      budgets
+        .filter(b => b.tipo === 'mensal_categoria' && b.categoria)
+        .map(async (budget) => {
+          const spent = await db
+            .select({
+              total: sql<number>`COALESCE(SUM(${transacoes.valor}::numeric), 0)`,
+            })
+            .from(transacoes)
+            .where(
+              and(
+                eq(transacoes.userId, userId),
+                eq(transacoes.tipo, 'saida'),
+                eq(transacoes.categoria, budget.categoria!),
+                sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`,
+                sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`
+              ) as any
+            );
+
+          const spentValue = parseFloat(spent[0]?.total?.toString() || '0');
+          const limitValue = parseFloat(budget.valorLimite || '0');
+          const percent = limitValue > 0 ? (spentValue / limitValue) * 100 : 0;
+
+          let status: 'ok' | 'atenção' | 'estourado' = 'ok';
+          if (percent >= 100) {
+            status = 'estourado';
+          } else if (percent >= 70) {
+            status = 'atenção';
+          }
+
+          return {
+            ...budget,
+            spent: spentValue.toFixed(2),
+            percent: percent.toFixed(1),
+            status,
+          };
+        })
+    );
+
+    return budgetsWithSpent;
+  }
+
+  async getCardsOverview(userId: string, year: number, month: number) {
+    const cartoes = await this.getCartoes(userId);
+    
+    // Get current date
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentDay = currentDate.getDate();
+
+    const cardsWithInvoice = await Promise.all(
+      cartoes.map(async (cartao) => {
+        // Calculate invoice period
+        const closingDay = parseInt(cartao.diaFechamento?.toString() || '1');
+        
+        let invoiceStart: Date;
+        let invoiceEnd: Date;
+        
+        if (currentDay >= closingDay) {
+          // Current invoice: from closing day of current month to closing day of next month
+          invoiceStart = new Date(year, month - 1, closingDay);
+          invoiceEnd = new Date(year, month, closingDay - 1);
+        } else {
+          // Current invoice: from closing day of previous month to closing day of current month
+          invoiceStart = new Date(year, month - 2, closingDay);
+          invoiceEnd = new Date(year, month - 1, closingDay - 1);
+        }
+
+        const invoiceStartDate = format(invoiceStart, 'yyyy-MM-dd');
+        const invoiceEndDate = format(invoiceEnd, 'yyyy-MM-dd');
+
+        // Calculate invoice total
+        const invoiceTotal = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(${transacoes.valor}::numeric), 0)`,
+          })
+          .from(transacoes)
+          .where(
+            and(
+              eq(transacoes.userId, userId),
+              eq(transacoes.tipo, 'saida'),
+              eq(transacoes.cartaoId, cartao.id),
+              sqlOp`DATE(${transacoes.dataReal}) >= ${invoiceStartDate}`,
+              sqlOp`DATE(${transacoes.dataReal}) <= ${invoiceEndDate}`
+            ) as any
+          );
+
+        const faturaAtual = parseFloat(invoiceTotal[0]?.total?.toString() || '0');
+        const limiteTotal = parseFloat(cartao.limiteTotal || '0');
+        const percent = limiteTotal > 0 ? (faturaAtual / limiteTotal) * 100 : 0;
+
+        let status: 'Tranquilo' | 'Atenção' | 'Alerta' = 'Tranquilo';
+        if (percent >= 70) {
+          status = 'Alerta';
+        } else if (percent >= 30) {
+          status = 'Atenção';
+        }
+
+        return {
+          ...cartao,
+          faturaAtual: faturaAtual.toFixed(2),
+          percent: percent.toFixed(1),
+          status,
+          closingDay: parseInt(cartao.diaFechamento?.toString() || '1'),
+          dueDay: parseInt(cartao.diaVencimento?.toString() || '1'),
+        };
+      })
+    );
+
+    return cardsWithInvoice;
+  }
+
+  async getInsightsOverview(userId: string, year: number, month: number) {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0);
+    const startDate = format(startOfMonth, 'yyyy-MM-dd');
+    const endDate = format(endOfMonth, 'yyyy-MM-dd');
+
+    // Get transactions for current month
+    const transacoesMes = await db
+      .select()
+      .from(transacoes)
+      .where(
+        and(
+          eq(transacoes.userId, userId),
+          sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`,
+          sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`
+        ) as any
+      );
+
+    const despesas = transacoesMes.filter(t => t.tipo === 'saida');
+    const totalDespesas = despesas.reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    // Find top category
+    const categoryTotals: Record<string, number> = {};
+    despesas.forEach(t => {
+      const cat = t.categoria || 'Outros';
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(t.valor || '0');
+    });
+
+    const topCategory = Object.entries(categoryTotals)
+      .sort(([, a], [, b]) => b - a)[0];
+
+    // Get previous month for comparison
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevStartOfMonth = new Date(prevYear, prevMonth - 1, 1);
+    const prevEndOfMonth = new Date(prevYear, prevMonth, 0);
+    const prevStartDate = format(prevStartOfMonth, 'yyyy-MM-dd');
+    const prevEndDate = format(prevEndOfMonth, 'yyyy-MM-dd');
+
+    const transacoesMesAnterior = await db
+      .select()
+      .from(transacoes)
+      .where(
+        and(
+          eq(transacoes.userId, userId),
+          eq(transacoes.tipo, 'saida'),
+          sqlOp`DATE(${transacoes.dataReal}) >= ${prevStartDate}`,
+          sqlOp`DATE(${transacoes.dataReal}) <= ${prevEndDate}`
+        ) as any
+      );
+
+    const totalDespesasAnterior = transacoesMesAnterior
+      .reduce((sum, t) => sum + parseFloat(t.valor || '0'), 0);
+
+    const spendingChange = totalDespesasAnterior > 0
+      ? ((totalDespesas - totalDespesasAnterior) / totalDespesasAnterior) * 100
+      : 0;
+
+    // Get budgets over limit
+    const budgets = await this.getBudgetsOverview(userId, year, month);
+    const categoriesOverBudget = budgets.filter(b => b.status === 'estourado' || (b.status === 'atenção' && parseFloat(b.percent || '0') >= 95));
+
+    return {
+      topCategory: topCategory ? {
+        name: topCategory[0],
+        amount: topCategory[1],
+        percentageOfTotal: totalDespesas > 0 ? (topCategory[1] / totalDespesas) * 100 : 0,
+      } : undefined,
+      spendingChange: {
+        diffPercent: spendingChange,
+        status: spendingChange > 5 ? 'up' : spendingChange < -5 ? 'down' : 'flat',
+      },
+      categoriesOverBudget: categoriesOverBudget.map(b => ({
+        category: b.categoria || '',
+        spent: parseFloat(b.spent || '0'),
+        limit: parseFloat(b.valorLimite || '0'),
+        percent: parseFloat(b.percent || '0'),
+      })),
+    };
   }
 }
 

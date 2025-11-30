@@ -1,275 +1,221 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Transacao, Cartao, Goal } from "@shared/schema";
-import { SpendingSpeedometer } from "@/components/SpendingSpeedometer";
-import { InsightsCards } from "@/components/InsightsCards";
-import { CategoryRanking } from "@/components/CategoryRanking";
-import { WeekdayAnalysis } from "@/components/WeekdayAnalysis";
-import { DailyAverageChart } from "@/components/DailyAverageChart";
+import type { Transacao, Goal } from "@shared/schema";
 import { RecentTransactions } from "@/components/RecentTransactions";
-import { PeriodSummaryCards } from "@/components/PeriodSummaryCards";
-import { MonthlyComparisonChart } from "@/components/MonthlyComparisonChart";
-import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoryChart";
-import { IncomeByCategoryChart } from "@/components/IncomeByCategoryChart";
-import { YearlyEvolutionChart } from "@/components/YearlyEvolutionChart";
 import { AlertasImportantes } from "@/components/AlertasImportantes";
-import { CardsMensais } from "@/components/CardsMensais";
-import { LightbulbIcon } from "lucide-react";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { PageHeader, AppCard } from "@/components/design-system";
-import { QuickSummary } from "@/components/dashboard/QuickSummary";
-import { QuickActions } from "@/components/dashboard/QuickActions";
-
-interface FinancialInsights {
-  mediaDiariaGastos: number;
-  mediaDiariaReceitas: number;
-  totalGastosMes: number;
-  totalReceitasMes: number;
-  categoriaQueMaisGasta: {
-    categoria: string;
-    total: number;
-    percentual: number;
-  } | null;
-  diaSemanaQueMaisGasta: {
-    dia: string;
-    total: number;
-  } | null;
-  topCategorias: Array<{
-    categoria: string;
-    total: number;
-    percentual: number;
-    transacoes: number;
-  }>;
-  dicasEconomia: string[];
-  gastosPorDia: Array<{
-    data: string;
-    total: number;
-  }>;
-  receitasPorDia: Array<{
-    data: string;
-    total: number;
-  }>;
-  gastosPorDiaSemana: Record<string, number>;
-  progressoMensal: {
-    percentualGasto: number;
-    diasDecorridos: number;
-    diasRestantes: number;
-    mediaDiariaAtual: number;
-    mediaDiariaIdeal: number;
-  };
-}
-
-interface SpendingProgress {
-  gastoAtual: number;
-  limiteTotal: number;
-  percentualUsado: number;
-  status: 'seguro' | 'alerta' | 'perigo';
-}
+import { DashboardOverviewCards } from "@/components/dashboard/DashboardOverviewCards";
+import { DashboardGoalsStrip } from "@/components/dashboard/DashboardGoalsStrip";
+import { DashboardBudgetsList } from "@/components/dashboard/DashboardBudgetsList";
+import { DashboardCardsStrip } from "@/components/dashboard/DashboardCardsStrip";
+import { DashboardInsightsCard } from "@/components/dashboard/DashboardInsightsCard";
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const { period } = usePeriod();
+  
+  // Parse period (format: "YYYY-MM")
+  const [year, month] = period ? period.split('-').map(Number) : [
+    new Date().getFullYear(),
+    new Date().getMonth() + 1
+  ];
 
-  // Fetch insights
-  const { data: insights, isLoading: loadingInsights} = useQuery<FinancialInsights>({
-    queryKey: ["/api/insights", { period }],
+  // Fetch dashboard overview
+  const { data: overview, isLoading: loadingOverview } = useQuery({
+    queryKey: ["/api/dashboard/overview", { year, month }],
     queryFn: async () => {
-      const response = await fetch(`/api/insights?period=${period}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch insights');
+      const response = await fetch(`/api/dashboard/overview?year=${year}&month=${month}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch dashboard overview');
       return response.json();
-    }
+    },
   });
 
-  // Fetch spending progress
-  const { data: spendingProgress, isLoading: loadingProgress } = useQuery<SpendingProgress>({
-    queryKey: ["/api/spending-progress", { period }],
+  // Fetch saving goals
+  const { data: savingGoals, isLoading: loadingGoals } = useQuery<Goal[]>({
+    queryKey: ["/api/goals"],
     queryFn: async () => {
-      const response = await fetch(`/api/spending-progress?period=${period}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch spending progress');
+      const response = await fetch(`/api/goals`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch goals');
       return response.json();
-    }
+    },
   });
 
-  // Fetch transactions for recent list
-  const { data: transacoes, isLoading: loadingTransacoes } = useQuery<Transacao[]>({
+  // Fetch monthly savings
+  const { data: monthlySavings, isLoading: loadingMonthlySavings } = useQuery({
+    queryKey: ["/api/monthly-savings", { year, month }],
+    queryFn: async () => {
+      const response = await fetch(`/api/monthly-savings?year=${year}&month=${month}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch monthly savings');
+      return response.json();
+    },
+  });
+
+  // Fetch budgets
+  const { data: budgets, isLoading: loadingBudgets } = useQuery({
+    queryKey: ["/api/budgets", { year, month }],
+    queryFn: async () => {
+      const response = await fetch(`/api/budgets?year=${year}&month=${month}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch budgets');
+      return response.json();
+    },
+  });
+
+  // Fetch cards overview
+  const { data: cardsOverview, isLoading: loadingCards } = useQuery({
+    queryKey: ["/api/credit-cards/overview", { year, month }],
+    queryFn: async () => {
+      const response = await fetch(`/api/credit-cards/overview?year=${year}&month=${month}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch cards overview');
+      return response.json();
+    },
+  });
+
+  // Fetch insights overview
+  const { data: insights, isLoading: loadingInsights } = useQuery({
+    queryKey: ["/api/insights/overview", { year, month }],
+    queryFn: async () => {
+      const response = await fetch(`/api/insights/overview?year=${year}&month=${month}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch insights overview');
+      return response.json();
+    },
+  });
+
+  // Fetch recent transactions
+  const { data: recentTransactions, isLoading: loadingTransactions } = useQuery<Transacao[]>({
     queryKey: ["/api/transacoes", { period }],
     queryFn: async () => {
       const response = await fetch(`/api/transacoes?period=${period}`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch transactions');
       return response.json();
-    }
-  });
-
-  // Fetch goals (not period-specific)
-  const { data: goals, isLoading: loadingGoals } = useQuery<Goal[]>({
-    queryKey: ["/api/goals"],
+    },
   });
 
   // Prefetch other tabs data for instant navigation
   useEffect(() => {
-    // Prefetch cards data
     queryClient.prefetchQuery({
       queryKey: ["/api/cartoes"],
     });
     
-    // Prefetch spending limits
     queryClient.prefetchQuery({
       queryKey: ["/api/spending-limits"],
     });
 
-    // Prefetch account members
     queryClient.prefetchQuery({
       queryKey: ["/api/account-members"],
     });
   }, [queryClient]);
 
-  const isLoading = loadingInsights || loadingProgress || loadingTransacoes || loadingGoals;
+  const isLoading = loadingOverview || loadingGoals || loadingMonthlySavings || loadingBudgets || loadingCards || loadingInsights || loadingTransactions;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-          <div>
-            <Skeleton className="h-10 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="h-32 rounded-2xl" />
+      <div className="min-h-screen bg-background pb-20">
+        <div className="space-y-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-32 w-[280px] rounded-2xl flex-shrink-0" />
             ))}
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Skeleton className="h-96 rounded-2xl" />
-            <Skeleton className="h-96 rounded-2xl" />
-          </div>
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
   }
 
-  const hasSpendingLimit = spendingProgress && spendingProgress.limiteTotal > 0;
-
   return (
-    <div className="min-h-screen bg-background">
-      <div className="space-y-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background pb-20">
+      <main className="px-4 space-y-6 md:px-8 md:space-y-8 max-w-7xl mx-auto">
         {/* Alertas Importantes */}
         <AlertasImportantes />
 
-        {/* Cards Mensais - ENTRADAS, DESPESAS, ECONOMIAS */}
-        <CardsMensais />
+        {/* 1. Cards principais */}
+        <section>
+          <DashboardOverviewCards overview={overview} isLoading={loadingOverview} />
+        </section>
 
-        {/* Seções extras - Mobile First */}
-        <div className="space-y-6">
-          {/* Resumo rápido */}
-          <QuickSummary />
-
-          {/* Últimas transações */}
-          {transacoes && transacoes.length > 0 && (
-            <RecentTransactions transacoes={transacoes.slice(0, 5)} />
-          )}
-
-          {/* Ações rápidas */}
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Ações rápidas</h2>
-            <QuickActions />
-          </div>
-        </div>
-
-      {/* Additional sections - Hidden on mobile, shown on desktop */}
-      <div className="hidden lg:block space-y-6">
-        {/* Monthly Comparison Chart */}
-        <MonthlyComparisonChart />
-
-        {/* Category Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ExpensesByCategoryChart />
-          <IncomeByCategoryChart />
-        </div>
-
-        {/* Yearly Evolution */}
-        <YearlyEvolutionChart />
-
-      {/* Insights Cards */}
-      {insights && (
-        <InsightsCards
-          dicasEconomia={insights.dicasEconomia}
-          mediaDiariaGastos={insights.mediaDiariaGastos}
-          mediaDiariaReceitas={insights.mediaDiariaReceitas}
-          totalGastosMes={insights.totalGastosMes}
-          totalReceitasMes={insights.totalReceitasMes}
-        />
-      )}
-
-      {/* Analysis Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Average Chart */}
-        {insights && (
-          <DailyAverageChart
-            gastosPorDia={insights.gastosPorDia}
-            receitasPorDia={insights.receitasPorDia}
+        {/* 2. Metas & Economias */}
+        <section>
+          <DashboardGoalsStrip
+            savingGoals={savingGoals}
+            monthlySavings={monthlySavings}
+            isLoading={loadingGoals || loadingMonthlySavings}
+            onCreateGoal={() => {
+              // Navigate to goals page or open dialog
+              console.log("Create goal");
+            }}
           />
-        )}
+        </section>
 
-        {/* Weekday Analysis */}
-        {insights && (
-          <WeekdayAnalysis
-            gastosPorDiaSemana={insights.gastosPorDiaSemana}
-            diaSemanaQueMaisGasta={insights.diaSemanaQueMaisGasta}
+        {/* 3. Orçamentos */}
+        <section>
+          <DashboardBudgetsList
+            budgets={budgets}
+            isLoading={loadingBudgets}
+            onViewAll={() => {
+              // Navigate to budgets page
+              console.log("View all budgets");
+            }}
           />
-        )}
-      </div>
+        </section>
 
-      {/* Main Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Spending Speedometer */}
-        {hasSpendingLimit && spendingProgress && (
-          <div className="lg:col-span-1">
-            <SpendingSpeedometer
-              gastoAtual={spendingProgress.gastoAtual}
-              limiteTotal={spendingProgress.limiteTotal}
-              percentualUsado={spendingProgress.percentualUsado}
-              status={spendingProgress.status}
-            />
-          </div>
-        )}
+        {/* 4. Cartões */}
+        <section>
+          <DashboardCardsStrip
+            cards={cardsOverview}
+            isLoading={loadingCards}
+            onCreateCard={() => {
+              // Navigate to cards page or open dialog
+              console.log("Create card");
+            }}
+          />
+        </section>
 
-        {/* Category Ranking */}
-        {insights && (
-          <div className={hasSpendingLimit ? "lg:col-span-2" : "lg:col-span-3"}>
-            <CategoryRanking topCategorias={insights.topCategorias} />
-          </div>
-        )}
-      </div>
+        {/* 5. Insights */}
+        <section>
+          <DashboardInsightsCard insights={insights} isLoading={loadingInsights} />
+        </section>
 
-      {/* Additional sections - Hidden on mobile, shown on desktop */}
-      <div className="hidden lg:block space-y-6">
-
-        {/* Tips Section - Premium Design */}
-        {insights && insights.dicasEconomia.length > 1 && (
-          <AppCard className="p-6 md:p-8" borderAccent="purple">
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                  <LightbulbIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold tracking-tight">Mais Dicas para Economizar</h3>
-                  <p className="text-sm text-muted-foreground">Recomendações personalizadas para você</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {insights.dicasEconomia.slice(1).map((dica, index) => (
-                  <AppCard key={index} className="p-5" hover>
-                    <p className="text-sm leading-relaxed text-foreground">{dica}</p>
-                  </AppCard>
-                ))}
-              </div>
+        {/* 6. Últimas transações */}
+        <section>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-base font-semibold">Últimas Transações</h3>
+              <Button variant="ghost" size="sm" className="h-auto p-1 text-xs" onClick={() => {
+                // Navigate to transactions page
+                console.log("View all transactions");
+              }}>
+                Ver todas
+                <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
             </div>
-          </AppCard>
-        )}
+            {recentTransactions && recentTransactions.length > 0 ? (
+              <RecentTransactions transacoes={recentTransactions.slice(0, 6)} />
+            ) : (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                Nenhuma transação encontrada
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+
+      {/* Desktop Layout - 2 columns for some sections */}
+      <div className="hidden lg:block px-4 md:px-8 max-w-7xl mx-auto mt-8">
+        <div className="grid grid-cols-2 gap-6">
+          {/* Left column */}
+          <div className="space-y-6">
+            {/* Additional desktop content can go here */}
+          </div>
+          
+          {/* Right column */}
+          <div className="space-y-6">
+            {/* Additional desktop content can go here */}
+          </div>
+        </div>
       </div>
     </div>
   );

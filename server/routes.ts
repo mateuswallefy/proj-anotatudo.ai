@@ -628,6 +628,40 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.patch("/api/cartoes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      const data = req.body;
+      
+      const cartao = await storage.updateCartao(id, userId, data);
+      if (!cartao) {
+        return res.status(404).json({ message: "Card not found" });
+      }
+      res.json(cartao);
+    } catch (error: any) {
+      console.error("Error updating card:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update card" });
+      }
+    }
+  });
+
+  app.delete("/api/cartoes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      
+      await storage.deleteCartao(id, userId);
+      res.json({ message: "Card deleted" });
+    } catch (error) {
+      console.error("Error deleting card:", error);
+      res.status(500).json({ message: "Failed to delete card" });
+    }
+  });
+
   // WhatsApp Webhook route
   app.post("/api/webhook/whatsapp", async (req, res) => {
     try {
@@ -1152,6 +1186,40 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.patch("/api/goals/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      const data = req.body;
+      
+      const goal = await storage.updateGoal(id, userId, data);
+      if (!goal) {
+        return res.status(404).json({ message: "Goal not found" });
+      }
+      res.json(goal);
+    } catch (error: any) {
+      console.error("Error updating goal:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update goal" });
+      }
+    }
+  });
+
+  app.delete("/api/goals/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      
+      await storage.deleteGoal(id, userId);
+      res.json({ message: "Goal deleted" });
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      res.status(500).json({ message: "Failed to delete goal" });
+    }
+  });
+
   // Spending limits routes
   app.get("/api/spending-limits", isAuthenticated, async (req: any, res) => {
     try {
@@ -1211,6 +1279,119 @@ export async function registerRoutes(app: Express): Promise<void> {
     } catch (error) {
       console.error("Error updating spending limit:", error);
       res.status(500).json({ message: "Failed to update spending limit" });
+    }
+  });
+
+  app.delete("/api/spending-limits/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      
+      await storage.deleteSpendingLimit(id, userId);
+      res.json({ message: "Spending limit deleted" });
+    } catch (error) {
+      console.error("Error deleting spending limit:", error);
+      res.status(500).json({ message: "Failed to delete spending limit" });
+    }
+  });
+
+  // Dashboard routes
+  app.get("/api/dashboard/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : (periodParam.mes || new Date().getMonth() + 1);
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : (periodParam.ano || new Date().getFullYear());
+      
+      const overview = await storage.getDashboardOverview(userId, ano, mes);
+      res.json(overview);
+    } catch (error) {
+      console.error("Error getting dashboard overview:", error);
+      res.status(500).json({ message: "Failed to get dashboard overview" });
+    }
+  });
+
+  // Monthly savings routes
+  app.get("/api/monthly-savings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : (periodParam.mes || new Date().getMonth() + 1);
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : (periodParam.ano || new Date().getFullYear());
+      
+      const monthlySavings = await storage.getOrCreateMonthlySavings(userId, ano, mes);
+      res.json(monthlySavings);
+    } catch (error) {
+      console.error("Error getting monthly savings:", error);
+      res.status(500).json({ message: "Failed to get monthly savings" });
+    }
+  });
+
+  app.post("/api/monthly-savings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : (periodParam.mes || new Date().getMonth() + 1);
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : (periodParam.ano || new Date().getFullYear());
+      
+      const { targetAmount, savedAmount } = req.body;
+      const updates: any = {};
+      if (targetAmount !== undefined) updates.targetAmount = targetAmount.toString();
+      if (savedAmount !== undefined) updates.savedAmount = savedAmount.toString();
+      
+      const monthlySavings = await storage.updateMonthlySavings(userId, ano, mes, updates);
+      res.json(monthlySavings);
+    } catch (error) {
+      console.error("Error updating monthly savings:", error);
+      res.status(500).json({ message: "Failed to update monthly savings" });
+    }
+  });
+
+  // Budgets routes (using spending limits)
+  app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : (periodParam.mes || new Date().getMonth() + 1);
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : (periodParam.ano || new Date().getFullYear());
+      
+      const budgets = await storage.getBudgetsOverview(userId, ano, mes);
+      res.json(budgets);
+    } catch (error) {
+      console.error("Error getting budgets:", error);
+      res.status(500).json({ message: "Failed to get budgets" });
+    }
+  });
+
+  // Credit cards overview route
+  app.get("/api/credit-cards/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : (periodParam.mes || new Date().getMonth() + 1);
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : (periodParam.ano || new Date().getFullYear());
+      
+      const cards = await storage.getCardsOverview(userId, ano, mes);
+      res.json(cards);
+    } catch (error) {
+      console.error("Error getting cards overview:", error);
+      res.status(500).json({ message: "Failed to get cards overview" });
+    }
+  });
+
+  // Insights overview route
+  app.get("/api/insights/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const periodParam = parsePeriodParam(req.query.period as string | undefined);
+      const mes = req.query.mes ? parseInt(req.query.mes as string) : (periodParam.mes || new Date().getMonth() + 1);
+      const ano = req.query.ano ? parseInt(req.query.ano as string) : (periodParam.ano || new Date().getFullYear());
+      
+      const insights = await storage.getInsightsOverview(userId, ano, mes);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error getting insights overview:", error);
+      res.status(500).json({ message: "Failed to get insights overview" });
     }
   });
 

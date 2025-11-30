@@ -2,18 +2,21 @@ import { useTab } from "@/contexts/TabContext";
 import { useAuth } from "@/hooks/useAuth";
 import { logout } from "@/lib/auth";
 import { useLocation } from "wouter";
-import {
-  LayoutDashboard,
-  Receipt,
-  Tag,
-  CreditCard,
-  Bell,
-  Calendar,
-  Settings,
-  LogOut,
-  User,
-  Shield,
-} from "lucide-react";
+import         {
+          LayoutDashboard,
+          Receipt,
+          Tag,
+          CreditCard,
+          Bell,
+          Calendar,
+          Settings,
+          LogOut,
+          User,
+          Shield,
+          Target,
+          Wallet,
+          TrendingUp,
+        } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -47,38 +50,38 @@ export function MobileNavDrawer() {
       onClick: () => setActiveTab("transacoes"),
     },
     {
-      id: "categorias",
-      label: "Categorias",
-      icon: Tag,
+      id: "metas-economias",
+      label: "Metas & Economias",
+      icon: Target,
       onClick: () => {
-        // Navegar para página de categorias quando implementada
-        console.log("Categorias - em breve");
+        setActiveTab("economias"); // Usar a tab de economias existente
       },
     },
     {
-      id: "assinatura",
-      label: "Assinatura / Plano",
+      id: "orcamentos",
+      label: "Orçamentos",
+      icon: Wallet,
+      onClick: () => {
+        // Navegar para página de orçamentos quando implementada
+        console.log("Orçamentos - em breve");
+      },
+    },
+    {
+      id: "cartoes",
+      label: "Cartões",
       icon: CreditCard,
-      onClick: () => setActiveTab("configuracoes"),
-    },
-    {
-      id: "lembretes",
-      label: "Lembretes",
-      icon: Bell,
       onClick: () => {
-        // Navegar para lembretes quando implementado
-        console.log("Lembretes - em breve");
+        setActiveTab("cartoes");
       },
     },
     {
-      id: "integracoes",
-      label: "Integrações",
-      icon: Calendar,
+      id: "insights",
+      label: "Insights",
+      icon: TrendingUp,
       onClick: () => {
-        // Navegar para integrações quando implementado
-        console.log("Integrações - em breve");
+        // Navegar para página de insights quando implementada
+        console.log("Insights - em breve");
       },
-      badge: "Google Agenda",
     },
   ];
 

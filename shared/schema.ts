@@ -11,6 +11,7 @@ import {
   integer,
   date,
   boolean,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -296,6 +297,36 @@ export const insertSpendingLimitSchema = createInsertSchema(spendingLimits).omit
 
 export type InsertSpendingLimit = z.infer<typeof insertSpendingLimitSchema>;
 export type SpendingLimit = typeof spendingLimits.$inferSelect;
+
+// Monthly savings table (economias mensais)
+export const monthlySavings = pgTable("monthly_savings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(), // 1–12
+  targetAmount: decimal("target_amount", { precision: 12, scale: 2 }).notNull(), // quanto quer guardar no mês
+  savedAmount: decimal("saved_amount", { precision: 12, scale: 2 }).notNull().default('0'), // quanto já marcou como separado
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  uniqUserMonth: unique().on(t.userId, t.year, t.month),
+}));
+
+export const monthlySavingsRelations = relations(monthlySavings, ({ one }) => ({
+  user: one(users, {
+    fields: [monthlySavings.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertMonthlySavingsSchema = createInsertSchema(monthlySavings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMonthlySavings = z.infer<typeof insertMonthlySavingsSchema>;
+export type MonthlySavings = typeof monthlySavings.$inferSelect;
 
 // Account members table (membros compartilhados)
 export const accountMembers = pgTable("account_members", {
