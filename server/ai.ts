@@ -249,12 +249,33 @@ export async function generateAIResponse(
       const emoji = trans?.tipo === "entrada" ? "💰" : "💸";
       const tipoTexto = trans?.tipo === "entrada" ? "entrada" : "saída";
       
+      // Mapear categoria para sugestão de emojis
+      const categoriaLower = (trans?.categoria || "").toLowerCase();
+      let emojiSuggestion = "";
+      if (categoriaLower.includes("aliment") || categoriaLower.includes("comida") || categoriaLower.includes("restaurante")) {
+        emojiSuggestion = "Use emojis relacionados: 🍽️🥗🍔🍕☕";
+      } else if (categoriaLower.includes("transporte") || categoriaLower.includes("combustível") || categoriaLower.includes("uber")) {
+        emojiSuggestion = "Use emojis relacionados: 🚗🛵🚌🚕✈️";
+      } else if (categoriaLower.includes("mercado") || categoriaLower.includes("compras") || categoriaLower.includes("super")) {
+        emojiSuggestion = "Use emojis relacionados: 🛒🛍️🧾";
+      } else if (categoriaLower.includes("saúde") || categoriaLower.includes("farmacia") || categoriaLower.includes("médico")) {
+        emojiSuggestion = "Use emojis relacionados: 🏥💊🩺";
+      } else if (categoriaLower.includes("lazer") || categoriaLower.includes("cinema") || categoriaLower.includes("entretenimento")) {
+        emojiSuggestion = "Use emojis relacionados: 🎉🎶🍿";
+      } else if (categoriaLower.includes("conta") || categoriaLower.includes("luz") || categoriaLower.includes("água") || categoriaLower.includes("água")) {
+        emojiSuggestion = "Use emojis relacionados: 💡💧🏠🧾";
+      } else if (trans?.tipo === "entrada") {
+        emojiSuggestion = "Use emojis relacionados: 🤑💵💰";
+      } else {
+        emojiSuggestion = "Use emojis relacionados: 💰💸🪙";
+      }
+      
       prompt = `Você é um assistente financeiro simpático e carinhoso do AnotaTudo.AI, conversando via WhatsApp.
 
 O usuário ${userName} acaba de registrar uma transação financeira. Crie uma mensagem curta, empática e natural confirmando o registro.
 
 Dados da transação:
-- Tipo: ${tipoTexto} ${emoji}
+- Tipo: ${tipoTexto}
 - Valor: R$ ${trans?.valor || "N/A"}
 - Categoria: ${trans?.categoria || "N/A"}
 - Descrição: ${trans?.descricao || "N/A"}
@@ -263,11 +284,18 @@ Dados da transação:
 Instruções:
 - Use o nome "${userName}" no início da mensagem
 - Seja conciso mas amigável (máximo 6 linhas)
-- Use emojis com moderação e sempre relevantes
+- ${emojiSuggestion}
+- Use emojis de forma natural e coerente com o contexto (categoria: ${trans?.categoria || "N/A"})
+- VARIE os emojis - nunca use os mesmos sempre, cada resposta deve ser única
+- Use emojis de expressão humana para empatia: 🙂😊😄😉🙌✨
+- MÁXIMO de 3-4 emojis na mensagem completa
+- Não force emojis se ficar estranho
+- Não use emojis genéricos demais ou repetitivos
 - Explique de forma natural o que foi registrado
 - Não mencione "confiança", "score" ou termos técnicos
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 - Tom: simpático, leve, natural, profissional mas carinhoso
+- O usuário deve sentir que foi uma pessoa real que escreveu
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -284,8 +312,12 @@ Instruções:
 - Seja gentil e respeitoso, não frio
 - Não pareça urgente ou pressionante
 - Explique brevemente que precisa do email para liberar o acesso
+- Use emojis de expressão humana para empatia: 🙂😊😄😉🙌✨
+- VARIE os emojis - cada resposta deve ser única, não repita os mesmos
+- MÁXIMO de 2-3 emojis na mensagem
+- Use emojis de forma natural, não force se ficar estranho
 - Tom: acolhedor, paciente, simpático
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve soar única e humana
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -312,8 +344,12 @@ Instruções:
 - Seja empático, não técnico
 - ${rateLimit ? "Politely ask them to wait a moment before sending more messages" : sessionError ? "Ask them to provide their email again" : "Peça para tentar novamente de forma acolhedora"}
 - Não mencione detalhes técnicos do erro
+- Use emojis de expressão humana para empatia: 🙂😊🙏✨
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 2-3 emojis na mensagem
+- Use emojis de forma natural e coerente
 - Tom: paciente, acolhedor, humano
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -328,8 +364,12 @@ Instruções:
 - Use o nome "${userName}"
 - Peça de forma clara mas gentil as novas informações
 - Seja direto mas acolhedor
+- Use emojis de expressão humana para empatia: 🙂😊✏️✨
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 2-3 emojis na mensagem
+- Use emojis de forma natural, não force
 - Tom: simpático, paciente, claro
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -339,12 +379,33 @@ Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       const trans = data.transaction;
       const emoji = trans?.tipo === "entrada" ? "💰" : "💸";
       
+      // Mapear categoria para sugestão de emojis
+      const categoriaLowerEdit = (trans?.categoria || "").toLowerCase();
+      let emojiSuggestionEdit = "";
+      if (categoriaLowerEdit.includes("aliment") || categoriaLowerEdit.includes("comida") || categoriaLowerEdit.includes("restaurante")) {
+        emojiSuggestionEdit = "Use emojis relacionados: 🍽️🥗🍔🍕☕";
+      } else if (categoriaLowerEdit.includes("transporte") || categoriaLowerEdit.includes("combustível") || categoriaLowerEdit.includes("uber")) {
+        emojiSuggestionEdit = "Use emojis relacionados: 🚗🛵🚌🚕✈️";
+      } else if (categoriaLowerEdit.includes("mercado") || categoriaLowerEdit.includes("compras") || categoriaLowerEdit.includes("super")) {
+        emojiSuggestionEdit = "Use emojis relacionados: 🛒🛍️🧾";
+      } else if (categoriaLowerEdit.includes("saúde") || categoriaLowerEdit.includes("farmacia") || categoriaLowerEdit.includes("médico")) {
+        emojiSuggestionEdit = "Use emojis relacionados: 🏥💊🩺";
+      } else if (categoriaLowerEdit.includes("lazer") || categoriaLowerEdit.includes("cinema") || categoriaLowerEdit.includes("entretenimento")) {
+        emojiSuggestionEdit = "Use emojis relacionados: 🎉🎶🍿";
+      } else if (categoriaLowerEdit.includes("conta") || categoriaLowerEdit.includes("luz") || categoriaLowerEdit.includes("água")) {
+        emojiSuggestionEdit = "Use emojis relacionados: 💡💧🏠🧾";
+      } else if (trans?.tipo === "entrada") {
+        emojiSuggestionEdit = "Use emojis relacionados: 🤑💵💰";
+      } else {
+        emojiSuggestionEdit = "Use emojis relacionados: 💰💸🪙";
+      }
+      
       prompt = `Você é um assistente financeiro simpático e carinhoso do AnotaTudo.AI, conversando via WhatsApp.
 
 O usuário ${userName} acabou de editar uma transação. Crie uma mensagem confirmando a edição de forma natural.
 
 Dados da transação editada:
-- Tipo: ${trans?.tipo === "entrada" ? "entrada" : "saída"} ${emoji}
+- Tipo: ${trans?.tipo === "entrada" ? "entrada" : "saída"}
 - Valor: R$ ${trans?.valor || "N/A"}
 - Categoria: ${trans?.categoria || "N/A"}
 - Descrição: ${trans?.descricao || "N/A"}
@@ -353,9 +414,14 @@ Instruções:
 - Use o nome "${userName}"
 - Confirme a edição de forma carinhosa
 - Mostre os dados atualizados de forma natural
+- ${emojiSuggestionEdit}
+- Use emojis de forma natural e coerente com a categoria: ${trans?.categoria || "N/A"}
+- VARIE os emojis - nunca use os mesmos sempre
+- Use emojis de expressão humana: 🙂😊✅✨
+- MÁXIMO de 3-4 emojis na mensagem
 - Seja conciso (máximo 6 linhas)
 - Tom: simpático, carinhoso, claro
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -370,8 +436,12 @@ Instruções:
 - Use o nome "${userName}"
 - Seja elegante e direto
 - Confirme que foi excluída
+- Use emojis de forma discreta e natural: ✅🗑️✨
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 2 emojis na mensagem
+- Não force emojis, seja sutil
 - Tom: simpático, profissional, carinhoso
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -387,8 +457,12 @@ Instruções:
 - Seja paciente e acolhedor
 - Peça para reenviar informação de forma clara
 - Dê exemplos breves se útil
+- Use emojis de expressão humana para empatia: 🙂😊🤔✨
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 2-3 emojis na mensagem
+- Use emojis de forma natural, não force
 - Tom: paciente, acolhedor, simpático
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -410,8 +484,12 @@ Instruções:
 - Explique que pode começar a enviar transações
 - Dê exemplos breves (texto, foto, áudio)
 - ${passwordPending ? "Mencione que os dados de login serão enviados em breve e forneça o link do painel" : ""}
+- Use emojis de expressão positiva: 😊🙌✨🎉
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 3-4 emojis na mensagem
+- Use emojis de forma natural e calorosa
 - Tom: caloroso, simpático, encorajador
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única e acolhedora
 - Não seja muito longo ou formal
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
@@ -419,17 +497,31 @@ Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
     }
 
     case "assinatura_inativa": {
+      const statusMessage = data.context?.statusMessage || "inativa";
+      const blocked = data.context?.blocked;
+      
+      let situationDesc = "";
+      if (blocked) {
+        situationDesc = `O acesso do usuário ${userName} está bloqueado.`;
+      } else {
+        situationDesc = `O usuário ${userName} tem uma assinatura ${statusMessage}.`;
+      }
+      
       prompt = `Você é um assistente financeiro simpático e carinhoso do AnotaTudo.AI, conversando via WhatsApp.
 
-O usuário ${userName} tem uma assinatura inativa. Informe de forma empática e sugira entrar em contato com suporte.
+${situationDesc} Informe de forma empática e sugira entrar em contato com suporte para resolver.
 
 Instruções:
 - Use o nome "${userName}"
-- Seja empático, não frio
-- Informe que a assinatura está inativa
-- Sugira entrar em contato com suporte
+- Seja empático, não frio ou acusativo
+- ${blocked ? "Informe que o acesso está bloqueado" : `Informe que a assinatura está ${statusMessage}`}
+- Sugira entrar em contato com suporte para resolver
+- Use emojis de expressão empática: 🙂😊🙏
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 2-3 emojis na mensagem
+- Use emojis de forma natural e empática
 - Tom: empático, acolhedor, profissional
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -445,8 +537,12 @@ Instruções:
 - Seja gentil, não acusativo
 - Peça para verificar o email
 - Ofereça ajuda
+- Use emojis de expressão empática: 🙂😊🤔✨
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 2-3 emojis na mensagem
+- Use emojis de forma natural e gentil
 - Tom: gentil, paciente, acolhedor
-- Variação: nunca pareça robô repetitivo
+- Variação: nunca pareça robô repetitivo - cada resposta deve ser única
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
       break;
@@ -460,8 +556,13 @@ Crie uma mensagem apropriada para a situação.
 Instruções:
 - Seja simpático, leve e natural
 - Use o nome do usuário quando disponível
+- Use emojis de forma natural e coerente com o contexto
+- VARIE os emojis - nunca repita os mesmos
+- MÁXIMO de 3-4 emojis na mensagem
+- Não force emojis se ficar estranho
 - Não seja repetitivo
 - Tom: profissional mas carinhoso
+- Cada resposta deve ser única e humanizada
 
 Responda APENAS com o texto da mensagem, sem aspas ou formatação extra.`;
     }
