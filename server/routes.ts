@@ -1441,10 +1441,19 @@ export async function registerRoutes(app: Express): Promise<void> {
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
+    console.log("[WhatsApp Webhook Verification]");
+    console.log("Mode:", mode);
+    console.log("Token received:", token);
+    console.log("Token expected:", process.env.WHATSAPP_VERIFY_TOKEN);
+    console.log("Challenge:", challenge);
+    console.log("Token match:", token === process.env.WHATSAPP_VERIFY_TOKEN);
+
     if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      console.log("✅ Webhook verification SUCCESS");
       return res.status(200).send(challenge);
     }
 
+    console.log("❌ Webhook verification FAILED");
     return res.sendStatus(403);
   });
 
