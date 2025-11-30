@@ -106,13 +106,12 @@ export function serveStatic(app: Express) {
       req.originalUrl === "/health" ||
       req.originalUrl.startsWith("/api") ||
       req.originalUrl.startsWith("/_health") ||
-      req.originalUrl.startsWith("/_db-check") ||
-      req.originalUrl.startsWith("/admin")
+      req.originalUrl.startsWith("/_db-check")
     ) {
       return next(); // Let other routes handle these
     }
     
-    // For all other routes (including "/"), serve index.html (SPA fallback)
+    // For all other routes (including "/" and "/admin/*"), serve index.html (SPA fallback)
     // This allows the React app to handle client-side routing
     res.sendFile(path.resolve(distPath, "index.html"));
   });
