@@ -129,34 +129,14 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
         // Don't crash - server can still serve API routes
       }
     } else {
-      // Em desenvolvimento, o Vite roda standalone (via npm run dev)
-      // O backend NÃO deve tentar servir o frontend
-      // Apenas serve rotas /api/*
-      console.log("✅ Backend em modo desenvolvimento - apenas rotas /api/*");
-      console.log("💡 Frontend deve rodar via: npm run dev (Vite standalone)");
-    }
-    
-    // Em desenvolvimento, garantir que rotas não-API retornem 404 ANTES de registrar rotas
-    // O frontend é servido pelo Vite standalone, não pelo backend
-    if (!isProd) {
-      app.use((req, res, next) => {
-        // Se não for rota de API, admin ou health, retornar 404 imediatamente
-        if (
-          !req.originalUrl.startsWith("/api") &&
-          !req.originalUrl.startsWith("/admin") &&
-          !req.originalUrl.startsWith("/health") &&
-          !req.originalUrl.startsWith("/_health") &&
-          !req.originalUrl.startsWith("/_db-check") &&
-          !req.originalUrl.startsWith("/uploads")
-        ) {
-          return res.status(404).json({
-            error: "Not Found",
-            message: "Esta rota não existe no backend. Use o frontend Vite na porta 5173.",
-            hint: "Em desenvolvimento, o frontend roda via 'npm run dev' (Vite standalone)"
-          });
-        }
-        next();
-      });
+      // Em desenvolvimento, setup Vite middleware para servir o frontend
+      try {
+        await setupVite(app, httpServer);
+        console.log("✅ Vite middleware configured for frontend");
+      } catch (error) {
+        console.error("❌ Failed to setup Vite:", error);
+        throw error;
+      }
     }
     
     // Session middleware - ONLY for /api and /admin routes (after server is up)
