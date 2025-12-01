@@ -1,30 +1,21 @@
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "web", "postgresql-16"]
 
-# Development mode - usado quando você clica em "Run"
-run = "npm run dev:server"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
-# Production deployment - usado pelo Autoscale
+# Em DEV, quem deve rodar é apenas o Vite
+run = ["npm", "run", "dev"]
+
+[nix]
+channel = "stable-24_05"
+
+# Desativar qualquer configuração de deployment no ambiente dev
 [deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+deploymentTarget = "none"
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 5001
-externalPort = 3002
-
-[[ports]]
-localPort = 5173
 externalPort = 80
 
 [[ports]]
-localPort = 5174
-externalPort = 3000
-
-[[ports]]
-localPort = 5175
-externalPort = 3001
+localPort = 5173
+externalPort = 5173
