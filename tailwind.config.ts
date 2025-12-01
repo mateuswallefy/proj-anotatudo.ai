@@ -12,24 +12,32 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        sm: "var(--radius-sm)", /* 10px */
+        md: "var(--radius-md)", /* 14px */
+        lg: "var(--radius-lg)", /* 20px */
+        xl: "var(--radius-xl)", /* 26px */
       },
       colors: {
-        // Design System Tokens - Apple Finance + Neon Tech
+        // Design System Tokens - Nova Paleta Oficial
         "ds-bg": "var(--bg)",
+        "ds-bg-2": "var(--bg-2)",
         "ds-card": "var(--card)",
         "ds-card-contrast": "var(--card-contrast)",
         "ds-text-primary": "var(--text-primary)",
         "ds-text-secondary": "var(--text-secondary)",
         "ds-border": "var(--border)",
-        "ds-accent-green": "var(--accent-green)",
-        "ds-accent-blue": "var(--accent-blue)",
-        "ds-accent-purple": "var(--accent-purple)",
-        "ds-accent-orange": "var(--accent-orange)",
+        "ds-accent-primary": "var(--accent-primary)",
+        "ds-accent-secondary": "var(--accent-secondary)",
+        "ds-accent-success": "var(--accent-success)",
+        "ds-accent-warning": "var(--accent-warning)",
+        "ds-accent-danger": "var(--accent-danger)",
+        // Compatibilidade
+        "ds-accent-green": "var(--accent-success)",
+        "ds-accent-blue": "var(--accent-secondary)",
+        "ds-accent-purple": "var(--accent-primary)",
+        "ds-accent-orange": "var(--accent-warning)",
         "ds-glow-green": "var(--glow-green)",
-        "ds-glow-blue": "var(--glow-blue)",
+        "ds-glow-blue": "var(--glow-secondary)",
         
         // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",

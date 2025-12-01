@@ -3,12 +3,14 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import { CardContainer } from "./CardContainer";
 import { cn } from "@/lib/utils";
 
+type KpiType = "income" | "expense" | "balance" | "savings";
+
 interface KpiCardProps {
   title: string;
   value: string | number;
   variation?: number;
   icon?: ReactNode;
-  type?: "entrada" | "despesa" | "economia" | "saldo";
+  type?: KpiType;
   className?: string;
 }
 
@@ -17,7 +19,7 @@ export function KpiCard({
   value,
   variation,
   icon,
-  type = "entrada",
+  type = "income",
   className,
 }: KpiCardProps) {
   const formatCurrency = (val: string | number) => {
@@ -33,78 +35,108 @@ export function KpiCard({
   const isPositive = (variation ?? 0) >= 0;
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
 
-  const typeColors = {
-    entrada: {
-      icon: "text-[var(--accent-green)]",
-      variation: "text-[var(--accent-green)]",
-      bg: "bg-[var(--accent-green)]/10",
+  const typeConfig: Record<KpiType, {
+    iconColor: string;
+    variationColor: string;
+    bgColor: string;
+    accentColor: string;
+    glowColor: "primary" | "secondary" | "green";
+  }> = {
+    income: {
+      iconColor: "text-[var(--accent-success)]",
+      variationColor: "text-[var(--accent-success)]",
+      bgColor: "bg-[var(--accent-success)]/10 dark:bg-[var(--accent-success)]/15",
+      accentColor: "var(--accent-success)",
+      glowColor: "green",
     },
-    despesa: {
-      icon: "text-[var(--accent-orange)]",
-      variation: "text-[var(--accent-orange)]",
-      bg: "bg-[var(--accent-orange)]/10",
+    expense: {
+      iconColor: "text-[var(--accent-danger)]",
+      variationColor: "text-[var(--accent-danger)]",
+      bgColor: "bg-[var(--accent-danger)]/10 dark:bg-[var(--accent-danger)]/15",
+      accentColor: "var(--accent-danger)",
+      glowColor: "primary",
     },
-    economia: {
-      icon: "text-[var(--accent-blue)]",
-      variation: "text-[var(--accent-blue)]",
-      bg: "bg-[var(--accent-blue)]/10",
+    balance: {
+      iconColor: "text-[var(--accent-primary)]",
+      variationColor: "text-[var(--accent-primary)]",
+      bgColor: "bg-[var(--accent-primary)]/10 dark:bg-[var(--accent-primary)]/15",
+      accentColor: "var(--accent-primary)",
+      glowColor: "primary",
     },
-    saldo: {
-      icon: "text-[var(--accent-purple)]",
-      variation: "text-[var(--accent-purple)]",
-      bg: "bg-[var(--accent-purple)]/10",
+    savings: {
+      iconColor: "text-[var(--accent-secondary)]",
+      variationColor: "text-[var(--accent-secondary)]",
+      bgColor: "bg-[var(--accent-secondary)]/10 dark:bg-[var(--accent-secondary)]/15",
+      accentColor: "var(--accent-secondary)",
+      glowColor: "secondary",
     },
   };
 
-  const colors = typeColors[type];
+  const config = typeConfig[type];
 
   return (
     <CardContainer
-      className={cn("p-4 md:p-5", className)}
+      className={cn("relative overflow-hidden", className)}
+      variant="default"
       hover
-      glow={type === "economia"}
-      glowColor={type === "economia" ? "blue" : "green"}
+      glow
+      glowColor={config.glowColor}
+      padding="lg"
     >
-      <div className="space-y-3">
+      {/* Background accent gradient */}
+      <div 
+        className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 dark:opacity-20"
+        style={{ backgroundColor: config.accentColor }}
+      />
+      
+      <div className="relative space-y-4">
         {/* Label */}
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
           {title}
         </p>
 
         {/* Value and Icon Row */}
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-3xl md:text-4xl font-bold tracking-tight text-[var(--text-primary)] leading-none">
             {formatCurrency(value)}
           </p>
           {icon && (
-            <div className={cn("p-2 rounded-full flex-shrink-0", colors.bg)}>
-              <div className={colors.icon}>{icon}</div>
+            <div className={cn(
+              "p-3 rounded-[var(--radius-md)] flex-shrink-0",
+              config.bgColor
+            )}>
+              <div className={cn(config.iconColor, "w-5 h-5")}>
+                {icon}
+              </div>
             </div>
           )}
         </div>
 
         {/* Variation */}
         {variation !== undefined && (
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex items-center gap-1.5 text-sm">
             <TrendIcon
               className={cn(
-                "h-3 w-3",
-                isPositive ? colors.variation : "text-[#EF4444]"
+                "h-4 w-4",
+                isPositive ? config.variationColor : "text-[var(--accent-danger)]"
               )}
             />
             <span
               className={cn(
-                isPositive ? colors.variation : "text-[#EF4444]"
+                "font-semibold",
+                isPositive ? config.variationColor : "text-[var(--accent-danger)]"
               )}
             >
               {isPositive ? "+" : ""}
               {variation.toFixed(1).replace(".", ",")}%
             </span>
-            <span className="text-[var(--text-secondary)]">vs mês anterior</span>
+            <span className="text-[var(--text-secondary)] text-xs">vs mês anterior</span>
           </div>
         )}
       </div>
     </CardContainer>
   );
 }
+
+
 

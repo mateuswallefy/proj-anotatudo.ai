@@ -7,14 +7,27 @@ import { BudgetsPreview } from "@/components/dashboard/BudgetsPreview";
 import { CreditCardsPreview } from "@/components/dashboard/CreditCardsPreview";
 import { InsightCarousel } from "@/components/dashboard/InsightCarousel";
 import { QuickActions } from "@/components/dashboard/QuickActions";
-import { SectionTitle } from "@/components/design-system/SectionTitle";
+import { SectionTitle, PageHeader } from "@/components/design-system";
 import { RecentTransactions } from "@/components/RecentTransactions";
 import { AlertasImportantes } from "@/components/AlertasImportantes";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Dashboard() {
   const { period } = usePeriod();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  
+  // Get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Bom dia";
+    if (hour < 18) return "Boa tarde";
+    return "Boa noite";
+  };
+  
+  const userName = user?.firstName || "usuário";
+  const greeting = getGreeting();
   
   // Parse period (format: "YYYY-MM")
   const [year, month] = period ? period.split('-').map(Number) : [
@@ -73,10 +86,16 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] pb-20 transition-colors duration-200">
-      <main className="px-4 space-y-6 py-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[var(--bg)] pb-20 transition-colors duration-200 ease-out">
+      <main className="px-4 md:px-6 space-y-6 md:space-y-8 py-6 md:py-8 max-w-7xl mx-auto">
         {/* Alertas Importantes */}
         <AlertasImportantes />
+
+        {/* Saudação Personalizada */}
+        <PageHeader
+          title={`${greeting}, ${userName} 👋`}
+          subtitle="Acompanhe suas finanças de forma inteligente"
+        />
 
         {/* KPIs principais */}
         <KpiGrid

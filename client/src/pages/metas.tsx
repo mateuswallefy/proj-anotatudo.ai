@@ -162,8 +162,8 @@ export default function Metas() {
   };
 
   return (
-    <div className="min-h-screen bg-background" data-testid="page-metas">
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[var(--bg)] transition-colors duration-200 ease-out" data-testid="page-metas">
+      <div className="space-y-6 md:space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Premium Header */}
         <PageHeader
           title="Metas Financeiras"

@@ -1,5 +1,5 @@
-import { CardContainer } from "@/components/design-system/CardContainer";
-import { Lightbulb } from "lucide-react";
+import { InsightCard } from "@/components/design-system/InsightCard";
+import { Lightbulb, TrendingUp, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Insight {
@@ -54,28 +54,41 @@ export function InsightCarousel({
     );
   }
 
+  const getIconForInsight = (title: string) => {
+    if (title.toLowerCase().includes("economia") || title.toLowerCase().includes("economizou")) {
+      return <TrendingUp className="w-full h-full" />;
+    }
+    if (title.toLowerCase().includes("gasto") || title.toLowerCase().includes("alimentação")) {
+      return <AlertCircle className="w-full h-full" />;
+    }
+    return <Lightbulb className="w-full h-full" />;
+  };
+
+  const getGlowColor = (title: string): "primary" | "secondary" | "green" => {
+    if (title.toLowerCase().includes("economia") || title.toLowerCase().includes("economizou")) {
+      return "green";
+    }
+    if (title.toLowerCase().includes("gasto") || title.toLowerCase().includes("alimentação")) {
+      return "primary";
+    }
+    return "secondary";
+  };
+
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:grid md:grid-cols-3 md:overflow-visible md:mx-0">
       {displayInsights.slice(0, 3).map((insight) => (
-        <CardContainer
+        <InsightCard
           key={insight.id}
-          className="p-4 flex-shrink-0 w-[280px] md:w-full hover-elevate"
-          hover
-          glow
-          glowColor="blue"
-        >
-          <div className="space-y-2">
-            <div className="text-2xl mb-1">{insight.emoji}</div>
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-              {insight.title}
-            </h4>
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              {insight.description}
-            </p>
-          </div>
-        </CardContainer>
+          className="flex-shrink-0 w-[280px] md:w-full"
+          icon={getIconForInsight(insight.title)}
+          title={insight.title}
+          description={insight.description}
+          glowColor={getGlowColor(insight.title)}
+        />
       ))}
     </div>
   );
 }
+
+
 

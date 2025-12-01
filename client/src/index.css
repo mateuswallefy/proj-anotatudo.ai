@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE - Apple Finance + Neon Tech */
+/* LIGHT MODE - Apple Finance + Neon Bank + FinanceHub Pro */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -10,21 +10,38 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   
-  /* Design System Tokens - Light */
-  --bg: #F5F7FA;
+  /* Design System Tokens - Light (NOVA PALETA OFICIAL) */
+  --bg: #F6F2FF;
+  --bg-2: #FFFFFF;
   --card: #FFFFFF;
-  --card-contrast: #EEF1F5;
-  --text-primary: #0F172A;
-  --text-secondary: #64748B;
-  --border: #E2E8F0;
+  --card-contrast: #F1ECFE;
+  --border: #E4D9FF;
+  --text-primary: #1A1333;
+  --text-secondary: #6B5A99;
   
+  /* Accents Light */
+  --accent-primary: #6A24FF;
+  --accent-secondary: #2643FF;
+  --accent-success: #00C26F;
+  --accent-warning: #FFAA33;
+  --accent-danger: #FF5577;
+  
+  /* Radius */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  
+  /* Glows (para dark mode, mas definidos aqui também) */
+  --glow-primary: rgba(165,134,255,0.15);
+  --glow-secondary: rgba(95,119,255,0.15);
+  --glow-green: rgba(0,242,169,0.18);
+  
+  /* Compatibilidade com tokens antigos */
   --accent-green: #00C26F;
-  --accent-blue: #4D6FFF;
-  --accent-purple: #6A5BFF;
-  --accent-orange: #FF7F49;
-  
-  --glow-green: rgba(0,194,111,0.15);
-  --glow-blue: rgba(77,111,255,0.15);
+  --accent-blue: #2643FF;
+  --accent-purple: #6A24FF;
+  --accent-orange: #FFAA33;
   
   /* Neutral Azulado Sofisticado (mantido para compatibilidade) */
   --background: 210 17% 98%;
@@ -139,21 +156,32 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
   
-  /* Design System Tokens - Dark */
-  --bg: #0D0F14;
-  --card: #161920;
-  --card-contrast: #1F232D;
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --border: #262B36;
+  /* Design System Tokens - Dark (NOVA PALETA OFICIAL) */
+  --bg: #0B0A14;
+  --bg-2: #10101B;
+  --card: #151521;
+  --card-contrast: #1E1E2C;
+  --border: #2A2A3A;
+  --text-primary: #F5F4FF;
+  --text-secondary: #A9A4C8;
   
-  --accent-green: #00F2A9;
-  --accent-blue: #4E8CFF;
-  --accent-purple: #8E66FF;
-  --accent-orange: #FF7A55;
+  /* Accents Dark (NEON) */
+  --accent-primary: #A586FF;
+  --accent-secondary: #5F77FF;
+  --accent-success: #00F2A9;
+  --accent-warning: #FFCC66;
+  --accent-danger: #FF7A9C;
   
+  /* Glows Dark Mode */
+  --glow-primary: rgba(165,134,255,0.15);
+  --glow-secondary: rgba(95,119,255,0.15);
   --glow-green: rgba(0,242,169,0.18);
-  --glow-blue: rgba(78,140,255,0.18);
+  
+  /* Compatibilidade com tokens antigos */
+  --accent-green: #00F2A9;
+  --accent-blue: #5F77FF;
+  --accent-purple: #A586FF;
+  --accent-orange: #FFCC66;
   
   /* Dark Mode - Neutros azulados profundos (mantido para compatibilidade) */
   --background: 214 28% 6%;
@@ -262,14 +290,27 @@
 
   html {
     background-color: var(--bg);
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease-out;
   }
 
   body {
     @apply font-sans antialiased;
     background-color: var(--bg);
     color: var(--text-primary);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.2s ease-out, color 0.2s ease-out;
+  }
+  
+  /* Utility classes para glow effects */
+  .glow-primary {
+    box-shadow: 0 0 20px var(--glow-primary);
+  }
+  
+  .glow-secondary {
+    box-shadow: 0 0 20px var(--glow-secondary);
+  }
+  
+  .glow-green {
+    box-shadow: 0 0 20px var(--glow-green);
   }
 }
 

@@ -63,6 +63,7 @@ import { StatCard } from "@/components/cards/StatCard";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { PageHeader, CardContainer } from "@/components/design-system";
 
 interface PeriodSummary {
   totalReceitas: number;
@@ -272,42 +273,36 @@ export default function Transacoes() {
   const economias = (summary?.saldo || 0);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[var(--bg)] transition-colors duration-200 ease-out">
+      <div className="space-y-6 md:space-y-8 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Premium Header Section */}
-        <div className="space-y-4" data-testid="header-section">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent" data-testid="text-page-title">
-                Registros Financeiros
-              </h1>
-              <p className="text-muted-foreground text-base md:text-lg" data-testid="text-page-subtitle">
-                Todas as suas movimentações organizadas
-              </p>
-            </div>
+        <PageHeader
+          title="Registros Financeiros"
+          subtitle="Todas as suas movimentações organizadas"
+          actions={
             <Button 
               variant="default"
               size="lg"
-              className="shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
+              className="shadow-lg hover:shadow-xl transition-all duration-200 ease-out font-medium rounded-[var(--radius-md)]"
               data-testid="button-new-transaction"
               onClick={() => setDialogOpen(true)}
             >
               <Plus className="w-5 h-5 mr-2" />
               Nova Transação
             </Button>
-          </div>
+          }
+        />
 
-          {/* Premium Search Bar */}
-          <div className="relative max-w-2xl" data-testid="search-bar-section">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por descrição, categoria..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-14 text-base border-2 focus:border-primary/50 transition-colors rounded-xl shadow-sm"
-              data-testid="input-search-transactions"
-            />
-          </div>
+        {/* Premium Search Bar */}
+        <div className="relative max-w-2xl" data-testid="search-bar-section">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-secondary)]" />
+          <Input
+            placeholder="Buscar por descrição, categoria..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-12 h-14 text-base border-2 border-[var(--border)] focus:border-[var(--accent-primary)] transition-colors rounded-[var(--radius-md)] shadow-sm bg-[var(--card)] text-[var(--text-primary)]"
+            data-testid="input-search-transactions"
+          />
         </div>
 
         {/* Premium Nova Transação Dialog */}
@@ -536,10 +531,10 @@ export default function Transacoes() {
         <div className="space-y-6" data-testid="card-transactions-list">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight" data-testid="text-section-title">
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--text-primary)]" data-testid="text-section-title">
                 Registros Financeiros
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-[var(--text-secondary)] mt-1.5">
                 {filteredTransacoes.length} {filteredTransacoes.length === 1 ? 'registro encontrado' : 'registros encontrados'}
               </p>
             </div>
@@ -572,9 +567,11 @@ export default function Transacoes() {
                 const isEntrada = transacao.tipo === 'entrada';
                 
                 return (
-                  <div
+                  <CardContainer
                     key={transacao.id}
-                    className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm hover:border-border hover:shadow-lg transition-all duration-300 hover:bg-card"
+                    variant="default"
+                    hover
+                    className="group relative overflow-hidden"
                     data-testid={`card-transaction-${transacao.id}`}
                   >
                     {/* Left border accent based on type */}
@@ -688,20 +685,20 @@ export default function Transacoes() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </CardContainer>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 md:py-24 text-center rounded-2xl border border-border/50 bg-muted/20">
-              <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mb-6">
-                <Search className="w-10 h-10 text-muted-foreground" />
+            <CardContainer variant="outline" className="flex flex-col items-center justify-center py-16 md:py-24 text-center">
+              <div className="w-20 h-20 bg-[var(--card-contrast)] rounded-[var(--radius-lg)] flex items-center justify-center mb-6">
+                <Search className="w-10 h-10 text-[var(--text-secondary)]" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Nenhum registro encontrado</h3>
-              <p className="text-muted-foreground max-w-md">
+              <h3 className="text-xl font-semibold mb-2 text-[var(--text-primary)]">Nenhum registro encontrado</h3>
+              <p className="text-[var(--text-secondary)] max-w-md">
                 Tente ajustar sua busca ou adicionar novos registros financeiros
               </p>
-            </div>
+            </CardContainer>
           )}
         </div>
       </div>

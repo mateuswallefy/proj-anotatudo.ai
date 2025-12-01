@@ -19,7 +19,7 @@ export function BottomNavigation() {
   const { activeTab, setActiveTab } = useTab();
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--card)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--card)]/60 border-t border-[var(--border)] transition-colors duration-200">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--card)] backdrop-blur supports-[backdrop-filter]:bg-[var(--card)]/60 border-t border-[var(--border)] transition-colors duration-200">
       <div className="grid grid-cols-5 h-14">
         {tabs.map((tab) => {
           const Icon = tab.icon;

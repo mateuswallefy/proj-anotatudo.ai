@@ -36,36 +36,38 @@ export function KpiGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
       <KpiCard
-        type="entrada"
+        type="income"
         title="ENTRADAS"
         value={entradas}
         variation={variacaoEntradas}
-        icon={<ArrowDownCircle className="h-5 w-5" />}
+        icon={<ArrowDownCircle className="w-full h-full" />}
       />
       <KpiCard
-        type="despesa"
+        type="expense"
         title="DESPESAS"
         value={despesas}
         variation={variacaoDespesas}
-        icon={<ArrowUpCircle className="h-5 w-5" />}
+        icon={<ArrowUpCircle className="w-full h-full" />}
       />
       <KpiCard
-        type="economia"
+        type="savings"
         title="ECONOMIAS"
         value={economias}
         variation={variacaoEconomias}
-        icon={<PiggyBank className="h-5 w-5" />}
+        icon={<PiggyBank className="w-full h-full" />}
       />
       <KpiCard
-        type="saldo"
+        type="balance"
         title="SALDO DO MÊS"
         value={saldo}
         variation={variacaoSaldo}
-        icon={<Wallet className="h-5 w-5" />}
+        icon={<Wallet className="w-full h-full" />}
       />
     </div>
   );
 }
+
+
 
