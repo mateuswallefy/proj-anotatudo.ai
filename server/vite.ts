@@ -1,10 +1,15 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config.js";
 import { nanoid } from "nanoid";
+
+// Get __dirname equivalent for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const workspaceRoot = path.resolve(__dirname, "..");
 
 const viteLogger = createLogger();
 
@@ -26,9 +31,16 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
+  // Use vite.config.ts directly - Vite will load it
+  const viteConfigPath = path.resolve(workspaceRoot, "vite.config.ts");
+  
+  // Verify config file exists
+  if (!fs.existsSync(viteConfigPath)) {
+    log(`⚠️  vite.config.ts not found at ${viteConfigPath}, using defaults`, "VITE");
+  }
+
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    configFile: viteConfigPath,
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -62,11 +74,15 @@ export async function setupVite(app: Express, server: Server) {
 
     try {
       const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
+        workspaceRoot,
         "client",
         "index.html",
       );
+
+      // Verify file exists
+      if (!fs.existsSync(clientTemplate)) {
+        throw new Error(`index.html not found at: ${clientTemplate}`);
+      }
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
@@ -86,13 +102,28 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(process.cwd(), "dist", "public");
+  // Try multiple possible paths for dist/public
+  const possiblePaths = [
+    path.resolve(workspaceRoot, "dist", "public"),
+    path.resolve(process.cwd(), "dist", "public"),
+    path.resolve(__dirname, "..", "dist", "public"),
+  ];
 
-  if (!fs.existsSync(distPath)) {
+  let distPath: string | null = null;
+  for (const possiblePath of possiblePaths) {
+    if (fs.existsSync(possiblePath)) {
+      distPath = possiblePath;
+      break;
+    }
+  }
+
+  if (!distPath) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory. Tried: ${possiblePaths.join(", ")}. Make sure to build the client first.`,
     );
   }
+
+  log(`Serving static files from: ${distPath}`, "STATIC");
 
   // Serve static files
   app.use(express.static(distPath));

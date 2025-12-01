@@ -1,5 +1,6 @@
 import express from "express";
 import { createServer } from "http";
+import { createServer as createTestServer } from "http";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
@@ -18,16 +19,66 @@ const isProd = process.env.NODE_ENV === 'production';
 // A rota "/" será servida pelo serveStatic (index.html da aplicação)
 app.get("/health", (req, res) => res.status(200).send("OK"));
 
-// Default to 5000 (configured in .replit as localPort)
-const PORT = 5000;
+// Get PORT from environment or default to 5000
+const PORT = Number(process.env.PORT) || 5000;
 
 // Create HTTP server
 const httpServer = createServer(app);
 
+// Function to check if port is available
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const testServer = createTestServer();
+    testServer.listen(port, "0.0.0.0", () => {
+      testServer.close(() => resolve(true));
+    });
+    testServer.on("error", () => resolve(false));
+  });
+}
+
+// Function to start server on a specific port
+async function startServer(port: number) {
+  // Check if port is available first
+  const available = await isPortAvailable(port);
+  if (!available) {
+    console.warn(`⚠️  Port ${port} is in use. Attempting to free it...`);
+    // Try to kill processes on this port (non-blocking)
+    try {
+      const { exec } = await import("child_process");
+      exec(`fuser -k ${port}/tcp 2>/dev/null || true`, () => {});
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const server = httpServer.listen(port, "0.0.0.0", () => {
+      console.log(`✅ Servidor rodando na porta ${port}`);
+      console.log(`ready`);
+      resolve();
+    });
+
+    server.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(`❌ Port ${port} is still in use after cleanup attempt.`);
+        console.error(`💡 Soluções:`);
+        console.error(`   1. Execute: pkill -f "tsx server/index.ts"`);
+        console.error(`   2. Ou reinicie o Replit`);
+        console.error(`   3. Ou aguarde alguns segundos e tente novamente`);
+        reject(error);
+      } else {
+        console.error("❌ Server error:", error);
+        reject(error);
+      }
+    });
+  });
+}
+
 // START SERVER IMMEDIATELY - Before any heavy logic
-const server = httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`ready`);
+startServer(PORT).catch((error) => {
+  console.error("❌ Failed to start server:", error);
+  process.exit(1);
 });
 
 // ============================================================
@@ -69,11 +120,22 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
     
     // Setup static files OR Vite in background
     if (isProd) {
-      serveStatic(app);
+      try {
+        serveStatic(app);
+        console.log("✅ Static files configured");
+      } catch (error) {
+        console.error("❌ Failed to setup static files:", error);
+        // Don't crash - server can still serve API routes
+      }
     } else {
-      setupVite(app, httpServer).catch(error => {
-        console.error("Failed to setup Vite:", error);
-      });
+      try {
+        await setupVite(app, httpServer);
+        console.log("✅ Vite dev server configured");
+      } catch (error) {
+        console.error("❌ Failed to setup Vite:", error);
+        console.error("Stack:", (error as Error).stack);
+        // Don't crash - server can still serve API routes
+      }
     }
     
     // Session middleware - ONLY for /api and /admin routes (after server is up)
