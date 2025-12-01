@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE - Material 3 Modern Palette */
+/* LIGHT MODE - Apple Finance + Neon Tech */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -10,7 +10,23 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   
-  /* Neutral Azulado Sofisticado */
+  /* Design System Tokens - Light */
+  --bg: #F5F7FA;
+  --card: #FFFFFF;
+  --card-contrast: #EEF1F5;
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --border: #E2E8F0;
+  
+  --accent-green: #00C26F;
+  --accent-blue: #4D6FFF;
+  --accent-purple: #6A5BFF;
+  --accent-orange: #FF7F49;
+  
+  --glow-green: rgba(0,194,111,0.15);
+  --glow-blue: rgba(77,111,255,0.15);
+  
+  /* Neutral Azulado Sofisticado (mantido para compatibilidade) */
   --background: 210 17% 98%;
   --foreground: 210 24% 7%;
   --border: 210 16% 91%;
@@ -123,7 +139,23 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
   
-  /* Dark Mode - Neutros azulados profundos */
+  /* Design System Tokens - Dark */
+  --bg: #0D0F14;
+  --card: #161920;
+  --card-contrast: #1F232D;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --border: #262B36;
+  
+  --accent-green: #00F2A9;
+  --accent-blue: #4E8CFF;
+  --accent-purple: #8E66FF;
+  --accent-orange: #FF7A55;
+  
+  --glow-green: rgba(0,242,169,0.18);
+  --glow-blue: rgba(78,140,255,0.18);
+  
+  /* Dark Mode - Neutros azulados profundos (mantido para compatibilidade) */
   --background: 214 28% 6%;
   --foreground: 213 31% 95%;
   --border: 214 20% 17%;
@@ -228,8 +260,16 @@
     @apply border-border;
   }
 
+  html {
+    background-color: var(--bg);
+    transition: background-color 0.2s ease;
+  }
+
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 

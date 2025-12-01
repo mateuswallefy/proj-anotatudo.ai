@@ -17,6 +17,20 @@ export default {
         sm: ".1875rem", /* 3px */
       },
       colors: {
+        // Design System Tokens - Apple Finance + Neon Tech
+        "ds-bg": "var(--bg)",
+        "ds-card": "var(--card)",
+        "ds-card-contrast": "var(--card-contrast)",
+        "ds-text-primary": "var(--text-primary)",
+        "ds-text-secondary": "var(--text-secondary)",
+        "ds-border": "var(--border)",
+        "ds-accent-green": "var(--accent-green)",
+        "ds-accent-blue": "var(--accent-blue)",
+        "ds-accent-purple": "var(--accent-purple)",
+        "ds-accent-orange": "var(--accent-orange)",
+        "ds-glow-green": "var(--glow-green)",
+        "ds-glow-blue": "var(--glow-blue)",
+        
         // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",

@@ -22,24 +22,26 @@ export function PeriodSelectorBar() {
   });
 
   return (
-    <div className="sticky top-[56px] z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3">
+    <div className="sticky top-[56px] z-40 w-full border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 transition-colors duration-200">
       <div className="flex items-center justify-center">
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger 
-            className="w-full max-w-[240px] h-10 rounded-full border-2 shadow-sm"
-            data-testid="period-selector-bar"
-          >
-            <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            {periodOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 max-w-md w-full">
+          <Calendar className="h-5 w-5 text-[var(--text-secondary)]" />
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger 
+              className="flex-1 h-10 border-[var(--border)] focus:ring-[var(--accent-green)] focus:ring-2 rounded-lg bg-[var(--card)] text-[var(--text-primary)]"
+              data-testid="period-selector-bar"
+            >
+              <SelectValue placeholder="Selecione o período" />
+            </SelectTrigger>
+            <SelectContent>
+              {periodOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

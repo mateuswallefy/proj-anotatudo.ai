@@ -8,6 +8,7 @@ import { PeriodSelectorBar } from "@/components/layout/PeriodSelectorBar";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { TabProvider, useTab } from "@/contexts/TabContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useEffect, startTransition } from "react";
 import { useLocation } from "wouter";
 import Auth from "@/pages/auth";

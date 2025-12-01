@@ -2,25 +2,22 @@ import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 interface SectionTitleProps {
-  title: string;
-  subtitle?: string;
-  action?: ReactNode;
+  children: ReactNode;
   className?: string;
+  subtitle?: string;
 }
 
-export function SectionTitle({ title, subtitle, action, className }: SectionTitleProps) {
+export function SectionTitle({ children, className, subtitle }: SectionTitleProps) {
   return (
-    <div className={cn("flex items-center justify-between flex-wrap gap-4", className)}>
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-        {subtitle && (
-          <p className="text-sm text-muted-foreground mt-1">
-            {subtitle}
-          </p>
-        )}
-      </div>
-      {action && <div>{action}</div>}
+    <div className={cn("mb-4", className)}>
+      <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+        {children}
+      </h3>
+      {subtitle && (
+        <p className="text-sm text-[var(--text-secondary)] mt-1">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }
-

@@ -15,7 +15,7 @@ import {
   User,
   LogOut
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
@@ -65,7 +65,7 @@ export function NavBar() {
   });
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <nav className="border-b border-[var(--border)] bg-[var(--card)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--card)]/60 sticky top-0 z-50 transition-colors duration-200">
       {/* Desktop Header */}
       <div className="hidden lg:flex items-center justify-between px-6 py-3">
         {/* Logo */}

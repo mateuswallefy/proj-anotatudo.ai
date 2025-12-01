@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Bell, FileText } from "lucide-react";
+import { Plus, Star, Clock } from "lucide-react";
 import { useLocation } from "wouter";
 
 export function QuickActions() {
@@ -8,53 +7,55 @@ export function QuickActions() {
 
   const actions = [
     {
-      id: "add-transaction",
-      label: "Adicionar transação",
+      id: 'register-transaction',
       icon: Plus,
-      onClick: () => setLocation("/adicionar"),
+      label: 'Registrar transação',
+      onClick: () => {
+        // Navegar para rota de criar transação ou abrir dialog
+        setLocation('/transacoes/nova');
+      },
+      color: 'bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/90 text-white dark:bg-[var(--accent-green)] dark:hover:bg-[var(--accent-green)]/80',
     },
     {
-      id: "reminder",
-      label: "Configurar lembrete",
-      icon: Bell,
+      id: 'create-goal',
+      icon: Star,
+      label: 'Criar meta',
       onClick: () => {
-        // Em breve
-        console.log("Lembretes - em breve");
+        // Navegar para rota de criar meta ou abrir dialog
+        setLocation('/metas/nova');
       },
+      color: 'bg-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/90 text-white dark:bg-[var(--accent-blue)] dark:hover:bg-[var(--accent-blue)]/80',
     },
     {
-      id: "report",
-      label: "Ver relatório",
-      icon: FileText,
+      id: 'set-reminder',
+      icon: Clock,
+      label: 'Configurar lembrete',
       onClick: () => {
-        // Em breve
-        console.log("Relatórios - em breve");
+        // Navegar para rota de lembretes ou abrir dialog
+        setLocation('/config/lembretes');
       },
+      color: 'bg-[var(--accent-orange)] hover:bg-[var(--accent-orange)]/90 text-white dark:bg-[var(--accent-orange)] dark:hover:bg-[var(--accent-orange)]/80',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {actions.map((action) => {
         const Icon = action.icon;
         return (
-          <Card
+          <Button
             key={action.id}
-            className="hover:shadow-md transition-shadow cursor-pointer border-2 hover:border-primary/50"
             onClick={action.onClick}
+            className={`${action.color} flex flex-col items-center justify-center h-auto py-4 px-3 rounded-xl shadow-sm hover:shadow-md transition-all`}
+            data-testid={`quick-action-${action.id}`}
           >
-            <CardContent className="p-4">
-              <div className="flex flex-col items-center gap-2">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-center">{action.label}</span>
-              </div>
-            </CardContent>
-          </Card>
+            <Icon className="h-5 w-5 mb-1.5" />
+            <span className="text-xs font-medium text-center leading-tight">
+              {action.label}
+            </span>
+          </Button>
         );
       })}
     </div>
   );
 }
-
