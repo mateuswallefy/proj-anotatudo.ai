@@ -1,8 +1,9 @@
 import express from "express";
-import { createServer } from "http";
-import { createServer as createTestServer } from "http";
+import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
+import { serveStatic, log } from "./vite.js"; // only for PROD
 import { registerRoutes } from "./routes.js";
-import { setupVite, serveStatic, log } from "./vite.js";
 import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
@@ -24,12 +25,12 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 const PORT = Number(process.env.PORT) || 5000;
 
 // Create HTTP server
-const httpServer = createServer(app);
+const httpServer = http.createServer(app);
 
 // Function to check if port is available
 async function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const testServer = createTestServer();
+    const testServer = http.createServer();
     testServer.listen(port, "0.0.0.0", () => {
       testServer.close(() => resolve(true));
     });
@@ -119,7 +120,8 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
     // Initialize database connection FIRST (before routes that might use it)
     await initializeDatabaseAsync();
     
-    // Setup static files OR Vite in background
+    // Setup static files in production only
+    // In development, Vite runs separately
     if (isProd) {
       try {
         serveStatic(app);
@@ -129,14 +131,8 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
         // Don't crash - server can still serve API routes
       }
     } else {
-      // Em desenvolvimento, setup Vite middleware para servir o frontend
-      try {
-        await setupVite(app, httpServer);
-        console.log("✅ Vite middleware configured for frontend");
-      } catch (error) {
-        console.error("❌ Failed to setup Vite:", error);
-        throw error;
-      }
+      // Development: Vite runs separately, backend only serves API
+      console.log("✅ Development mode: Backend serving API only (Vite runs separately)");
     }
     
     // Session middleware - ONLY for /api and /admin routes (after server is up)
