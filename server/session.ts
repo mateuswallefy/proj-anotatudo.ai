@@ -1,5 +1,6 @@
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import MemoryStore from "memorystore";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
@@ -7,7 +8,6 @@ import ws from "ws";
 neonConfig.webSocketConstructor = ws;
 
 // Use NEON_DATABASE_URL (custom name that Replit won't override)
-// Throws error if neither is set - fail fast instead of silently using wrong DB
 const getDatabaseUrl = () => {
   const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) {
@@ -32,29 +32,42 @@ function getSessionPool() {
 
 export function getSession() {
   const sessionTtl = 30 * 24 * 60 * 60 * 1000; // 30 days
-  const pgStore = connectPg(session);
-
   const isReplit = process.env.REPL_SLUG !== undefined;
   const isProd = process.env.NODE_ENV === "production";
 
   // Secure apenas em PRODUÇÃO REAL, nunca no autoscale (replit)
   const isSecure = isProd && !isReplit;
 
-  const dbUrl = getDatabaseUrl();
   console.log("[SESSION] Secure:", isSecure);
-  console.log(`[SESSION] Connecting to: ${dbUrl.replace(/:[^:@]+@/, ':****@')}`);
+  console.log("[SESSION] Environment:", isProd ? "PRODUCTION" : "DEVELOPMENT");
 
-  // Use Neon's Pool instead of connect-pg-simple's internal pg connection
-  const sessionStore = new pgStore({
-    pool: getSessionPool(),
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  let store: session.Store;
+
+  if (isProd) {
+    // Production: Use PostgreSQL store
+    const pgStore = connectPg(session);
+    const dbUrl = getDatabaseUrl();
+    console.log(`[SESSION] Connecting to PostgreSQL: ${dbUrl.replace(/:[^:@]+@/, ':****@')}`);
+    
+    store = new pgStore({
+      pool: getSessionPool(),
+      createTableIfMissing: false,
+      ttl: sessionTtl,
+      tableName: "sessions",
+    });
+    console.log("[SESSION] Using PostgreSQL session store");
+  } else {
+    // Development: Use in-memory store (faster, no DB connection issues)
+    const MemStore = MemoryStore(session);
+    store = new MemStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    });
+    console.log("[SESSION] Using in-memory session store (development)");
+  }
 
   return session({
     secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
+    store,
     resave: false,
     saveUninitialized: false,
     cookie: {
