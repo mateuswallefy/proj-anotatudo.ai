@@ -1,5 +1,10 @@
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
+
+// Configure Neon for Node.js environment
+neonConfig.webSocketConstructor = ws;
 
 // Use NEON_DATABASE_URL (custom name that Replit won't override)
 // Throws error if neither is set - fail fast instead of silently using wrong DB
@@ -10,6 +15,20 @@ const getDatabaseUrl = () => {
   }
   return url;
 };
+
+// Create a shared pool for sessions using Neon's serverless driver
+let sessionPool: Pool | null = null;
+
+function getSessionPool() {
+  if (!sessionPool) {
+    const dbUrl = getDatabaseUrl();
+    sessionPool = new Pool({
+      connectionString: dbUrl,
+    });
+    console.log("[SESSION] Created Neon pool for sessions");
+  }
+  return sessionPool;
+}
 
 export function getSession() {
   const sessionTtl = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -25,8 +44,9 @@ export function getSession() {
   console.log("[SESSION] Secure:", isSecure);
   console.log(`[SESSION] Connecting to: ${dbUrl.replace(/:[^:@]+@/, ':****@')}`);
 
+  // Use Neon's Pool instead of connect-pg-simple's internal pg connection
   const sessionStore = new pgStore({
-    conString: dbUrl,
+    pool: getSessionPool(),
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
