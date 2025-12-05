@@ -48,7 +48,8 @@ async function runDatabaseSetup() {
     // Initialize database connection FIRST (before routes that might use it)
     await initializeDatabaseAsync();
     
-    // Setup static files in production, Vite middleware in development
+    // Setup static files in production ONLY
+    // In development, Vite runs separately on port 5173
     if (isProd) {
       try {
         serveStatic(app);
@@ -58,9 +59,7 @@ async function runDatabaseSetup() {
         // Don't crash - server can still serve API routes
       }
     } else {
-      const { setupVite } = await import("./vite.js");
-      await setupVite(app, httpServer);
-      console.log("✅ Vite middleware active in development");
+      console.log("✅ DEV mode: Backend serves only /api routes - Vite runs separately on port 5173");
     }
     
     // Apply middleware

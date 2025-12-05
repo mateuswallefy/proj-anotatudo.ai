@@ -4,7 +4,19 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'configure-response-headers',
+      configureServer: (server) => {
+        server.middlewares.use((_req, res, next) => {
+          res.setHeader('X-Frame-Options', 'ALLOWALL');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          next();
+        });
+      },
+    },
+  ],
 
   root: path.resolve(import.meta.dirname, "client"),
 
@@ -14,17 +26,14 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/api": {
-        target: "http://0.0.0.0:5000",
+        target: "http://localhost:5000",
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
-      "/admin": {
-        target: "http://0.0.0.0:5000",
-        changeOrigin: true,
-        secure: false
-      }
-    }
+    },
   },
+
+  clearScreen: false,
 
   resolve: {
     alias: {
