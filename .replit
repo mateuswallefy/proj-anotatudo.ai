@@ -2,28 +2,22 @@ modules = ["nodejs-20", "web", "postgresql-16"]
 
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
-# Start both backend and frontend using start-dev.sh
-run = ["bash", "start-dev.sh"]
+run = ["npm", "run", "dev"]
 
 [nix]
 channel = "stable-25_05"
 
-# Desativar qualquer configuração de deployment no ambiente dev
 [deployment]
 deploymentTarget = "none"
 
 [[ports]]
 localPort = 5000
-externalPort = 80
+externalPort = 5000
 
 [[ports]]
 localPort = 5173
-externalPort = 5173
+externalPort = 80
 
 [[ports]]
 localPort = 5174
 externalPort = 3000
-
-[[ports]]
-localPort = 5175
-externalPort = 3001

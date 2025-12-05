@@ -8,21 +8,22 @@ export default defineConfig({
 
   root: path.resolve(import.meta.dirname, "client"),
 
-  // Forçar erros aparecerem no console do Replit
-  clearScreen: false,
-
   server: {
+    host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    host: true,
-    allowedHosts: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target: "http://0.0.0.0:5000",
         changeOrigin: true,
-        secure: false,
+        secure: false
       },
-    },
+      "/admin": {
+        target: "http://0.0.0.0:5000",
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
 
   resolve: {

@@ -247,10 +247,11 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post('/api/auth/login', async (req, res) => {
     try {
-      console.log('[LOGIN] Attempt received:', { email: req.body.email, hasPassword: !!req.body.password });
+      console.log("[LOGIN] Request received:", req.body);
       const { email, password } = loginSchema.parse(req.body);
 
       // Find user by email
+      console.log("[LOGIN] Searching user...");
       const user = await storage.getUserByEmail(email);
       console.log('[LOGIN] User found:', !!user, user ? { email: user.email, hasHash: !!user.passwordHash } : 'no user');
       
@@ -260,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
 
       // Verify password
+      console.log("[LOGIN] Checking password...");
       const isValid = await comparePassword(password, user.passwordHash);
       console.log('[LOGIN] Password valid:', isValid);
       
@@ -269,6 +271,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
 
       // Create session
+      console.log("[LOGIN] Creating session...");
       req.session.userId = user.id;
       console.log('[LOGIN] 🔧 Session userId set to:', user.id);
       console.log('[LOGIN] 🔧 Session object before save:', JSON.stringify(req.session));
@@ -292,6 +295,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       console.log('[LOGIN] ✅ Login successful, session saved for user:', user.id);
+      console.log("[LOGIN] Response being sent...");
 
       res.json({
         id: user.id,
@@ -302,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         plano: user.plano,
       });
     } catch (error: any) {
-      console.error("LOGIN ERROR:", error);
+      console.error("[LOGIN ERROR]", error);
       console.error("LOGIN ERROR - Message:", error.message);
       console.error("LOGIN ERROR - Stack:", error.stack);
       console.error("LOGIN ERROR - Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
