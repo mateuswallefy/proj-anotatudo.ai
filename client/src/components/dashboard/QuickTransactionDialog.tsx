@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -99,6 +99,13 @@ export function QuickTransactionDialog({
       goalId: defaultGoalId || undefined,
     },
   });
+
+  // Reset form when defaultType changes
+  useEffect(() => {
+    if (defaultType) {
+      form.setValue("type", defaultType);
+    }
+  }, [defaultType, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionFormData) => {

@@ -43,7 +43,8 @@ import {
   insertAccountMemberSchema,
   insertCategoriaCustomizadaSchema,
   insertNotificationPreferencesSchema,
-  updateNotificationPreferencesSchema
+  updateNotificationPreferencesSchema,
+  insertContaSchema
 } from "@shared/schema";
 import { processWhatsAppMessage } from "./ai.js";
 import { logClientEvent, EventTypes } from "./clientLogger.js";
@@ -2377,6 +2378,66 @@ export async function registerRoutes(app: Express): Promise<void> {
     } catch (error) {
       console.error("Error fetching contas:", error);
       res.status(500).json({ message: "Failed to fetch contas" });
+    }
+  });
+
+  app.post("/api/contas", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const data = insertContaSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const conta = await storage.createConta(data);
+      res.status(201).json(conta);
+    } catch (error: any) {
+      console.error("Error creating conta:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create conta" });
+      }
+    }
+  });
+
+  app.patch("/api/contas/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      const data = insertContaSchema.partial().parse(req.body);
+      
+      // Update saldo if provided
+      if (data.saldoAtual) {
+        await storage.updateContaSaldo(id, userId, data.saldoAtual);
+      }
+      
+      // For other fields, we'd need an updateConta method
+      // For now, just update saldo
+      const conta = await storage.getContas(userId);
+      const updated = conta.find(c => c.id === id);
+      if (!updated) {
+        return res.status(404).json({ message: "Conta not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating conta:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update conta" });
+      }
+    }
+  });
+
+  app.delete("/api/contas/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      await storage.deleteConta(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting conta:", error);
+      res.status(500).json({ message: "Failed to delete conta" });
     }
   });
 
