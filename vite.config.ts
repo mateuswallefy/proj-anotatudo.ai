@@ -3,7 +3,20 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    {
+      name: "replit-iframe",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          res.removeHeader?.("X-Frame-Options");
+          res.setHeader("X-Frame-Options", "ALLOWALL");
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          next();
+        });
+      },
+    },
+    react(),
+  ],
 
   root: path.resolve(import.meta.dirname, "client"),
 

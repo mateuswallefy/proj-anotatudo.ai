@@ -93,6 +93,21 @@ export interface IStorage {
 
   // Transaction operations
   getTransacoes(userId: string, period?: string): Promise<Transacao[]>;
+  getTransacoesWithFilters(
+    userId: string,
+    filters: {
+      period?: string;
+      tipo?: string;
+      categoria?: string;
+      cartaoId?: string;
+      goalId?: string;
+      search?: string;
+      minAmount?: number;
+      maxAmount?: number;
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<Transacao[]>;
   createTransacao(transacao: InsertTransacao): Promise<Transacao>;
   getTransacaoById(id: string): Promise<Transacao | undefined>;
   updateTransacao(id: string, userId: string, transacao: Partial<InsertTransacao>): Promise<Transacao | undefined>;
@@ -398,6 +413,90 @@ export class DatabaseStorage implements IStorage {
       .from(transacoes)
       .where(whereClause)
       .orderBy(desc(transacoes.dataReal));
+  }
+
+  async getTransacoesWithFilters(
+    userId: string,
+    filters: {
+      period?: string;
+      tipo?: string;
+      categoria?: string;
+      cartaoId?: string;
+      goalId?: string;
+      search?: string;
+      minAmount?: number;
+      maxAmount?: number;
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<Transacao[]> {
+    const conditions: any[] = [eq(transacoes.userId, userId)];
+
+    // Period filter
+    if (filters.period && /^\d{4}-\d{2}$/.test(filters.period)) {
+      const [year, month] = filters.period.split('-').map(Number);
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0);
+      const startDate = format(startOfMonth, 'yyyy-MM-dd');
+      const endDate = format(endOfMonth, 'yyyy-MM-dd');
+      conditions.push(sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`);
+      conditions.push(sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`);
+    }
+
+    // Date range filter (overrides period if both provided)
+    if (filters.startDate) {
+      conditions.push(sqlOp`DATE(${transacoes.dataReal}) >= ${filters.startDate}`);
+    }
+    if (filters.endDate) {
+      conditions.push(sqlOp`DATE(${transacoes.dataReal}) <= ${filters.endDate}`);
+    }
+
+    // Type filter
+    if (filters.tipo) {
+      conditions.push(eq(transacoes.tipo, filters.tipo as any));
+    }
+
+    // Category filter
+    if (filters.categoria) {
+      conditions.push(eq(transacoes.categoria, filters.categoria));
+    }
+
+    // Card filter
+    if (filters.cartaoId) {
+      conditions.push(eq(transacoes.cartaoId, filters.cartaoId));
+    }
+
+    // Goal filter
+    if (filters.goalId) {
+      conditions.push(eq(transacoes.goalId, filters.goalId));
+    }
+
+    // Amount filters
+    if (filters.minAmount !== undefined) {
+      conditions.push(sqlOp`CAST(${transacoes.valor} AS DECIMAL) >= ${filters.minAmount}`);
+    }
+    if (filters.maxAmount !== undefined) {
+      conditions.push(sqlOp`CAST(${transacoes.valor} AS DECIMAL) <= ${filters.maxAmount}`);
+    }
+
+    let whereClause = and(...conditions) as any;
+
+    // Search filter (applied after query if needed, or via SQL LIKE)
+    let query = db.select().from(transacoes).where(whereClause);
+
+    const results = await query.orderBy(desc(transacoes.dataReal));
+
+    // Apply search filter in memory (for description and category)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      return results.filter(
+        (t) =>
+          (t.descricao && t.descricao.toLowerCase().includes(searchLower)) ||
+          t.categoria.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return results;
   }
 
   async createTransacao(transacao: InsertTransacao): Promise<Transacao> {

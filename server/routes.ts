@@ -440,9 +440,41 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.get("/api/transacoes", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const period = req.query.period as string | undefined;
-      const transacoes = await storage.getTransacoes(userId, period);
-      res.json(transacoes);
+      
+      // Check if advanced filters are provided
+      const hasAdvancedFilters = 
+        req.query.tipo || 
+        req.query.categoria || 
+        req.query.cartaoId || 
+        req.query.goalId || 
+        req.query.search || 
+        req.query.minAmount || 
+        req.query.maxAmount ||
+        req.query.startDate ||
+        req.query.endDate;
+
+      if (hasAdvancedFilters) {
+        // Use advanced filters
+        const filters = {
+          period: req.query.period as string | undefined,
+          tipo: req.query.tipo as string | undefined,
+          categoria: req.query.categoria as string | undefined,
+          cartaoId: req.query.cartaoId as string | undefined,
+          goalId: req.query.goalId as string | undefined,
+          search: req.query.search as string | undefined,
+          minAmount: req.query.minAmount ? parseFloat(req.query.minAmount as string) : undefined,
+          maxAmount: req.query.maxAmount ? parseFloat(req.query.maxAmount as string) : undefined,
+          startDate: req.query.startDate as string | undefined,
+          endDate: req.query.endDate as string | undefined,
+        };
+        const transacoes = await storage.getTransacoesWithFilters(userId, filters);
+        res.json(transacoes);
+      } else {
+        // Use simple period filter (backward compatible)
+        const period = req.query.period as string | undefined;
+        const transacoes = await storage.getTransacoes(userId, period);
+        res.json(transacoes);
+      }
     } catch (error) {
       console.error("Error fetching transactions:", error);
       res.status(500).json({ message: "Failed to fetch transactions" });

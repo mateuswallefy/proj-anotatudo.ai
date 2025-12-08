@@ -1,156 +1,177 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Transacao, Goal } from "@shared/schema";
-import { usePeriod } from "@/contexts/PeriodContext";
-import { KpiGrid } from "@/components/dashboard/KpiGrid";
-import { GoalsPreview } from "@/components/dashboard/GoalsPreview";
-import { BudgetsPreview } from "@/components/dashboard/BudgetsPreview";
-import { CreditCardsPreview } from "@/components/dashboard/CreditCardsPreview";
-import { InsightCarousel } from "@/components/dashboard/InsightCarousel";
-import { QuickActions } from "@/components/dashboard/QuickActions";
-import { SectionTitle, PageHeader } from "@/components/design-system";
-import { RecentTransactions } from "@/components/RecentTransactions";
-import { AlertasImportantes } from "@/components/AlertasImportantes";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { AlertasImportantes } from "@/components/AlertasImportantes";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { DashboardKpis } from "@/components/dashboard/DashboardKpis";
+import { DashboardMainChart } from "@/components/dashboard/DashboardMainChart";
+import { DashboardGoals } from "@/components/dashboard/DashboardGoals";
+import { DashboardBudgets } from "@/components/dashboard/DashboardBudgets";
+import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
+import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
+import { DashboardCards } from "@/components/dashboard/DashboardCards";
 
 export default function Dashboard() {
-  const { period } = usePeriod();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  
-  // Get greeting based on time of day
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Bom dia";
-    if (hour < 18) return "Boa tarde";
-    return "Boa noite";
-  };
-  
-  const userName = user?.firstName || "usuário";
-  const greeting = getGreeting();
-  
-  // Parse period (format: "YYYY-MM")
-  const [year, month] = period ? period.split('-').map(Number) : [
-    new Date().getFullYear(),
-    new Date().getMonth() + 1
-  ];
+  const { data: dashboardData, isLoading } = useDashboardData();
 
-  // Fetch dashboard overview for KPIs
-  const { data: overview, isLoading: loadingOverview } = useQuery({
-    queryKey: ["/api/dashboard/overview", { year, month }],
+  // Fetch insights (if API exists)
+  const { data: insights } = useQuery({
+    queryKey: ["/api/insights-ai"],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard/overview?year=${year}&month=${month}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch dashboard overview');
+      const response = await fetch(`/api/insights-ai`, {
+        credentials: "include",
+      });
+      if (!response.ok) return null;
       return response.json();
     },
-  });
-
-  // Fetch saving goals
-  const { data: savingGoals, isLoading: loadingGoals } = useQuery<Goal[]>({
-    queryKey: ["/api/goals"],
-    queryFn: async () => {
-      const response = await fetch(`/api/goals`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch goals');
-      return response.json();
-    },
-  });
-
-  // Fetch budgets
-  const { data: budgets, isLoading: loadingBudgets } = useQuery({
-    queryKey: ["/api/budgets", { year, month }],
-    queryFn: async () => {
-      const response = await fetch(`/api/budgets?year=${year}&month=${month}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch budgets');
-      return response.json();
-    },
-  });
-
-  // Fetch cards overview
-  const { data: cardsOverview, isLoading: loadingCards } = useQuery({
-    queryKey: ["/api/credit-cards/overview", { year, month }],
-    queryFn: async () => {
-      const response = await fetch(`/api/credit-cards/overview?year=${year}&month=${month}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch cards overview');
-      return response.json();
-    },
-  });
-
-  // Fetch recent transactions
-  const { data: recentTransactions, isLoading: loadingTransactions } = useQuery<Transacao[]>({
-    queryKey: ["/api/transacoes", { period }],
-    queryFn: async () => {
-      const response = await fetch(`/api/transacoes?period=${period}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch transactions');
-      return response.json();
-    },
+    retry: false,
   });
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] pb-20 transition-colors duration-200 ease-out">
-      <main className="px-4 md:px-6 space-y-6 md:space-y-8 py-6 md:py-8 max-w-7xl mx-auto">
-        {/* Alertas Importantes */}
-        <AlertasImportantes />
+    <DashboardShell>
+      {/* Alertas Importantes */}
+      <AlertasImportantes />
 
-        {/* Saudação Personalizada */}
-        <PageHeader
-          title={`${greeting}, ${userName} 👋`}
-          subtitle="Acompanhe suas finanças de forma inteligente"
-        />
+      {/* Header com saudação */}
+      <DashboardHeader />
 
-        {/* KPIs principais */}
-        <KpiGrid
-          entradas={overview ? parseFloat(overview.entradas || '0') : undefined}
-          despesas={overview ? parseFloat(overview.despesas || '0') : undefined}
-          economias={overview ? parseFloat(overview.economias || '0') : undefined}
-          saldo={overview ? parseFloat(overview.saldo || '0') : undefined}
-          variacaoEntradas={overview ? parseFloat(overview.variacaoEntradas || '0') : undefined}
-          variacaoDespesas={overview ? parseFloat(overview.variacaoDespesas || '0') : undefined}
-          variacaoEconomias={0}
-          variacaoSaldo={overview ? parseFloat(overview.variacaoSaldo || '0') : undefined}
-          isLoading={loadingOverview}
-        />
+      {/* KPIs principais */}
+      <DashboardKpis
+        entradas={dashboardData?.kpis.find((k) => k.type === "income")?.value}
+        despesas={dashboardData?.kpis.find((k) => k.type === "expense")?.value}
+        economias={dashboardData?.kpis.find((k) => k.type === "savings")?.value}
+        saldo={dashboardData?.kpis.find((k) => k.type === "balance")?.value}
+        variacaoEntradas={
+          dashboardData?.kpis.find((k) => k.type === "income")?.diffVsLastMonth
+        }
+        variacaoDespesas={
+          dashboardData?.kpis.find((k) => k.type === "expense")?.diffVsLastMonth
+        }
+        variacaoEconomias={
+          dashboardData?.kpis.find((k) => k.type === "savings")?.diffVsLastMonth
+        }
+        variacaoSaldo={
+          dashboardData?.kpis.find((k) => k.type === "balance")?.diffVsLastMonth
+        }
+        isLoading={isLoading}
+      />
 
-        {/* Metas & Economias */}
-        <GoalsPreview
-          goals={savingGoals}
-          isLoading={loadingGoals}
-          onCreateGoal={() => setLocation('/metas/nova')}
-        />
+      {/* Gráfico principal */}
+      <DashboardMainChart chartData={dashboardData?.mainChartSeries} />
 
-        {/* Orçamentos por Categoria */}
-        <BudgetsPreview
-          budgets={budgets}
-          isLoading={loadingBudgets}
-          onConfigure={() => setLocation('/orcamentos')}
-        />
+      {/* Metas & Economias */}
+      <DashboardGoals
+        goals={dashboardData?.goalsSummary}
+        isLoading={isLoading}
+        onCreateGoal={() => setLocation("/metas/nova")}
+      />
 
-        {/* Cartões de Crédito */}
-        <CreditCardsPreview
-          cards={cardsOverview}
-          isLoading={loadingCards}
-          onCreateCard={() => setLocation('/cartoes/novo')}
-        />
+      {/* Orçamentos por Categoria */}
+      <DashboardBudgets
+        budgets={dashboardData?.budgetsSummary}
+        isLoading={isLoading}
+        onConfigure={() => setLocation("/orcamento")}
+      />
 
-        {/* Insights da conta */}
-        <div>
-          <SectionTitle>Insights da sua conta</SectionTitle>
-          <InsightCarousel insights={undefined} isLoading={false} />
-        </div>
+      {/* Insights da conta */}
+      <DashboardInsights insights={insights} isLoading={false} />
 
-        {/* Ações rápidas */}
-        <div>
-          <SectionTitle>Ações rápidas</SectionTitle>
-          <QuickActions />
-        </div>
+      {/* Ações rápidas */}
+      <DashboardQuickActions />
 
-        {/* Últimas transações */}
-        {recentTransactions && recentTransactions.length > 0 && (
-          <div>
-            <SectionTitle>Últimas transações</SectionTitle>
-            <RecentTransactions transacoes={recentTransactions.slice(0, 6)} />
+      {/* Cartões de Crédito */}
+      <DashboardCards
+        cards={dashboardData?.cardsSummary}
+        isLoading={isLoading}
+        onCreateCard={() => setLocation("/cartoes/novo")}
+      />
+
+      {/* Últimas transações */}
+      {dashboardData?.recentTransactions &&
+        dashboardData.recentTransactions.length > 0 && (
+          <div className="bg-white/5 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-6">
+              Últimas transações
+            </h3>
+            <div className="space-y-3">
+              {dashboardData.recentTransactions.map((transacao) => {
+                const formatCurrency = (value: number) => {
+                  return new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(value);
+                };
+
+                const formatDate = (dateString: string) => {
+                  const date = new Date(dateString);
+                  return date.toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "short",
+                  });
+                };
+
+                return (
+                  <div
+                    key={transacao.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-white/5 dark:bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`p-2 rounded-full ${
+                          transacao.type === "entrada"
+                            ? "bg-[#4ADE80]/10"
+                            : transacao.type === "economia"
+                            ? "bg-[#60A5FA]/10"
+                            : "bg-[#FB7185]/10"
+                        }`}
+                      >
+                        {transacao.type === "entrada" ? (
+                          <span className="text-[#4ADE80]">↑</span>
+                        ) : transacao.type === "economia" ? (
+                          <span className="text-[#60A5FA]">💰</span>
+                        ) : (
+                          <span className="text-[#FB7185]">↓</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-[var(--text-primary)] text-sm">
+                          {transacao.description || transacao.category}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {formatDate(transacao.date)}
+                          </p>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-[var(--text-secondary)]">
+                            {transacao.category}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p
+                        className={`font-bold font-sora text-sm ${
+                          transacao.type === "entrada"
+                            ? "text-[#4ADE80]"
+                            : transacao.type === "economia"
+                            ? "text-[#60A5FA]"
+                            : "text-[#FB7185]"
+                        }`}
+                        style={{ fontFamily: "'Sora', sans-serif" }}
+                      >
+                        {transacao.type === "entrada" ? "+" : transacao.type === "economia" ? "+" : "-"}
+                        {formatCurrency(transacao.amount)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
-      </main>
-    </div>
+    </DashboardShell>
   );
 }
