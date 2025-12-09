@@ -4,14 +4,19 @@ import {
   Receipt, 
   Target, 
   CreditCard, 
-  Settings 
+  Settings,
+  Wallet,
+  Calendar,
+  FileText,
+  Tag,
+  TrendingUp
 } from "lucide-react";
 
 const tabs: Array<{ id: TabType; icon: any; label: string }> = [
   { id: "dashboard", icon: Home, label: "Início" },
-  { id: "transacoes", icon: Receipt, label: "Transações" },
+  { id: "transacoes", icon: Receipt, label: "Lançamentos" },
   { id: "metas", icon: Target, label: "Metas" },
-  { id: "cartoes", icon: CreditCard, label: "Cartões" },
+  { id: "contas", icon: Wallet, label: "Contas" },
   { id: "configuracoes", icon: Settings, label: "Config" },
 ];
 

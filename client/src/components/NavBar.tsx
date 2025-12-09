@@ -5,15 +5,17 @@ import { Logo } from "@/components/Logo";
 import { 
   LayoutDashboard, 
   Receipt, 
-  PiggyBank, 
   Wallet, 
   Target, 
-  CreditCard, 
   Lightbulb, 
   Settings,
   Shield,
   User,
-  LogOut
+  LogOut,
+  Calendar,
+  FileText,
+  Tag,
+  TrendingUp
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,11 +43,13 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 
 const tabs: Array<{ id: TabType; label: string; icon: any }> = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "transacoes", label: "Transações", icon: Receipt },
-  { id: "economias", label: "Economias", icon: PiggyBank },
-  { id: "orcamento", label: "Orçamento", icon: Wallet },
+  { id: "transacoes", label: "Lançamentos", icon: Receipt },
+  { id: "contas", label: "Contas & Cartões", icon: Wallet },
+  { id: "agenda", label: "Agenda", icon: Calendar },
   { id: "metas", label: "Metas", icon: Target },
-  { id: "cartoes", label: "Cartões", icon: CreditCard },
+  { id: "relatorios", label: "Relatórios", icon: FileText },
+  { id: "categorias", label: "Categorias", icon: Tag },
+  { id: "tetos", label: "Tetos", icon: TrendingUp },
   { id: "insights", label: "Insights", icon: Lightbulb },
   { id: "configuracoes", label: "Configurações", icon: Settings },
 ];

@@ -13,11 +13,13 @@ import { useEffect, startTransition } from "react";
 import { useLocation } from "wouter";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
-import Transacoes from "@/pages/transacoes";
-import Economias from "@/pages/economias";
-import Orcamento from "@/pages/orcamento";
+import Lancamentos from "@/pages/lancamentos";
+import ContasCartoes from "@/pages/contas-cartoes";
+import Agenda from "@/pages/agenda";
 import Metas from "@/pages/metas";
-import Cartoes from "@/pages/cartoes";
+import Relatorios from "@/pages/relatorios";
+import Categorias from "@/pages/categorias";
+import TetosGastos from "@/pages/tetos-gastos";
 import Insights from "@/pages/insights";
 import Configuracoes from "@/pages/configuracoes";
 import AdminPage from "@/pages/admin";
@@ -59,19 +61,25 @@ function AuthenticatedShell() {
           <Dashboard />
         </div>
         <div className="w-full" style={{ display: activeTab === "transacoes" ? "block" : "none" }}>
-          <Transacoes />
+          <Lancamentos />
         </div>
-        <div className="w-full" style={{ display: activeTab === "economias" ? "block" : "none" }}>
-          <Economias />
+        <div className="w-full" style={{ display: activeTab === "contas" ? "block" : "none" }}>
+          <ContasCartoes />
         </div>
-        <div className="w-full" style={{ display: activeTab === "orcamento" ? "block" : "none" }}>
-          <Orcamento />
+        <div className="w-full" style={{ display: activeTab === "agenda" ? "block" : "none" }}>
+          <Agenda />
         </div>
         <div className="w-full" style={{ display: activeTab === "metas" ? "block" : "none" }}>
           <Metas />
         </div>
-        <div className="w-full" style={{ display: activeTab === "cartoes" ? "block" : "none" }}>
-          <Cartoes />
+        <div className="w-full" style={{ display: activeTab === "relatorios" ? "block" : "none" }}>
+          <Relatorios />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "categorias" ? "block" : "none" }}>
+          <Categorias />
+        </div>
+        <div className="w-full" style={{ display: activeTab === "tetos" ? "block" : "none" }}>
+          <TetosGastos />
         </div>
         <div className="w-full" style={{ display: activeTab === "insights" ? "block" : "none" }}>
           <Insights />

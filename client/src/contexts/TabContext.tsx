@@ -3,10 +3,12 @@ import { createContext, useContext, useState, ReactNode } from "react";
 export type TabType = 
   | "dashboard"
   | "transacoes"
-  | "economias"
-  | "orcamento"
+  | "contas"
+  | "agenda"
   | "metas"
-  | "cartoes"
+  | "relatorios"
+  | "categorias"
+  | "tetos"
   | "insights"
   | "configuracoes";
 
