@@ -485,10 +485,21 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.post("/api/transacoes", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const data = insertTransacaoSchema.parse({
+      
+      // Prepare data with defaults for backward compatibility
+      const requestData = {
         ...req.body,
         userId,
-      });
+        // Set defaults if not provided (backward compatibility)
+        status: req.body.status || "paid",
+        paymentMethod: req.body.paymentMethod || "other",
+        // Set pendingKind based on status if not provided
+        pendingKind: req.body.pendingKind || (req.body.status === "pending" 
+          ? (req.body.tipo === "entrada" ? "to_receive" : "to_pay")
+          : undefined),
+      };
+      
+      const data = insertTransacaoSchema.parse(requestData);
       
       // Validar goalId antes de criar a transação
       if (data.goalId) {

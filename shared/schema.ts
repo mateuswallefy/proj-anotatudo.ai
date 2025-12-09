@@ -110,6 +110,10 @@ export const transacoes = pgTable("transacoes", {
   mediaUrl: varchar("media_url"),
   cartaoId: varchar("cartao_id").references(() => cartoes.id, { onDelete: 'set null' }),
   goalId: varchar("goal_id").references(() => goals.id, { onDelete: 'set null' }),
+  // New fields for payment status and method
+  status: varchar("status", { enum: ['paid', 'pending'] }).default('paid').notNull(),
+  pendingKind: varchar("pending_kind", { enum: ['to_receive', 'to_pay'] }),
+  paymentMethod: varchar("payment_method", { enum: ['cash', 'pix', 'transfer', 'credit_card', 'debit_card', 'boleto', 'other'] }).default('other').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -132,6 +136,11 @@ export const insertTransacaoSchema = createInsertSchema(transacoes).omit({
   id: true,
   createdAt: true,
   dataRegistro: true,
+}).extend({
+  // Make new fields optional for backward compatibility
+  status: z.enum(["paid", "pending"]).optional(),
+  pendingKind: z.enum(["to_receive", "to_pay"]).optional(),
+  paymentMethod: z.enum(["cash", "pix", "transfer", "credit_card", "debit_card", "boleto", "other"]).optional(),
 });
 
 export type InsertTransacao = z.infer<typeof insertTransacaoSchema>;

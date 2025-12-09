@@ -79,6 +79,50 @@ export default function Lancamentos() {
       : "bg-pink-50 dark:bg-pink-950/20";
   };
 
+  // Calculate KPIs based on new status fields
+  const calculateKPIs = () => {
+    if (!transactions) {
+      return {
+        receitasPaid: 0,
+        despesasPaid: 0,
+        saldoReal: 0,
+        aPagar: 0,
+        aReceber: 0,
+      };
+    }
+
+    // Filter by status and type
+    const incomesPaid = transactions.filter(
+      (t) => t.tipo === "entrada" && (t.status === "paid" || !t.status)
+    );
+    const incomesPending = transactions.filter(
+      (t) => t.tipo === "entrada" && t.status === "pending" && t.pendingKind === "to_receive"
+    );
+    const expensesPaid = transactions.filter(
+      (t) => t.tipo === "saida" && (t.status === "paid" || !t.status)
+    );
+    const expensesPending = transactions.filter(
+      (t) => t.tipo === "saida" && t.status === "pending" && t.pendingKind === "to_pay"
+    );
+
+    // Calculate totals
+    const receitasPaid = incomesPaid.reduce((sum, t) => sum + parseFloat(t.valor), 0);
+    const despesasPaid = expensesPaid.reduce((sum, t) => sum + parseFloat(t.valor), 0);
+    const aReceber = incomesPending.reduce((sum, t) => sum + parseFloat(t.valor), 0);
+    const aPagar = expensesPending.reduce((sum, t) => sum + parseFloat(t.valor), 0);
+    const saldoReal = receitasPaid - despesasPaid;
+
+    return {
+      receitasPaid,
+      despesasPaid,
+      saldoReal,
+      aPagar,
+      aReceber,
+    };
+  };
+
+  const kpis = calculateKPIs();
+
   return (
     <DashboardContainer>
       <div className="space-y-6 pb-24">
@@ -140,34 +184,34 @@ export default function Lancamentos() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <DashboardStatCard
             title="Receitas"
-            value={stats.receitas}
+            value={kpis.receitasPaid}
             variation={stats.variacaoReceitas}
             icon={<ArrowDownCircle className="h-6 w-6" />}
             color="green"
-            isLoading={stats.isLoading}
+            isLoading={isLoading}
           />
           <DashboardStatCard
             title="Despesas"
-            value={stats.despesas}
+            value={kpis.despesasPaid}
             variation={stats.variacaoDespesas}
             icon={<ArrowUpCircle className="h-6 w-6" />}
             color="pink"
-            isLoading={stats.isLoading}
+            isLoading={isLoading}
           />
           <DashboardStatCard
-            title="Saldo"
-            value={stats.saldo}
-            variation={stats.variacaoSaldo}
-            icon={<ArrowDownCircle className="h-6 w-6" />}
-            color="blue"
-            isLoading={stats.isLoading}
-          />
-          <DashboardStatCard
-            title="Total"
-            value={transactions?.length || 0}
+            title="A pagar"
+            value={kpis.aPagar}
             variation={0}
             icon={<ArrowUpCircle className="h-6 w-6" />}
             color="orange"
+            isLoading={isLoading}
+          />
+          <DashboardStatCard
+            title="A receber"
+            value={kpis.aReceber}
+            variation={0}
+            icon={<ArrowDownCircle className="h-6 w-6" />}
+            color="blue"
             isLoading={isLoading}
           />
         </div>
@@ -237,6 +281,28 @@ export default function Lancamentos() {
                         <Badge variant="outline" className="text-xs">
                           {transaction.categoria}
                         </Badge>
+                        {/* Status badge */}
+                        {transaction.status === "pending" && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs",
+                              transaction.pendingKind === "to_receive"
+                                ? "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+                                : "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+                            )}
+                          >
+                            {transaction.pendingKind === "to_receive" ? "A receber" : "A pagar"}
+                          </Badge>
+                        )}
+                        {(!transaction.status || transaction.status === "paid") && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                          >
+                            Pago
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
