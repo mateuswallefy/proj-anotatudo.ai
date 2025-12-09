@@ -1,21 +1,11 @@
-import { useTab, TabType } from "@/contexts/TabContext";
+import { useTab } from "@/contexts/TabContext";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { 
-  LayoutDashboard, 
-  Receipt, 
-  Wallet, 
-  Target, 
-  Lightbulb, 
-  Settings,
   Shield,
   User,
-  LogOut,
-  Calendar,
-  FileText,
-  Tag,
-  TrendingUp
+  LogOut
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,21 +31,8 @@ import {
 import { logout } from "@/lib/auth";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 
-const tabs: Array<{ id: TabType; label: string; icon: any }> = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "transacoes", label: "Lançamentos", icon: Receipt },
-  { id: "contas", label: "Contas & Cartões", icon: Wallet },
-  { id: "agenda", label: "Agenda", icon: Calendar },
-  { id: "metas", label: "Metas", icon: Target },
-  { id: "relatorios", label: "Relatórios", icon: FileText },
-  { id: "categorias", label: "Categorias", icon: Tag },
-  { id: "tetos", label: "Tetos", icon: TrendingUp },
-  { id: "insights", label: "Insights", icon: Lightbulb },
-  { id: "configuracoes", label: "Configurações", icon: Settings },
-];
-
 export function NavBar() {
-  const { activeTab, setActiveTab } = useTab();
+  const { setActiveTab } = useTab();
   const { period, setPeriod } = usePeriod();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -76,28 +53,6 @@ export function NavBar() {
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <Logo className="h-14" />
-          </div>
-
-          {/* Tabs */}
-          <div className="flex items-center gap-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              
-              return (
-                <Button
-                  key={tab.id}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`gap-2 ${isActive ? 'bg-accent' : ''}`}
-                  data-testid={`tab-${tab.id}`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden xl:inline">{tab.label}</span>
-                </Button>
-              );
-            })}
           </div>
         </div>
 
