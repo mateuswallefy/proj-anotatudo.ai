@@ -13,12 +13,12 @@ export function SectionTitle({ children, className, subtitle, action }: SectionT
     <div className={cn("flex items-start justify-between gap-4 mb-5 md:mb-6", className)}>
       <div className="flex-1">
         <h3 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-          {children}
-        </h3>
-        {subtitle && (
+        {children}
+      </h3>
+      {subtitle && (
           <p className="text-sm md:text-base text-[var(--text-secondary)] mt-1.5 leading-relaxed">
-            {subtitle}
-          </p>
+          {subtitle}
+        </p>
         )}
       </div>
       {action && (

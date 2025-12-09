@@ -47,7 +47,7 @@ async function runDatabaseSetup() {
   try {
     // Initialize database connection FIRST (before routes that might use it)
     await initializeDatabaseAsync();
-    
+
     // Setup static files in production ONLY
     // In development, Vite runs separately on port 5173
     if (isProd) {
@@ -63,31 +63,31 @@ async function runDatabaseSetup() {
     }
     
     // Apply middleware
-    app.set("trust proxy", 1);
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: false }));
+app.set("trust proxy", 1);
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-    // Diagnostic endpoint (no DB connection required)
-    app.get("/_db-check", (req, res) => {
-      const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
-      const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
-      const isNeon = dbUrl.includes("neon");
-      const isBrazil = dbUrl.includes("sa-east-1");
-      
-      res.json({
-        status: "ok",
-        database: isNeon ? "NEON" : "UNKNOWN",
-        url: maskedUrl,
-        region: isBrazil ? "sa-east-1 (Brazil)" : "other",
-        source: process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL (secure)" : "DATABASE_URL",
-        env: process.env.NODE_ENV || "development",
-        timestamp: new Date().toISOString(),
-        correct: isNeon ? "YES - Using Neon via secure env var" : "NO - Check configuration"
-      });
-    });
+// Diagnostic endpoint (no DB connection required)
+app.get("/_db-check", (req, res) => {
+  const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
+  const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
+  const isNeon = dbUrl.includes("neon");
+  const isBrazil = dbUrl.includes("sa-east-1");
+  
+  res.json({
+    status: "ok",
+    database: isNeon ? "NEON" : "UNKNOWN",
+    url: maskedUrl,
+    region: isBrazil ? "sa-east-1 (Brazil)" : "other",
+    source: process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL (secure)" : "DATABASE_URL",
+    env: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+    correct: isNeon ? "YES - Using Neon via secure env var" : "NO - Check configuration"
+  });
+});
 
-    app.get("/_health", (req, res) => res.status(200).send("OK"));
-    
+app.get("/_health", (req, res) => res.status(200).send("OK"));
+
     // Session middleware - ONLY for /api and /admin routes
     app.use("/api", getSession());
     app.use("/admin", getSession());
