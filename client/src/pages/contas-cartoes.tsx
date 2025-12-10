@@ -38,6 +38,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conta, Cartao } from "@shared/schema";
 import { insertContaSchema, insertCartaoSchema } from "@shared/schema";
+import { NovaContaDialog } from "@/components/contas/NovaContaDialog";
+import { NovoCartaoDialog } from "@/components/contas/NovoCartaoDialog";
 
 const contaSchema = insertContaSchema.extend({
   saldoInicial: z.coerce.number().optional().default(0),
@@ -54,6 +56,8 @@ export default function ContasCartoes() {
   const [cartaoDialogOpen, setCartaoDialogOpen] = useState(false);
   const [editingConta, setEditingConta] = useState<Conta | null>(null);
   const [editingCartao, setEditingCartao] = useState<Cartao | null>(null);
+  const [openConta, setOpenConta] = useState(false);
+  const [openCartao, setOpenCartao] = useState(false);
 
   const { data: contas, isLoading: loadingContas } = useQuery<Conta[]>({
     queryKey: ["/api/contas"],
@@ -711,6 +715,10 @@ export default function ContasCartoes() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Novos diálogos usando AppDialog */}
+        <NovaContaDialog open={openConta} onOpenChange={setOpenConta} />
+        <NovoCartaoDialog open={openCartao} onOpenChange={setOpenCartao} />
       </div>
     </DashboardContainer>
   );
