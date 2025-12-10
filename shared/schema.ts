@@ -138,8 +138,9 @@ export const insertTransacaoSchema = createInsertSchema(transacoes).omit({
   dataRegistro: true,
 }).extend({
   // Make new fields optional for backward compatibility
+  // IMPORTANT: pendingKind can be null (when paid), undefined (not provided), or a value (when pending)
   status: z.enum(["paid", "pending"]).optional(),
-  pendingKind: z.enum(["to_receive", "to_pay"]).optional(),
+  pendingKind: z.enum(["to_receive", "to_pay"]).nullable().optional(),
   paymentMethod: z.enum(["cash", "pix", "transfer", "credit_card", "debit_card", "boleto", "other"]).optional(),
 });
 

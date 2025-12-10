@@ -487,36 +487,57 @@ export async function registerRoutes(app: Express): Promise<void> {
       const userId = req.session.userId;
       
       // Prepare data with defaults for backward compatibility
-      // IMPORTANT: Use nullish coalescing (??) to preserve "pending" status
+      // IMPORTANT: Preserve explicit values from frontend
+      let finalStatus = req.body.status;
+      let finalPendingKind = req.body.pendingKind;
+      
+      // If status is explicitly provided, use it; otherwise default to "paid"
+      if (finalStatus === undefined || finalStatus === null) {
+        finalStatus = "paid";
+      }
+      
+      // If pendingKind is explicitly provided (including null), use it
+      // Otherwise, infer from status if pending, or set to null if paid
+      if (finalPendingKind === undefined) {
+        if (finalStatus === "pending") {
+          finalPendingKind = req.body.tipo === "entrada" ? "to_receive" : "to_pay";
+        } else {
+          finalPendingKind = null;
+        }
+      }
+      // If pendingKind is explicitly null and status is paid, keep it as null
+      // If pendingKind is explicitly set and status is pending, keep it
+      
       const requestData = {
         ...req.body,
         userId,
-        // Set defaults ONLY if not provided (backward compatibility)
-        // Use ?? instead of || to preserve "pending" status
-        status: req.body.status ?? "paid",
+        status: finalStatus,
         paymentMethod: req.body.paymentMethod ?? "other",
-        // Set pendingKind: use provided value, or infer from status if pending, or null
-        pendingKind: req.body.pendingKind ?? (req.body.status === "pending" 
-          ? (req.body.tipo === "entrada" ? "to_receive" : "to_pay")
-          : null),
+        pendingKind: finalPendingKind,
       };
       
       // Log for debugging (can be removed later)
-      console.log("[POST /api/transacoes] Request body:", {
+      console.log("[POST /api/transacoes] Request body (raw):", {
         tipo: req.body.tipo,
         status: req.body.status,
         pendingKind: req.body.pendingKind,
+        pendingKindType: typeof req.body.pendingKind,
+      });
+      
+      console.log("[POST /api/transacoes] Request data (processed):", {
         finalStatus: requestData.status,
         finalPendingKind: requestData.pendingKind,
+        finalPendingKindType: typeof requestData.pendingKind,
       });
       
       const data = insertTransacaoSchema.parse(requestData);
       
       // Log parsed data before saving (can be removed later)
-      console.log("[POST /api/transacoes] Parsed data:", {
+      console.log("[POST /api/transacoes] Parsed data (after Zod):", {
         tipo: data.tipo,
         status: data.status,
         pendingKind: data.pendingKind,
+        pendingKindType: typeof data.pendingKind,
         paymentMethod: data.paymentMethod,
       });
       

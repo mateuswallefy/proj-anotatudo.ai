@@ -224,7 +224,8 @@ function NewIncomeDialog({
   const createMutation = useMutation({
     mutationFn: async (data: IncomeFormData) => {
       // Map status and pendingKind correctly based on form values
-      const status = data.status || "paid";
+      // IMPORTANT: Use the exact values from the form, don't use || which can override "pending"
+      const status = data.status === "pending" ? "pending" : "paid";
       const pendingKind = status === "pending" 
         ? (data.pendingKind || "to_receive") 
         : null; // Explicitly set to null when paid
@@ -246,6 +247,8 @@ function NewIncomeDialog({
 
       // Debug log (remove after testing)
       console.log("[NewIncomeDialog] Payload transacao:", JSON.stringify(payload, null, 2));
+      console.log("[NewIncomeDialog] Form data.status:", data.status);
+      console.log("[NewIncomeDialog] Form data.pendingKind:", data.pendingKind);
 
       return await apiRequest("POST", "/api/transacoes", payload);
     },
@@ -615,7 +618,8 @@ function NewExpenseDialog({
   const createMutation = useMutation({
     mutationFn: async (data: ExpenseFormData) => {
       // Map status and pendingKind correctly based on form values
-      const status = data.status || "paid";
+      // IMPORTANT: Use the exact values from the form, don't use || which can override "pending"
+      const status = data.status === "pending" ? "pending" : "paid";
       const pendingKind = status === "pending" 
         ? (data.pendingKind || "to_pay") 
         : null; // Explicitly set to null when paid
@@ -641,6 +645,8 @@ function NewExpenseDialog({
 
       // Debug log (remove after testing)
       console.log("[NewExpenseDialog] Payload transacao:", JSON.stringify(payload, null, 2));
+      console.log("[NewExpenseDialog] Form data.status:", data.status);
+      console.log("[NewExpenseDialog] Form data.pendingKind:", data.pendingKind);
 
       return await apiRequest("POST", "/api/transacoes", payload);
     },
