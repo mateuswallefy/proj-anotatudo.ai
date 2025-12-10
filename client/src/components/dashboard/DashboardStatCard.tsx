@@ -77,7 +77,8 @@ export function DashboardStatCard({
       className={cn(
         "rounded-[20px] border bg-card p-4 transition-all hover:shadow-md",
         "shadow-[0_2px_8px_rgba(0,0,0,0.05)]",
-        colors.border
+        colors.border,
+        "flex flex-col h-full"
       )}
     >
       <div className="flex items-center justify-between mb-3">
@@ -104,11 +105,11 @@ export function DashboardStatCard({
         </div>
       </div>
 
-      <div>
+      <div className="flex-1 flex flex-col justify-end">
         <p className="text-xs font-medium text-muted-foreground mb-1.5">
           {title}
         </p>
-        <p className="text-xl sm:text-2xl font-bold text-foreground mb-1">
+        <p className="text-2xl sm:text-3xl font-bold text-foreground mb-1 leading-tight">
           {formatCurrency(value)}
         </p>
         <p className="text-[10px] text-muted-foreground">

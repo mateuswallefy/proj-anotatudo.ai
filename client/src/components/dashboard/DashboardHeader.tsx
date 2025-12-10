@@ -40,7 +40,7 @@ export function DashboardHeader() {
       {/* Calendar and Date */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4 text-[#005CA9]" />
+          <Calendar className="h-4 w-4 text-[#F39200]" />
           <span className="capitalize">{formatDate()}</span>
         </div>
         <DashboardPeriodTabs />
@@ -50,8 +50,8 @@ export function DashboardHeader() {
       {!dismissedTip && (
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border border-blue-200 dark:border-blue-800 rounded-[20px] p-4 flex items-start gap-3 relative">
           {/* Astro Avatar */}
-          <div className="flex-shrink-0 w-12 h-12 bg-[#005CA9] rounded-full flex items-center justify-center shadow-sm">
-            <span className="text-white text-xl font-bold">🌟</span>
+          <div className="flex-shrink-0 w-12 h-12 bg-[#005CA9] rounded-[20px] flex items-center justify-center shadow-sm">
+            <span className="text-white text-xl">⭐</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">

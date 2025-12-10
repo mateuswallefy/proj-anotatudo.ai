@@ -69,7 +69,9 @@ export function MobileDrawer() {
         <div className="flex items-center gap-3">
           <Logo className="h-8 text-white" />
           <div>
-            <p className="text-base font-bold text-white">AnotaTudo.AI</p>
+            <p className="text-base font-bold text-white">
+              Anota<span className="text-[#F39200]">Tudo</span>.AI
+            </p>
             <p className="text-xs text-white/80">Seu controle financeiro</p>
           </div>
         </div>
@@ -122,9 +124,11 @@ export function MobileDrawer() {
           </Avatar>
           <div className="flex-1 min-w-0 text-center">
             <p className="text-sm font-semibold text-white">
-              {user?.firstName && user?.lastName
-                ? `${user.firstName} ${user.lastName}`
-                : user?.firstName || user?.email || "Usuário"}
+              <span className="text-[#F39200]">
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : user?.firstName || user?.email || "Usuário"}
+              </span>
             </p>
             <p className="text-xs text-white/70">{user?.email || ""}</p>
           </div>

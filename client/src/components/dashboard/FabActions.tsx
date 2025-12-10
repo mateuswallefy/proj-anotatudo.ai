@@ -106,7 +106,7 @@ export function FabActions() {
               animate={{ rotate: isOpen ? 45 : 0 }}
               transition={{ duration: 0.2 }}
             >
-              <Plus className="h-6 w-6 sm:h-7 sm:w-7" />
+              <Plus className="h-6 w-6 sm:h-7 sm:w-7 text-[#F39200]" />
             </motion.div>
           </Button>
         </motion.div>

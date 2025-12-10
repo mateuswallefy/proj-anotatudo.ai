@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { usePeriod } from "@/contexts/PeriodContext";
+import { format } from "date-fns";
+import { useDashboardPeriod } from "./useDashboardPeriod";
 import type { Transacao } from "@shared/schema";
 
 interface DashboardStats {
@@ -14,47 +15,48 @@ interface DashboardStats {
 }
 
 export function useDashboardStats(): DashboardStats {
-  const { period } = usePeriod();
+  const { dateRange, previousDateRange } = useDashboardPeriod();
 
-  // Parse period
-  const [year, month] = period
-    ? period.split("-").map(Number)
-    : [new Date().getFullYear(), new Date().getMonth() + 1];
+  // Format dates for API
+  const startDate = format(dateRange.start, "yyyy-MM-dd");
+  const endDate = format(dateRange.end, "yyyy-MM-dd");
+  const prevStartDate = format(previousDateRange.start, "yyyy-MM-dd");
+  const prevEndDate = format(previousDateRange.end, "yyyy-MM-dd");
 
   // Fetch current period transactions
   const { data: transactions, isLoading: loadingCurrent } = useQuery<
     Transacao[]
   >({
-    queryKey: ["/api/transacoes", { period }],
+    queryKey: ["/api/transacoes", { startDate, endDate }],
     queryFn: async () => {
-      const response = await fetch(`/api/transacoes?period=${period}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `/api/transacoes?startDate=${startDate}&endDate=${endDate}`,
+        {
+          credentials: "include",
+        }
+      );
       if (!response.ok) throw new Error("Failed to fetch transactions");
       return response.json();
     },
   });
 
   // Fetch previous period for comparison
-  const previousMonth = new Date(year, month - 2, 1);
-  const previousPeriod = `${previousMonth.getFullYear()}-${String(
-    previousMonth.getMonth() + 1
-  ).padStart(2, "0")}`;
-
   const { data: previousTransactions } = useQuery<Transacao[]>({
-    queryKey: ["/api/transacoes", { period: previousPeriod }],
+    queryKey: ["/api/transacoes", { startDate: prevStartDate, endDate: prevEndDate }],
     queryFn: async () => {
       const response = await fetch(
-        `/api/transacoes?period=${previousPeriod}`,
+        `/api/transacoes?startDate=${prevStartDate}&endDate=${prevEndDate}`,
         { credentials: "include" }
       );
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: !!period,
   });
 
-  // Fetch cards overview for invoices
+  // Fetch cards overview for invoices (using current month for now)
+  const year = dateRange.start.getFullYear();
+  const month = dateRange.start.getMonth() + 1;
+  
   const { data: cardsOverview } = useQuery({
     queryKey: ["/api/credit-cards/overview", { year, month }],
     queryFn: async () => {
