@@ -8,7 +8,7 @@ import { DashboardAgendaWidget } from "@/components/dashboard/DashboardAgendaWid
 import { DashboardLastMovements } from "@/components/dashboard/DashboardLastMovements";
 import { DashboardMonthlyBalance } from "@/components/dashboard/DashboardMonthlyBalance";
 import { DashboardCategoryChart } from "@/components/dashboard/DashboardCategoryChart";
-import { DashboardFabActions } from "@/components/dashboard/DashboardFabActions";
+import { FabActions } from "@/components/dashboard/FabActions";
 
 export default function Dashboard() {
   const stats = useDashboardStats();
@@ -70,7 +70,7 @@ export default function Dashboard() {
       </div>
 
       {/* FAB */}
-      <DashboardFabActions />
+      <FabActions />
     </DashboardContainer>
   );
 }
