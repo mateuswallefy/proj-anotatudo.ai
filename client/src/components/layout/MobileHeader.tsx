@@ -36,13 +36,13 @@ export function MobileHeader({ onMenuOpen }: MobileHeaderProps) {
 
         {/* Center: Logo */}
         <div className="flex items-center justify-center flex-1">
-          <Logo className="h-10 text-white" />
+          <Logo className="h-10" white />
         </div>
 
         {/* Right: Avatar */}
-        <Avatar className="h-10 w-10 border-2 border-white">
+        <Avatar className="h-10 w-10 border-2 border-[#F39200] hover:border-[#003F73] transition-colors">
           <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-          <AvatarFallback className="bg-white/20 text-white text-sm font-semibold">
+          <AvatarFallback className="bg-[#F39200]/20 text-white text-sm font-semibold">
             {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
           </AvatarFallback>
         </Avatar>

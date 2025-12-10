@@ -116,9 +116,9 @@ export function MobileDrawer() {
       {/* User Profile Section */}
       <div className="px-4 py-4 border-t border-white/20">
         <div className="flex flex-col items-center gap-3 mb-4">
-          <Avatar className="h-16 w-16 border-2 border-white">
+          <Avatar className="h-16 w-16 border-2 border-[#F39200] hover:border-[#003F73] transition-colors">
             <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-            <AvatarFallback className="bg-white/20 text-white text-lg font-semibold">
+            <AvatarFallback className="bg-[#F39200]/20 text-white text-lg font-semibold">
               {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
