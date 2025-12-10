@@ -75,15 +75,15 @@ export function DashboardStatCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-6 transition-all hover:shadow-lg",
+        "rounded-2xl border p-4 sm:p-6 transition-all hover:shadow-lg",
         colors.bg,
         colors.border
       )}
     >
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-3 sm:mb-4">
         <div
           className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center text-white",
+            "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white",
             colors.icon
           )}
         >
@@ -105,10 +105,10 @@ export function DashboardStatCard({
       </div>
 
       <div>
-        <p className="text-sm font-medium text-muted-foreground mb-2">
+        <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2">
           {title}
         </p>
-        <p className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+        <p className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1">
           {formatCurrency(value)}
         </p>
         <p className="text-xs text-muted-foreground">

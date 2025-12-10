@@ -19,7 +19,7 @@ export function DashboardFabActions() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3">
         {/* Action Buttons */}
         <div
           className={cn(
@@ -31,17 +31,17 @@ export function DashboardFabActions() {
         >
           <Button
             size="lg"
-            className="rounded-full h-14 w-14 shadow-lg bg-emerald-500 hover:bg-emerald-600 text-white"
+            className="rounded-full h-12 w-12 sm:h-14 sm:w-14 shadow-lg bg-emerald-500 hover:bg-emerald-600 text-white"
             onClick={() => handleOpenDialog("entrada")}
           >
-            <ArrowDownCircle className="h-6 w-6" />
+            <ArrowDownCircle className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
           <Button
             size="lg"
-            className="rounded-full h-14 w-14 shadow-lg bg-pink-500 hover:bg-pink-600 text-white"
+            className="rounded-full h-12 w-12 sm:h-14 sm:w-14 shadow-lg bg-pink-500 hover:bg-pink-600 text-white"
             onClick={() => handleOpenDialog("saida")}
           >
-            <ArrowUpCircle className="h-6 w-6" />
+            <ArrowUpCircle className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
         </div>
 
@@ -49,17 +49,17 @@ export function DashboardFabActions() {
         <Button
           size="lg"
           className={cn(
-            "rounded-full h-16 w-16 shadow-xl transition-all duration-300",
+            "rounded-full h-14 w-14 sm:h-16 sm:w-16 shadow-xl transition-all duration-300",
             isOpen
               ? "bg-red-500 hover:bg-red-600 rotate-45"
-              : "bg-primary hover:bg-primary/90"
+              : "bg-[#6C47FF] hover:bg-[#5B36E6]"
           )}
           onClick={() => setIsOpen(!isOpen)}
         >
           {isOpen ? (
-            <X className="h-6 w-6 text-white" />
+            <X className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           ) : (
-            <Plus className="h-6 w-6 text-white" />
+            <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           )}
         </Button>
       </div>

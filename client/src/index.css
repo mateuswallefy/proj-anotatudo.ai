@@ -20,7 +20,9 @@
   --text-secondary: #6B5A99;
   
   /* Accents Light */
-  --accent-primary: #6A24FF;
+  --accent-primary: #6C47FF;
+  --accent-primary-hover: #5B36E6;
+  --accent-primary-pill: rgba(255, 255, 255, 0.15);
   --accent-secondary: #2643FF;
   --accent-success: #00C26F;
   --accent-warning: #FFAA33;
@@ -166,7 +168,9 @@
   --text-secondary: #A9A4C8;
   
   /* Accents Dark (NEON) */
-  --accent-primary: #A586FF;
+  --accent-primary: #6C47FF;
+  --accent-primary-hover: #5B36E6;
+  --accent-primary-pill: rgba(255, 255, 255, 0.15);
   --accent-secondary: #5F77FF;
   --accent-success: #00F2A9;
   --accent-warning: #FFCC66;

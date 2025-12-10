@@ -1,11 +1,11 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { MobileNavDrawer } from "./MobileNavDrawer";
+import { MobileDrawer } from "./MobileDrawer";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface MobileHeaderProps {
   onMenuOpen?: () => void;
@@ -30,8 +30,8 @@ export function MobileHeader({ onMenuOpen }: MobileHeaderProps) {
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-80 p-0">
-            <MobileNavDrawer />
+          <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 border-0 [&>button]:hidden">
+            <MobileDrawer />
           </SheetContent>
         </Sheet>
 
@@ -45,11 +45,11 @@ export function MobileHeader({ onMenuOpen }: MobileHeaderProps) {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Avatar className="h-8 w-8">
-          <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-            {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
-          </AvatarFallback>
-        </Avatar>
+            <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+            <AvatarFallback className="bg-[#6C47FF] text-white text-xs">
+              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </div>
     </header>

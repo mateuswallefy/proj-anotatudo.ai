@@ -3,7 +3,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavBar } from "@/components/NavBar";
-import { BottomNavigation } from "@/components/BottomNavigation";
 import { PeriodSelectorBar } from "@/components/layout/PeriodSelectorBar";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
@@ -56,7 +55,7 @@ function AuthenticatedShell() {
         <PeriodSelectorBar />
       </div>
       
-      <main className="flex-1 overflow-auto w-full pb-14 lg:pb-0">
+      <main className="flex-1 overflow-auto w-full">
         <div className="w-full" style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
           <Dashboard />
         </div>
@@ -89,7 +88,6 @@ function AuthenticatedShell() {
         </div>
       </main>
 
-      <BottomNavigation />
       <Toaster />
     </div>
   );
