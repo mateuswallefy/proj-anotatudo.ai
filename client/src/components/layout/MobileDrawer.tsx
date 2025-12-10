@@ -63,16 +63,14 @@ export function MobileDrawer() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#6C47FF] text-white">
+    <div className="flex flex-col h-full bg-[#005CA9] text-white">
       {/* Header with Logo and Close */}
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
-            <Logo className="h-6" />
-          </div>
+          <Logo className="h-8 text-white" />
           <div>
-            <p className="text-sm font-semibold text-white">AnotaTudo.AI</p>
-            <p className="text-xs text-white/70">Seu controle financeiro</p>
+            <p className="text-base font-bold text-white">AnotaTudo.AI</p>
+            <p className="text-xs text-white/80">Seu controle financeiro</p>
           </div>
         </div>
         <SheetClose asChild>
@@ -115,20 +113,20 @@ export function MobileDrawer() {
 
       {/* User Profile Section */}
       <div className="px-4 py-4 border-t border-white/20">
-        <div className="flex items-center gap-3 mb-4">
-          <Avatar className="h-12 w-12 border-2 border-white/20">
+        <div className="flex flex-col items-center gap-3 mb-4">
+          <Avatar className="h-16 w-16 border-2 border-white">
             <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-            <AvatarFallback className="bg-white/20 text-white">
+            <AvatarFallback className="bg-white/20 text-white text-lg font-semibold">
               {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
+          <div className="flex-1 min-w-0 text-center">
+            <p className="text-sm font-semibold text-white">
               {user?.firstName && user?.lastName
                 ? `${user.firstName} ${user.lastName}`
                 : user?.firstName || user?.email || "Usuário"}
             </p>
-            <p className="text-xs text-white/70 truncate">{user?.email || ""}</p>
+            <p className="text-xs text-white/70">{user?.email || ""}</p>
           </div>
         </div>
 

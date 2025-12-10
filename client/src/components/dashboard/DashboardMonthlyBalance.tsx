@@ -61,11 +61,11 @@ export function DashboardMonthlyBalance() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-2xl">
-        <CardHeader>
+      <Card className="rounded-[20px]">
+        <CardHeader className="p-4 sm:p-6">
           <Skeleton className="h-6 w-48" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <Skeleton className="h-[300px] w-full" />
         </CardContent>
       </Card>
@@ -73,11 +73,11 @@ export function DashboardMonthlyBalance() {
   }
 
   return (
-    <Card className="rounded-2xl">
-      <CardHeader>
+    <Card className="rounded-[20px]">
+      <CardHeader className="p-4 sm:p-6">
         <CardTitle>Balanço Mensal</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 sm:p-6">
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>

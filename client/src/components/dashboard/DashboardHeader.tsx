@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
-import { X, Lightbulb } from "lucide-react";
+import { X, Lightbulb, Calendar } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DashboardPeriodTabs } from "./DashboardPeriodTabs";
@@ -30,40 +30,46 @@ export function DashboardHeader() {
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* Greeting and Date */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-            {getGreeting()}, {user?.firstName || "Usuário"}
-          </h1>
-          <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 capitalize">
-            {formatDate()}
-          </p>
+      {/* Greeting */}
+      <div>
+        <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-foreground">
+          {getGreeting()}, {user?.firstName || "Usuário"}
+        </h1>
+      </div>
+
+      {/* Calendar and Date */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Calendar className="h-4 w-4 text-[#005CA9]" />
+          <span className="capitalize">{formatDate()}</span>
         </div>
         <DashboardPeriodTabs />
       </div>
 
-      {/* Tip Banner */}
+      {/* Tip Banner with Astro */}
       {!dismissedTip && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border border-blue-200 dark:border-blue-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
-          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 rounded-lg sm:rounded-xl flex items-center justify-center">
-            <Lightbulb className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border border-blue-200 dark:border-blue-800 rounded-[20px] p-4 flex items-start gap-3 relative">
+          {/* Astro Avatar */}
+          <div className="flex-shrink-0 w-12 h-12 bg-[#005CA9] rounded-full flex items-center justify-center shadow-sm">
+            <span className="text-white text-xl font-bold">🌟</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-xs sm:text-sm mb-1">Dica do dia</h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-sm">Dica do dia</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0 h-6 w-6"
+                onClick={handleDismissTip}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
             <p className="text-xs sm:text-sm text-muted-foreground">
               Organize suas finanças categorizando todas as transações. Isso
               ajuda a entender melhor seus gastos!
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8"
-            onClick={handleDismissTip}
-          >
-            <X className="h-3 w-3 sm:h-4 sm:w-4" />
-          </Button>
         </div>
       )}
     </div>

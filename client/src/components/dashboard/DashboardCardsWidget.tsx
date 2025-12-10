@@ -36,8 +36,8 @@ export function DashboardCardsWidget() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-2xl">
-        <CardContent className="p-6">
+      <Card className="rounded-[20px]">
+        <CardContent className="p-4 sm:p-6">
           <Skeleton className="h-6 w-32 mb-4" />
           <div className="space-y-3">
             {[1, 2].map((i) => (
@@ -52,8 +52,8 @@ export function DashboardCardsWidget() {
   const displayCards = cards?.slice(0, 3) || [];
 
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="p-6">
+    <Card className="rounded-[20px]">
+      <CardContent className="p-4 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold">Meus Cartões</h3>
           <Button

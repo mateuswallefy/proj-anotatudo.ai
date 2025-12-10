@@ -19,13 +19,13 @@
   --text-primary: #1A1333;
   --text-secondary: #6B5A99;
   
-  /* Accents Light */
-  --accent-primary: #6C47FF;
-  --accent-primary-hover: #5B36E6;
+  /* Accents Light - CAIXA */
+  --accent-primary: #005CA9;
+  --accent-primary-hover: #003f73;
   --accent-primary-pill: rgba(255, 255, 255, 0.15);
-  --accent-secondary: #2643FF;
+  --accent-secondary: #F39200;
   --accent-success: #00C26F;
-  --accent-warning: #FFAA33;
+  --accent-warning: #F39200;
   --accent-danger: #FF5577;
   
   /* Radius */
@@ -39,11 +39,11 @@
   --glow-secondary: rgba(95,119,255,0.15);
   --glow-green: rgba(0,242,169,0.18);
   
-  /* Compatibilidade com tokens antigos */
+  /* Compatibilidade com tokens antigos - CAIXA */
   --accent-green: #00C26F;
-  --accent-blue: #2643FF;
-  --accent-purple: #6A24FF;
-  --accent-orange: #FFAA33;
+  --accent-blue: #005CA9;
+  --accent-purple: #005CA9;
+  --accent-orange: #F39200;
   
   /* Neutral Azulado Sofisticado (mantido para compatibilidade) */
   --background: 210 17% 98%;
@@ -167,13 +167,13 @@
   --text-primary: #F5F4FF;
   --text-secondary: #A9A4C8;
   
-  /* Accents Dark (NEON) */
-  --accent-primary: #6C47FF;
-  --accent-primary-hover: #5B36E6;
+  /* Accents Dark - CAIXA */
+  --accent-primary: #005CA9;
+  --accent-primary-hover: #003f73;
   --accent-primary-pill: rgba(255, 255, 255, 0.15);
-  --accent-secondary: #5F77FF;
+  --accent-secondary: #F39200;
   --accent-success: #00F2A9;
-  --accent-warning: #FFCC66;
+  --accent-warning: #F39200;
   --accent-danger: #FF7A9C;
   
   /* Glows Dark Mode */
@@ -181,11 +181,11 @@
   --glow-secondary: rgba(95,119,255,0.15);
   --glow-green: rgba(0,242,169,0.18);
   
-  /* Compatibilidade com tokens antigos */
+  /* Compatibilidade com tokens antigos - CAIXA */
   --accent-green: #00F2A9;
-  --accent-blue: #5F77FF;
-  --accent-purple: #A586FF;
-  --accent-orange: #FFCC66;
+  --accent-blue: #005CA9;
+  --accent-purple: #005CA9;
+  --accent-orange: #F39200;
   
   /* Dark Mode - Neutros azulados profundos (mantido para compatibilidade) */
   --background: 214 28% 6%;

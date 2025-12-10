@@ -69,8 +69,8 @@ export function DashboardAgendaWidget() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-2xl">
-        <CardContent className="p-6">
+      <Card className="rounded-[20px]">
+        <CardContent className="p-4 sm:p-6">
           <Skeleton className="h-6 w-32 mb-4" />
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -83,8 +83,8 @@ export function DashboardAgendaWidget() {
   }
 
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="p-6">
+    <Card className="rounded-[20px]">
+      <CardContent className="p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-6">
           <Calendar className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-semibold">Agenda Financeira</h3>

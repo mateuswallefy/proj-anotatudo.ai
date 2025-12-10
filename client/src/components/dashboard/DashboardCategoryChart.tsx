@@ -47,11 +47,11 @@ export function DashboardCategoryChart() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-2xl">
-        <CardHeader>
+      <Card className="rounded-[20px]">
+        <CardHeader className="p-4 sm:p-6">
           <Skeleton className="h-6 w-48" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <Skeleton className="h-[300px] w-full rounded-xl" />
         </CardContent>
       </Card>
@@ -60,11 +60,11 @@ export function DashboardCategoryChart() {
 
   if (data.length === 0) {
     return (
-      <Card className="rounded-2xl">
-        <CardHeader>
+      <Card className="rounded-[20px]">
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle>Gastos por Categoria</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <div className="text-center py-12">
             <p className="text-sm text-muted-foreground">
               Nenhum gasto registrado ainda
@@ -76,11 +76,11 @@ export function DashboardCategoryChart() {
   }
 
   return (
-    <Card className="rounded-2xl">
-      <CardHeader>
+    <Card className="rounded-[20px]">
+      <CardHeader className="p-4 sm:p-6">
         <CardTitle>Gastos por Categoria</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 sm:p-6">
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie

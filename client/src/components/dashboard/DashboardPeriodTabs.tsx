@@ -13,7 +13,7 @@ export function DashboardPeriodTabs() {
   // Weekly and daily views would require additional implementation
 
   return (
-    <div className="flex items-center gap-2 bg-muted rounded-xl p-1">
+    <div className="flex items-center gap-2 bg-muted rounded-full p-1">
       <Button
         variant={activeTab === "mensal" ? "default" : "ghost"}
         size="sm"
@@ -22,8 +22,8 @@ export function DashboardPeriodTabs() {
           goToCurrentMonth();
         }}
         className={cn(
-          "rounded-lg",
-          activeTab === "mensal" && "shadow-sm"
+          "rounded-full px-4",
+          activeTab === "mensal" && "bg-[#005CA9] hover:bg-[#003f73] text-white shadow-sm"
         )}
       >
         Mensal
@@ -33,8 +33,8 @@ export function DashboardPeriodTabs() {
         size="sm"
         onClick={() => setActiveTab("semanal")}
         className={cn(
-          "rounded-lg",
-          activeTab === "semanal" && "shadow-sm"
+          "rounded-full px-4",
+          activeTab === "semanal" && "bg-[#005CA9] hover:bg-[#003f73] text-white shadow-sm"
         )}
         disabled
       >
@@ -45,8 +45,8 @@ export function DashboardPeriodTabs() {
         size="sm"
         onClick={() => setActiveTab("diario")}
         className={cn(
-          "rounded-lg",
-          activeTab === "diario" && "shadow-sm"
+          "rounded-full px-4",
+          activeTab === "diario" && "bg-[#005CA9] hover:bg-[#003f73] text-white shadow-sm"
         )}
         disabled
       >
