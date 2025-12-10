@@ -17,12 +17,17 @@ import {
   User,
   HelpCircle,
   X,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Logo } from "@/components/Logo";
 import { SheetClose } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+
+// Componente do símbolo da logo (apenas ícone)
+function LogoSymbol() {
+  return <ClipboardList className="h-6 w-6 text-white" />;
+}
 
 interface MenuItem {
   id: string;
@@ -65,22 +70,22 @@ export function MobileDrawer() {
   return (
     <div className="flex flex-col h-full bg-[#005CA9] text-white overflow-hidden">
       {/* Header compacto com Logo e Close */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <Logo className="h-6" white />
-          <div className="flex flex-col">
-            <span className="text-white font-semibold text-sm">AnotaTudo</span>
-            <span className="text-white/70 text-xs">Seu controle financeiro</span>
-          </div>
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
+        <div className="h-10 w-10 rounded-full bg-[#F39200] flex items-center justify-center flex-shrink-0">
+          <LogoSymbol />
+        </div>
+        <div className="flex flex-col flex-1 min-w-0">
+          <span className="text-white font-semibold text-base leading-tight">
+            AnotaTudo
+          </span>
+          <span className="text-white/70 text-xs leading-tight">
+            Seu controle financeiro
+          </span>
         </div>
         <SheetClose asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-white hover:bg-white/10 rounded-full"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <button className="ml-auto text-white/80 hover:text-white transition-colors flex-shrink-0">
+            <X className="h-5 w-5" />
+          </button>
         </SheetClose>
       </div>
 
