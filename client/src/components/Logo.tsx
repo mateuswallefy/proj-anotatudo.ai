@@ -30,14 +30,14 @@ export function Logo({ className = "h-8", white = false }: LogoProps) {
         {/* Círculo - branco com borda */}
         <circle cx="65" cy="45" r="10" fill="#FFFFFF" stroke="#005CA9" strokeWidth="2"/>
         
-        {/* Texto AnotaTudo.AI - branco */}
+        {/* Texto AnotaTudo - branco */}
         <text 
           x="110" 
           y="75" 
           fill="#FFFFFF"
           style={{ fontSize: '36px', fontWeight: 'bold', fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-1.5px' }}
         >
-          AnotaTudo<tspan fill="#FFFFFF">.AI</tspan>
+          AnotaTudo
         </text>
       </svg>
     );
