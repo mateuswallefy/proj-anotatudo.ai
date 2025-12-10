@@ -1,10 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale/pt-BR";
-import { X, Lightbulb, Calendar } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DashboardPeriodTabs } from "./DashboardPeriodTabs";
+import { DashboardCalendar } from "./DashboardCalendar";
 
 export function DashboardHeader() {
   const { user } = useAuth();
@@ -47,12 +46,9 @@ export function DashboardHeader() {
         </h1>
       </div>
 
-      {/* Calendar and Date */}
+      {/* Calendar and Period Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4 text-[#F39200]" />
-          <span className="capitalize">{formatDate()}</span>
-        </div>
+        <DashboardCalendar />
         <DashboardPeriodTabs />
       </div>
 

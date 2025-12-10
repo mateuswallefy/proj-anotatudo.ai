@@ -1,17 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { ArrowDownCircle, ArrowUpCircle, Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Wallet, Clock, TrendingUp } from "lucide-react";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { QuickTransactionDialog } from "@/components/dashboard/QuickTransactionDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { useDashboardStats } from "@/hooks/useDashboardStats";
-import { DashboardStatCard } from "@/components/dashboard/DashboardStatCard";
 import type { TransactionFilters as FilterType } from "@/types/financial";
 import type { Transacao } from "@shared/schema";
 import { format } from "date-fns";
@@ -23,8 +20,6 @@ export default function Lancamentos() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"entrada" | "saida" | undefined>();
   const [filters, setFilters] = useState<FilterType>({ period });
-
-  const stats = useDashboardStats();
 
   // Build query string
   const buildQueryString = () => {
@@ -48,13 +43,6 @@ export default function Lancamentos() {
       return response.json();
     },
   });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "d 'de' MMM", { locale: ptBR });
@@ -123,98 +111,112 @@ export default function Lancamentos() {
 
   const kpis = calculateKPIs();
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   return (
     <DashboardContainer>
-      <div className="space-y-6 pb-24">
-        {/* Header */}
-        <DashboardHeader />
-
-        {/* Variation Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <Card className="rounded-2xl border-2">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Variação Mensal
-                    </p>
-                    <p className="text-2xl font-bold text-emerald-600">
-                      {stats.variacaoReceitas >= 0 ? "+" : ""}
-                      {stats.variacaoReceitas.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
+      <div className="space-y-4 sm:space-y-6 pb-24">
+        {/* KPIs Grid 2x2 estilo MeuSimplifique */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          {/* Receita */}
+          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Comparado ao mês anterior
+            </div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">Receita</p>
+            {isLoading ? (
+              <Skeleton className="h-6 w-20" />
+            ) : (
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
+                {formatCurrency(kpis.receitasPaid)}
               </p>
-            </CardContent>
+            )}
           </Card>
 
-          <Card className="rounded-2xl border-2">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center">
-                    <TrendingDown className="h-6 w-6 text-pink-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Variação Mensal
-                    </p>
-                    <p className="text-2xl font-bold text-pink-600">
-                      {stats.variacaoDespesas >= 0 ? "+" : ""}
-                      {stats.variacaoDespesas.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
+          {/* Despesa */}
+          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <ArrowUpCircle className="h-5 w-5 text-red-600" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Comparado ao mês anterior
+            </div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">Despesa</p>
+            {isLoading ? (
+              <Skeleton className="h-6 w-20" />
+            ) : (
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
+                {formatCurrency(kpis.despesasPaid)}
               </p>
-            </CardContent>
+            )}
+          </Card>
+
+          {/* A pagar */}
+          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-orange-600" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">A pagar</p>
+            {isLoading ? (
+              <Skeleton className="h-6 w-20" />
+            ) : (
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
+                {formatCurrency(kpis.aPagar)}
+              </p>
+            )}
+          </Card>
+
+          {/* A receber */}
+          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">A receber</p>
+            {isLoading ? (
+              <Skeleton className="h-6 w-20" />
+            ) : (
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
+                {formatCurrency(kpis.aReceber)}
+              </p>
+            )}
           </Card>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <DashboardStatCard
-            title="Receitas"
-            value={kpis.receitasPaid}
-            variation={stats.variacaoReceitas}
-            icon={<ArrowDownCircle className="h-6 w-6" />}
-            color="green"
-            isLoading={isLoading}
-          />
-          <DashboardStatCard
-            title="Despesas"
-            value={kpis.despesasPaid}
-            variation={stats.variacaoDespesas}
-            icon={<ArrowUpCircle className="h-6 w-6" />}
-            color="red"
-            isLoading={isLoading}
-          />
-          <DashboardStatCard
-            title="A pagar"
-            value={kpis.aPagar}
-            variation={0}
-            icon={<ArrowUpCircle className="h-6 w-6" />}
-            color="orange"
-            isLoading={isLoading}
-          />
-          <DashboardStatCard
-            title="A receber"
-            value={kpis.aReceber}
-            variation={0}
-            icon={<ArrowDownCircle className="h-6 w-6" />}
-            color="blue"
-            isLoading={isLoading}
-          />
-        </div>
+        {/* Saldo Card (full width) */}
+        <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Saldo</p>
+                {isLoading ? (
+                  <Skeleton className="h-6 w-24" />
+                ) : (
+                  <p className={cn(
+                    "text-xl sm:text-2xl font-bold",
+                    kpis.saldoReal >= 0 ? "text-emerald-600" : "text-red-600"
+                  )}>
+                    {formatCurrency(kpis.saldoReal)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* Filters */}
         <TransactionFilters filters={filters} onFiltersChange={setFilters} />

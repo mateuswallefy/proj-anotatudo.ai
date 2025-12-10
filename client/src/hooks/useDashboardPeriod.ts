@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from "date-fns";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, getMonth, getYear } from "date-fns";
 
-export type DashboardPeriodType = "mensal" | "semanal" | "diario";
+export type DashboardPeriodType = "mensal" | "semanal" | "diario" | "custom";
 
 interface DateRange {
   start: Date;
@@ -10,6 +10,10 @@ interface DateRange {
 
 export function useDashboardPeriod() {
   const [periodType, setPeriodType] = useState<DashboardPeriodType>("mensal");
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
 
   const dateRange = useMemo<DateRange>(() => {
     const now = new Date();
@@ -28,14 +32,35 @@ export function useDashboardPeriod() {
           end: endOfDay(now),
         };
       
+      case "custom":
+        if (customStartDate && customEndDate) {
+          return {
+            start: startOfDay(customStartDate),
+            end: endOfDay(customEndDate),
+          };
+        }
+        // Fallback to current month if custom dates not set
+        return {
+          start: startOfMonth(now),
+          end: endOfMonth(now),
+        };
+      
       case "mensal":
       default:
+        // If a specific month/year is selected, use it
+        if (selectedMonth !== null && selectedYear !== null) {
+          return {
+            start: startOfMonth(new Date(selectedYear, selectedMonth, 1)),
+            end: endOfMonth(new Date(selectedYear, selectedMonth, 1)),
+          };
+        }
+        // Otherwise use current month
         return {
           start: startOfMonth(now),
           end: endOfMonth(now),
         };
     }
-  }, [periodType]);
+  }, [periodType, selectedMonth, selectedYear, customStartDate, customEndDate]);
 
   // Para comparação com período anterior
   const previousDateRange = useMemo<DateRange>(() => {
@@ -64,11 +89,27 @@ export function useDashboardPeriod() {
     }
   }, [periodType]);
 
+  const setSelectedMonthYear = (month: number, year: number) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+    setPeriodType("mensal");
+  };
+
+  const setCustomDateRange = (start: Date, end: Date) => {
+    setCustomStartDate(start);
+    setCustomEndDate(end);
+    setPeriodType("custom");
+  };
+
   return {
     periodType,
     setPeriodType,
     dateRange,
     previousDateRange,
+    selectedMonth,
+    selectedYear,
+    setSelectedMonthYear,
+    setCustomDateRange,
   };
 }
 

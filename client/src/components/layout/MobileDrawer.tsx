@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Logo } from "@/components/Logo";
 import { SheetClose } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -64,11 +63,8 @@ export function MobileDrawer() {
 
   return (
     <div className="flex flex-col h-full bg-[#005CA9] text-white overflow-hidden">
-      {/* Header compacto com Logo e Close */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 flex-shrink-0">
-          <Logo className="h-6 w-6" iconOnly />
-        </div>
+      {/* Header compacto com Close */}
+      <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
         <div className="flex flex-col flex-1 min-w-0">
           <span className="text-sm font-semibold text-white leading-tight">
             AnotaTudo
@@ -78,7 +74,7 @@ export function MobileDrawer() {
           </span>
         </div>
         <SheetClose asChild>
-          <button className="ml-auto rounded-full p-1 text-white/80 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0">
+          <button className="rounded-full p-1 text-white/80 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0">
             <X className="h-4 w-4" />
           </button>
         </SheetClose>

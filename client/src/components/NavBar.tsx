@@ -1,5 +1,4 @@
 import { useTab, TabType } from "@/contexts/TabContext";
-import { usePeriod } from "@/contexts/PeriodContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { 
@@ -21,15 +20,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { PremiumButton } from "@/components/design-system/PremiumButton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { format, subMonths } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -56,17 +46,8 @@ const tabs: Array<{ id: TabType; label: string; icon: any }> = [
 
 export function NavBar() {
   const { activeTab, setActiveTab } = useTab();
-  const { period, setPeriod } = usePeriod();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-
-  // Generate period options (last 12 months)
-  const periodOptions = Array.from({ length: 12 }, (_, i) => {
-    const date = subMonths(new Date(), i);
-    const value = format(date, "yyyy-MM");
-    const label = format(date, "MMMM yyyy", { locale: ptBR });
-    return { value, label: label.charAt(0).toUpperCase() + label.slice(1) };
-  });
 
   return (
     <nav className="border-b border-[var(--border)] bg-[var(--card)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--card)]/60 sticky top-0 z-50 transition-colors duration-200">
@@ -115,28 +96,15 @@ export function NavBar() {
             </PremiumButton>
           )}
           
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[180px] [&>span]:line-clamp-none" data-testid="period-selector">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent>
-              {periodOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <ThemeToggle />
 
           {/* User Dropdown Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" data-testid="button-user-menu">
-                <Avatar className="h-9 w-9">
+                <Avatar className="h-9 w-9 border-2 border-[#F39200]">
                   <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                  <AvatarFallback className="bg-[#F39200] text-white text-sm font-semibold">
                     {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
