@@ -33,7 +33,7 @@ export function KpiCard({
       case "income":
         return "text-[#4ADE80]";
       case "expense":
-        return "text-[#FB7185]";
+        return "text-[#EF4444]";
       case "savings":
         return "text-[#60A5FA]";
       case "balance":
@@ -45,7 +45,7 @@ export function KpiCard({
 
   const getVariationColor = () => {
     if (variation > 0) return "text-[#4ADE80]";
-    if (variation < 0) return "text-[#FB7185]";
+    if (variation < 0) return "text-[#EF4444]";
     return "text-[var(--text-secondary)]";
   };
 
@@ -108,7 +108,7 @@ export function KpiCard({
         className={cn(
           "absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity pointer-events-none",
           type === "income" && "bg-gradient-to-br from-[#4ADE80] to-transparent",
-          type === "expense" && "bg-gradient-to-br from-[#FB7185] to-transparent",
+          type === "expense" && "bg-gradient-to-br from-[#EF4444] to-transparent",
           type === "savings" && "bg-gradient-to-br from-[#60A5FA] to-transparent",
           type === "balance" && "bg-gradient-to-br from-[#A78BFA] to-transparent"
         )}

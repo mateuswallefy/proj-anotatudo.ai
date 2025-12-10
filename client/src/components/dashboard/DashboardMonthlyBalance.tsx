@@ -33,9 +33,9 @@ export function DashboardMonthlyBalance() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-pink-500" />
+              <div className="w-2 h-2 rounded-full bg-red-500" />
               <span className="text-muted-foreground">Despesas:</span>
-              <span className="font-semibold text-pink-600">
+              <span className="font-semibold text-red-600">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -86,8 +86,8 @@ export function DashboardMonthlyBalance() {
                 <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorDespesas" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
+                <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorSaldo" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -123,7 +123,7 @@ export function DashboardMonthlyBalance() {
             <Area
               type="monotone"
               dataKey="despesas"
-              stroke="#ec4899"
+              stroke="#EF4444"
               fillOpacity={1}
               fill="url(#colorDespesas)"
               strokeWidth={2}

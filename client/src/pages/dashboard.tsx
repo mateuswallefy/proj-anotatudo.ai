@@ -34,7 +34,7 @@ export default function Dashboard() {
             value={stats.despesas}
             variation={stats.variacaoDespesas}
             icon={<ArrowUpCircle className="h-6 w-6" />}
-            color="pink"
+            color="red"
             isLoading={stats.isLoading}
           />
           <DashboardStatCard

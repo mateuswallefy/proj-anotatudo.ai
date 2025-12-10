@@ -49,9 +49,9 @@ export function DashboardMainChart({
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#FB7185]" />
+              <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
               <span className="text-xs text-[var(--text-secondary)]">Despesas:</span>
-              <span className="text-sm font-bold text-[#FB7185]">
+              <span className="text-sm font-bold text-[#EF4444]">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -116,8 +116,8 @@ export function DashboardMainChart({
                   <stop offset="95%" stopColor="#4ADE80" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorDespesas" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FB7185" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#FB7185" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorSaldo" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.4} />
@@ -162,7 +162,7 @@ export function DashboardMainChart({
               <Area
                 type="monotone"
                 dataKey="despesas"
-                stroke="#FB7185"
+                stroke="#EF4444"
                 strokeWidth={2}
                 fill="url(#colorDespesas)"
                 dot={<CustomDot />}
@@ -188,7 +188,7 @@ export function DashboardMainChart({
             <span className="text-xs text-[var(--text-secondary)]">Entradas</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#FB7185]" />
+            <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
             <span className="text-xs text-[var(--text-secondary)]">Despesas</span>
           </div>
           <div className="flex items-center gap-2">

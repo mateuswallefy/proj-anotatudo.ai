@@ -26,7 +26,7 @@ export function DashboardLastMovements() {
       case "economia":
         return <PiggyBank className="h-5 w-5 text-blue-600" />;
       default:
-        return <ArrowUpCircle className="h-5 w-5 text-pink-600" />;
+        return <ArrowUpCircle className="h-5 w-5 text-red-600" />;
     }
   };
 
@@ -37,7 +37,7 @@ export function DashboardLastMovements() {
       case "economia":
         return "text-blue-600";
       default:
-        return "text-pink-600";
+        return "text-red-600";
     }
   };
 
@@ -48,7 +48,7 @@ export function DashboardLastMovements() {
       case "economia":
         return "bg-blue-50 dark:bg-blue-950/20";
       default:
-        return "bg-pink-50 dark:bg-pink-950/20";
+        return "bg-red-50 dark:bg-red-950/20";
     }
   };
 

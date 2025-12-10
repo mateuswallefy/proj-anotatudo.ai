@@ -8,7 +8,7 @@ interface DashboardStatCardProps {
   value: number;
   variation: number;
   icon: ReactNode;
-  color: "green" | "pink" | "blue" | "orange";
+  color: "green" | "red" | "blue" | "orange";
   isLoading?: boolean;
 }
 
@@ -19,11 +19,11 @@ const colorClasses = {
     text: "text-emerald-600 dark:text-emerald-400",
     border: "border-emerald-200 dark:border-emerald-800",
   },
-  pink: {
-    bg: "bg-pink-50 dark:bg-pink-950/20",
-    icon: "bg-pink-500",
-    text: "text-pink-600 dark:text-pink-400",
-    border: "border-pink-200 dark:border-pink-800",
+  red: {
+    bg: "bg-red-50 dark:bg-red-950/20",
+    icon: "bg-red-500",
+    text: "text-red-600 dark:text-red-400",
+    border: "border-red-200 dark:border-red-800",
   },
   blue: {
     bg: "bg-blue-50 dark:bg-blue-950/20",

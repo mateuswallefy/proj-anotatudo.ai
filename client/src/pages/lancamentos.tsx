@@ -195,7 +195,7 @@ export default function Lancamentos() {
             value={kpis.despesasPaid}
             variation={stats.variacaoDespesas}
             icon={<ArrowUpCircle className="h-6 w-6" />}
-            color="pink"
+            color="red"
             isLoading={isLoading}
           />
           <DashboardStatCard
