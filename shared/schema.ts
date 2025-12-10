@@ -112,6 +112,7 @@ export const transacoes = pgTable("transacoes", {
   goalId: varchar("goal_id").references(() => goals.id, { onDelete: 'set null' }),
   // New fields for payment status and method
   status: varchar("status", { enum: ['paid', 'pending'] }).default('paid').notNull(),
+  // pendingKind can be NULL (when paid), 'to_receive' (income pending), or 'to_pay' (expense pending)
   pendingKind: varchar("pending_kind", { enum: ['to_receive', 'to_pay'] }),
   paymentMethod: varchar("payment_method", { enum: ['cash', 'pix', 'transfer', 'credit_card', 'debit_card', 'boleto', 'other'] }).default('other').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -140,8 +141,48 @@ export const insertTransacaoSchema = createInsertSchema(transacoes).omit({
   // Make new fields optional for backward compatibility
   // IMPORTANT: pendingKind can be null (when paid), undefined (not provided), or a value (when pending)
   status: z.enum(["paid", "pending"]).optional(),
-  pendingKind: z.enum(["to_receive", "to_pay"]).nullable().optional(),
+  // Use union to explicitly allow null, undefined, or enum values
+  // The order matters: null() must come before the enum in the union
+  pendingKind: z.union([z.null(), z.enum(["to_receive", "to_pay"])]).optional(),
   paymentMethod: z.enum(["cash", "pix", "transfer", "credit_card", "debit_card", "boleto", "other"]).optional(),
+}).superRefine((data, ctx) => {
+  // Se está pago, pendingKind TEM que ser null ou undefined
+  if (data.status === "paid" && data.pendingKind != null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pendingKind"],
+      message: "Transações pagas não podem ter pendingKind",
+    });
+  }
+
+  // Se está pendente, pendingKind é obrigatório e precisa ser compatível com o tipo
+  if (data.status === "pending") {
+    if (!data.pendingKind) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pendingKind"],
+        message: "Transações pendentes precisam de pendingKind",
+      });
+    } else if (
+      data.tipo === "entrada" &&
+      data.pendingKind !== "to_receive"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pendingKind"],
+        message: 'Receitas pendentes devem ter pendingKind = "to_receive"',
+      });
+    } else if (
+      data.tipo === "saida" &&
+      data.pendingKind !== "to_pay"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pendingKind"],
+        message: 'Despesas pendentes devem ter pendingKind = "to_pay"',
+      });
+    }
+  }
 });
 
 export type InsertTransacao = z.infer<typeof insertTransacaoSchema>;

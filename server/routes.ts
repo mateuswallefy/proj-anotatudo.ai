@@ -541,58 +541,65 @@ export async function registerRoutes(app: Express): Promise<void> {
         paymentMethod: data.paymentMethod,
       });
       
+      // Use validated data directly - don't override after validation
+      const dataToInsert = {
+        ...data,
+        // Ensure pendingKind is explicitly null (not undefined) when paid
+        pendingKind: data.status === "paid" ? null : data.pendingKind ?? null,
+      };
+      
       // Validar goalId antes de criar a transação
-      if (data.goalId) {
-        const goal = await storage.getGoalById(data.goalId);
+      if (dataToInsert.goalId) {
+        const goal = await storage.getGoalById(dataToInsert.goalId);
         if (!goal || goal.userId !== userId) {
           return res.status(403).json({ message: "Meta não encontrada ou não autorizada" });
         }
       }
       
       // Validar cartaoId antes de criar a transação
-      if (data.cartaoId) {
-        const cartao = await storage.getCartaoById(data.cartaoId);
+      if (dataToInsert.cartaoId) {
+        const cartao = await storage.getCartaoById(dataToInsert.cartaoId);
         if (!cartao || cartao.userId !== userId) {
           return res.status(403).json({ message: "Cartão não encontrado ou não autorizado" });
         }
       }
       
-      const transacao = await storage.createTransacao(data);
+      const transacao = await storage.createTransacao(dataToInsert);
       
       // Se a transação está vinculada a uma meta, atualizar valorAtual da meta
-      if (data.goalId && data.tipo === 'entrada') {
-        const goal = await storage.getGoalById(data.goalId);
+      if (dataToInsert.goalId && dataToInsert.tipo === 'entrada') {
+        const goal = await storage.getGoalById(dataToInsert.goalId);
         if (goal) {
-          const newValorAtual = parseFloat(goal.valorAtual || '0') + parseFloat(data.valor);
-          await storage.updateGoalValorAtual(data.goalId, userId, newValorAtual.toString());
+          const newValorAtual = parseFloat(goal.valorAtual || '0') + parseFloat(dataToInsert.valor);
+          await storage.updateGoalValorAtual(dataToInsert.goalId, userId, newValorAtual.toString());
           
           // Se atingiu a meta, atualizar status
           if (newValorAtual >= parseFloat(goal.valorAlvo)) {
-            await storage.updateGoalStatus(data.goalId, userId, 'concluida');
+            await storage.updateGoalStatus(dataToInsert.goalId, userId, 'concluida');
           }
         }
       }
       
       // Se a transação está vinculada a um cartão, criar entrada em cartao_transacoes
-      if (data.cartaoId) {
-        const dataTransacao = new Date(data.dataReal);
+      if (dataToInsert.cartaoId) {
+        const dataTransacao = new Date(dataToInsert.dataReal);
         const mes = dataTransacao.getMonth() + 1; // getMonth() retorna 0-11
         const ano = dataTransacao.getFullYear();
         
         // Buscar ou criar fatura aberta para o mês/ano da transação
-        const fatura = await storage.getOrCreateFaturaAberta(data.cartaoId, mes, ano);
+        const fatura = await storage.getOrCreateFaturaAberta(dataToInsert.cartaoId, mes, ano);
         
         // Criar entrada em cartao_transacoes
         await storage.createCartaoTransacao({
           faturaId: fatura.id,
-          descricao: data.descricao || 'Transação',
-          valor: data.valor,
-          dataCompra: data.dataReal,
-          categoria: data.categoria,
+          descricao: dataToInsert.descricao || 'Transação',
+          valor: dataToInsert.valor,
+          dataCompra: dataToInsert.dataReal,
+          categoria: dataToInsert.categoria,
         });
         
         // Atualizar valorFechado da fatura
-        const novoValor = parseFloat(fatura.valorFechado) + parseFloat(data.valor);
+        const novoValor = parseFloat(fatura.valorFechado) + parseFloat(dataToInsert.valor);
         await storage.updateFaturaValor(fatura.id, novoValor.toString());
       }
       
