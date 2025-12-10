@@ -487,19 +487,38 @@ export async function registerRoutes(app: Express): Promise<void> {
       const userId = req.session.userId;
       
       // Prepare data with defaults for backward compatibility
+      // IMPORTANT: Use nullish coalescing (??) to preserve "pending" status
       const requestData = {
         ...req.body,
         userId,
-        // Set defaults if not provided (backward compatibility)
-        status: req.body.status || "paid",
-        paymentMethod: req.body.paymentMethod || "other",
-        // Set pendingKind based on status if not provided
-        pendingKind: req.body.pendingKind || (req.body.status === "pending" 
+        // Set defaults ONLY if not provided (backward compatibility)
+        // Use ?? instead of || to preserve "pending" status
+        status: req.body.status ?? "paid",
+        paymentMethod: req.body.paymentMethod ?? "other",
+        // Set pendingKind: use provided value, or infer from status if pending, or null
+        pendingKind: req.body.pendingKind ?? (req.body.status === "pending" 
           ? (req.body.tipo === "entrada" ? "to_receive" : "to_pay")
-          : undefined),
+          : null),
       };
       
+      // Log for debugging (can be removed later)
+      console.log("[POST /api/transacoes] Request body:", {
+        tipo: req.body.tipo,
+        status: req.body.status,
+        pendingKind: req.body.pendingKind,
+        finalStatus: requestData.status,
+        finalPendingKind: requestData.pendingKind,
+      });
+      
       const data = insertTransacaoSchema.parse(requestData);
+      
+      // Log parsed data before saving (can be removed later)
+      console.log("[POST /api/transacoes] Parsed data:", {
+        tipo: data.tipo,
+        status: data.status,
+        pendingKind: data.pendingKind,
+        paymentMethod: data.paymentMethod,
+      });
       
       // Validar goalId antes de criar a transação
       if (data.goalId) {

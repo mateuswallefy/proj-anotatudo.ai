@@ -223,23 +223,29 @@ function NewIncomeDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: IncomeFormData) => {
+      // Map status and pendingKind correctly based on form values
+      const status = data.status || "paid";
+      const pendingKind = status === "pending" 
+        ? (data.pendingKind || "to_receive") 
+        : null; // Explicitly set to null when paid
+      
       const payload: any = {
         tipo: "entrada",
         valor: data.amount.toString(),
         categoria: data.category,
         dataReal: data.date,
         origem: "manual",
-        paymentMethod: data.paymentMethod,
-        status: data.status,
+        paymentMethod: data.paymentMethod || "other",
+        status: status, // Use the actual status from form
+        pendingKind: pendingKind, // Explicitly set pendingKind (null or "to_receive")
       };
-
-      if (data.status === "pending") {
-        payload.pendingKind = "to_receive";
-      }
 
       if (data.description) {
         payload.descricao = data.description;
       }
+
+      // Debug log (remove after testing)
+      console.log("[NewIncomeDialog] Payload transacao:", JSON.stringify(payload, null, 2));
 
       return await apiRequest("POST", "/api/transacoes", payload);
     },
@@ -608,19 +614,22 @@ function NewExpenseDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: ExpenseFormData) => {
+      // Map status and pendingKind correctly based on form values
+      const status = data.status || "paid";
+      const pendingKind = status === "pending" 
+        ? (data.pendingKind || "to_pay") 
+        : null; // Explicitly set to null when paid
+      
       const payload: any = {
         tipo: "saida",
         valor: data.amount.toString(),
         categoria: data.category,
         dataReal: data.date,
         origem: "manual",
-        paymentMethod: data.paymentMethod,
-        status: data.status,
+        paymentMethod: data.paymentMethod || "other",
+        status: status, // Use the actual status from form
+        pendingKind: pendingKind, // Explicitly set pendingKind (null or "to_pay")
       };
-
-      if (data.status === "pending") {
-        payload.pendingKind = "to_pay";
-      }
 
       if (data.description) {
         payload.descricao = data.description;
@@ -629,6 +638,9 @@ function NewExpenseDialog({
       if (data.accountId && data.accountId !== "none") {
         payload.cartaoId = data.accountId;
       }
+
+      // Debug log (remove after testing)
+      console.log("[NewExpenseDialog] Payload transacao:", JSON.stringify(payload, null, 2));
 
       return await apiRequest("POST", "/api/transacoes", payload);
     },

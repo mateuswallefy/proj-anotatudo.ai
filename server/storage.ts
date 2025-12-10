@@ -500,10 +500,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTransacao(transacao: InsertTransacao): Promise<Transacao> {
+    // Log before inserting (can be removed later)
+    console.log("[storage.createTransacao] Inserting transacao:", {
+      tipo: transacao.tipo,
+      status: transacao.status,
+      pendingKind: transacao.pendingKind,
+      paymentMethod: transacao.paymentMethod,
+    });
+    
     const [newTransacao] = await db
       .insert(transacoes)
       .values(transacao)
       .returning();
+    
+    // Log after inserting (can be removed later)
+    console.log("[storage.createTransacao] Created transacao:", {
+      id: newTransacao.id,
+      tipo: newTransacao.tipo,
+      status: newTransacao.status,
+      pendingKind: newTransacao.pendingKind,
+      paymentMethod: newTransacao.paymentMethod,
+    });
     
     // Se é economia com meta vinculada, atualizar valorAtual da meta
     if (newTransacao.tipo === 'economia' && newTransacao.goalId) {

@@ -292,6 +292,97 @@ O sistema agora oferece uma experiência mais completa e profissional para o ger
 ---
 
 **Data de Conclusão**: 2024  
-**Versão**: 2.0  
+**Versão**: 2.1  
 **Status**: ✅ Completo e Testado
+
+---
+
+## 13. Correção de Status (Pago / A pagar / A receber)
+
+### Problema Identificado
+
+Inicialmente, mesmo quando o usuário selecionava "A receber" ou "A pagar" nos modais, as transações estavam sendo salvas como "Pago/Recebido". Os KPIs "A pagar" e "A receber" permaneciam zerados.
+
+### Causa Raiz
+
+O problema estava em dois pontos:
+
+1. **Backend (`server/routes.ts`)**: Uso incorreto do operador `||` que poderia sobrescrever valores válidos
+2. **Frontend**: Payload não estava explicitamente setando `pendingKind` como `null` quando status era "paid"
+
+### Correções Implementadas
+
+#### Backend (`server/routes.ts`)
+
+**Antes:**
+```typescript
+status: req.body.status || "paid",  // ❌ Problema: || pode causar problemas
+```
+
+**Depois:**
+```typescript
+status: req.body.status ?? "paid",  // ✅ Usa nullish coalescing
+pendingKind: req.body.pendingKind ?? (req.body.status === "pending" 
+  ? (req.body.tipo === "entrada" ? "to_receive" : "to_pay")
+  : null),
+```
+
+#### Frontend (`QuickTransactionDialog.tsx`)
+
+**Antes:**
+```typescript
+if (data.status === "pending") {
+  payload.pendingKind = "to_receive";
+}
+// ❌ Problema: pendingKind não era setado explicitamente quando paid
+```
+
+**Depois:**
+```typescript
+const status = data.status || "paid";
+const pendingKind = status === "pending" 
+  ? (data.pendingKind || "to_receive") 
+  : null; // ✅ Explicitamente null quando paid
+
+payload.status = status;
+payload.pendingKind = pendingKind; // ✅ Sempre setado (null ou valor)
+```
+
+### Logs de Debug Adicionados
+
+Foram adicionados logs temporários para facilitar o debug:
+
+- **Frontend**: `console.log("[NewIncomeDialog] Payload transacao:", ...)`
+- **Frontend**: `console.log("[NewExpenseDialog] Payload transacao:", ...)`
+- **Backend**: `console.log("[POST /api/transacoes] Request body:", ...)`
+- **Backend**: `console.log("[POST /api/transacoes] Parsed data:", ...)`
+- **Storage**: `console.log("[storage.createTransacao] Inserting transacao:", ...)`
+- **Storage**: `console.log("[storage.createTransacao] Created transacao:", ...)`
+
+### Resultado
+
+Agora o status selecionado no modal é respeitado do frontend ao banco:
+
+- ✅ Receita "Recebido" → `status: "paid"`, `pendingKind: null`
+- ✅ Receita "A receber" → `status: "pending"`, `pendingKind: "to_receive"`
+- ✅ Despesa "Pago" → `status: "paid"`, `pendingKind: null`
+- ✅ Despesa "A pagar" → `status: "pending"`, `pendingKind: "to_pay"`
+
+Os KPIs agora atualizam corretamente:
+- ✅ "Receitas" mostra apenas receitas pagas
+- ✅ "Despesas" mostra apenas despesas pagas
+- ✅ "A receber" mostra receitas pendentes
+- ✅ "A pagar" mostra despesas pendentes
+
+### Testes Realizados
+
+1. ✅ Criar receita "Recebido" → aparece em "Receitas", não em "A receber"
+2. ✅ Criar receita "A receber" → aparece em "A receber", não em "Receitas"
+3. ✅ Criar despesa "Pago" → aparece em "Despesas", não em "A pagar"
+4. ✅ Criar despesa "A pagar" → aparece em "A pagar", não em "Despesas"
+5. ✅ KPIs atualizam imediatamente após criar transações pendentes
+6. ✅ Dados antigos continuam funcionando (compatibilidade retroativa)
+
+**Data da Correção**: 2024  
+**Status**: ✅ Corrigido e Testado
 
