@@ -196,11 +196,7 @@ export default function ContasCartoes() {
           <TabsContent value="contas" className="space-y-4">
             <div className="flex justify-end">
               <Button
-                onClick={() => {
-                  setEditingConta(null);
-                  contaForm.reset();
-                  setContaDialogOpen(true);
-                }}
+                onClick={() => setOpenConta(true)}
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -284,11 +280,7 @@ export default function ContasCartoes() {
                     Adicione uma conta para começar
                   </p>
                   <Button
-                    onClick={() => {
-                      setEditingConta(null);
-                      contaForm.reset();
-                      setContaDialogOpen(true);
-                    }}
+                    onClick={() => setOpenConta(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Adicionar Conta
@@ -302,11 +294,7 @@ export default function ContasCartoes() {
           <TabsContent value="cartoes" className="space-y-4">
             <div className="flex justify-end">
               <Button
-                onClick={() => {
-                  setEditingCartao(null);
-                  cartaoForm.reset();
-                  setCartaoDialogOpen(true);
-                }}
+                onClick={() => setOpenCartao(true)}
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
@@ -414,11 +402,7 @@ export default function ContasCartoes() {
                     Adicione um cartão para começar
                   </p>
                   <Button
-                    onClick={() => {
-                      setEditingCartao(null);
-                      cartaoForm.reset();
-                      setCartaoDialogOpen(true);
-                    }}
+                    onClick={() => setOpenCartao(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Adicionar Cartão
