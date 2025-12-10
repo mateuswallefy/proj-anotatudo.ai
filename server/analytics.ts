@@ -365,26 +365,40 @@ export async function getMonthlyComparison(
 export async function getExpensesByCategory(
   userId: string,
   mes?: number,
-  ano?: number
+  ano?: number,
+  startDate?: string,
+  endDate?: string
 ): Promise<CategoryBreakdown[]> {
-  const now = new Date();
-  const targetMes = mes ?? now.getMonth() + 1;
-  const targetAno = ano ?? now.getFullYear();
+  let transactions: Transacao[];
+  
+  if (startDate && endDate) {
+    // Use date range filter
+    transactions = await storage.getTransacoesWithFilters(userId, {
+      startDate,
+      endDate,
+      tipo: 'saida',
+    });
+  } else {
+    // Fallback to month/year filter (backward compatibility)
+    const now = new Date();
+    const targetMes = mes ?? now.getMonth() + 1;
+    const targetAno = ano ?? now.getFullYear();
 
-  const allTransactions = await storage.getTransacoes(userId);
-  const monthTransactions = allTransactions.filter(t => {
-    const date = new Date(t.dataReal);
-    return (
-      t.tipo === 'saida' &&
-      date.getMonth() + 1 === targetMes &&
-      date.getFullYear() === targetAno
-    );
-  });
+    const allTransactions = await storage.getTransacoes(userId);
+    transactions = allTransactions.filter(t => {
+      const date = new Date(t.dataReal);
+      return (
+        t.tipo === 'saida' &&
+        date.getMonth() + 1 === targetMes &&
+        date.getFullYear() === targetAno
+      );
+    });
+  }
 
   const categorias: Record<string, number> = {};
   const transacoesPorCategoria: Record<string, number> = {};
 
-  monthTransactions.forEach(t => {
+  transactions.forEach(t => {
     if (!categorias[t.categoria]) {
       categorias[t.categoria] = 0;
       transacoesPorCategoria[t.categoria] = 0;

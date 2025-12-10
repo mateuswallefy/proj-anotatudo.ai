@@ -1,14 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { usePeriod } from "@/contexts/PeriodContext";
+import { format } from "date-fns";
+import { useDashboardPeriod } from "./useDashboardPeriod";
 
 export function useMonthlyBalance() {
-  const { period } = usePeriod();
+  const { dateRange } = useDashboardPeriod();
+
+  // Format dates for API
+  const startDate = format(dateRange.start, "yyyy-MM-dd");
+  const endDate = format(dateRange.end, "yyyy-MM-dd");
 
   const { data = [], isLoading } = useQuery({
-    queryKey: ["/api/dashboard/chart-data", { period }],
+    queryKey: ["/api/dashboard/chart-data", { startDate, endDate }],
     queryFn: async () => {
       const response = await fetch(
-        `/api/dashboard/chart-data?period=${period}`,
+        `/api/dashboard/chart-data?startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include" }
       );
       if (!response.ok) return [];

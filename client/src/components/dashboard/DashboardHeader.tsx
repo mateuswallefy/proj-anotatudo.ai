@@ -12,11 +12,18 @@ export function DashboardHeader() {
     localStorage.getItem("dashboard-tip-dismissed") === "true"
   );
 
-  const getGreeting = () => {
+  const getGreetingWithEmoji = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Bom dia";
-    if (hour < 18) return "Boa tarde";
-    return "Boa noite";
+    
+    if (hour >= 5 && hour < 12) {
+      return { greeting: "Bom dia", emoji: "☀️" };
+    }
+    
+    if (hour >= 12 && hour < 18) {
+      return { greeting: "Boa tarde", emoji: "🌤️" };
+    }
+    
+    return { greeting: "Boa noite", emoji: "🌙" };
   };
 
   const formatDate = () => {
@@ -33,7 +40,10 @@ export function DashboardHeader() {
       {/* Greeting */}
       <div>
         <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-foreground">
-          {getGreeting()}, {user?.firstName || "Usuário"}
+          {(() => {
+            const { greeting, emoji } = getGreetingWithEmoji();
+            return `${greeting}, ${user?.firstName || "Usuário"}! ${emoji}`;
+          })()}
         </h1>
       </div>
 

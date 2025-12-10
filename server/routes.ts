@@ -1180,12 +1180,21 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.get("/api/analytics/expenses-by-category", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const periodParam = parsePeriodParam(req.query.period as string | undefined);
-      const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
-      const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
       
-      const data = await getExpensesByCategory(userId, mes, ano);
-      res.json(data);
+      // If date range is provided, use it; otherwise fallback to period/mes/ano
+      if (startDate && endDate) {
+        const data = await getExpensesByCategory(userId, undefined, undefined, startDate, endDate);
+        res.json(data);
+      } else {
+        const periodParam = parsePeriodParam(req.query.period as string | undefined);
+        const mes = req.query.mes ? parseInt(req.query.mes as string) : periodParam.mes;
+        const ano = req.query.ano ? parseInt(req.query.ano as string) : periodParam.ano;
+        
+        const data = await getExpensesByCategory(userId, mes, ano);
+        res.json(data);
+      }
     } catch (error) {
       console.error("Error getting expenses by category:", error);
       res.status(500).json({ message: "Failed to get expenses by category" });
@@ -1391,6 +1400,56 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Dashboard routes
+  // Dashboard chart data endpoint
+  app.get("/api/dashboard/chart-data", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      
+      // Get transactions in date range
+      const transactions = await storage.getTransacoesWithFilters(userId, {
+        startDate,
+        endDate,
+      });
+      
+      // Group by date and calculate totals
+      const dataByDate: Record<string, { receitas: number; despesas: number; saldo: number }> = {};
+      
+      transactions.forEach(t => {
+        const date = new Date(t.dataReal).toISOString().split('T')[0];
+        if (!dataByDate[date]) {
+          dataByDate[date] = { receitas: 0, despesas: 0, saldo: 0 };
+        }
+        
+        const valor = parseFloat(t.valor);
+        if (t.tipo === 'entrada') {
+          dataByDate[date].receitas += valor;
+        } else if (t.tipo === 'saida') {
+          dataByDate[date].despesas += valor;
+        }
+        dataByDate[date].saldo = dataByDate[date].receitas - dataByDate[date].despesas;
+      });
+      
+      // Convert to array and sort by date
+      const result = Object.entries(dataByDate)
+        .map(([date, values]) => ({
+          date,
+          ...values,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting chart data:", error);
+      res.status(500).json({ message: "Failed to get chart data" });
+    }
+  });
+
   app.get("/api/dashboard/overview", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;

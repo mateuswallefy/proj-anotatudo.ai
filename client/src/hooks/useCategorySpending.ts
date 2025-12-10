@@ -1,14 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { usePeriod } from "@/contexts/PeriodContext";
+import { format } from "date-fns";
+import { useDashboardPeriod } from "./useDashboardPeriod";
 
 export function useCategorySpending() {
-  const { period } = usePeriod();
+  const { dateRange } = useDashboardPeriod();
+
+  // Format dates for API
+  const startDate = format(dateRange.start, "yyyy-MM-dd");
+  const endDate = format(dateRange.end, "yyyy-MM-dd");
 
   const { data = [], isLoading } = useQuery({
-    queryKey: ["/api/analytics/expenses-by-category", { period }],
+    queryKey: ["/api/analytics/expenses-by-category", { startDate, endDate }],
     queryFn: async () => {
       const response = await fetch(
-        `/api/analytics/expenses-by-category?period=${period}`,
+        `/api/analytics/expenses-by-category?startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include" }
       );
       if (!response.ok) return [];

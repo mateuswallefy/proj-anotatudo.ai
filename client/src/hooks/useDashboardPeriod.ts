@@ -22,9 +22,10 @@ export function useDashboardPeriod() {
         };
       
       case "semanal":
+        // Últimos 7 dias (não semana corrente)
         return {
-          start: startOfWeek(now, { weekStartsOn: 1 }), // Segunda-feira
-          end: endOfWeek(now, { weekStartsOn: 1 }),
+          start: startOfDay(subDays(now, 6)), // 7 dias atrás (incluindo hoje = 7 dias)
+          end: endOfDay(now),
         };
       
       case "mensal":
@@ -46,10 +47,11 @@ export function useDashboardPeriod() {
         };
       
       case "semanal":
-        const lastWeek = subWeeks(new Date(), 1);
+        // Últimos 7 dias anteriores (7 dias antes dos últimos 7 dias)
+        const sevenDaysAgo = subDays(new Date(), 7);
         return {
-          start: startOfWeek(lastWeek, { weekStartsOn: 1 }),
-          end: endOfWeek(lastWeek, { weekStartsOn: 1 }),
+          start: startOfDay(subDays(sevenDaysAgo, 6)), // 14 dias atrás
+          end: endOfDay(sevenDaysAgo), // 7 dias atrás
         };
       
       case "mensal":
