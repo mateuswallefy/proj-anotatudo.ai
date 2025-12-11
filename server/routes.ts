@@ -691,6 +691,74 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Eventos/Agenda routes
+  app.get("/api/eventos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const eventos = await storage.getEventos(userId);
+      res.json(eventos);
+    } catch (error) {
+      console.error("Error fetching eventos:", error);
+      res.status(500).json({ message: "Failed to fetch eventos" });
+    }
+  });
+
+  app.post("/api/eventos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const { insertEventoSchema } = await import("@shared/schema");
+      const data = insertEventoSchema.parse({
+        ...req.body,
+        userId,
+        origem: req.body.origem || "manual",
+      });
+      
+      const evento = await storage.createEvento(data);
+      res.status(201).json(evento);
+    } catch (error: any) {
+      console.error("Error creating evento:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create evento" });
+      }
+    }
+  });
+
+  app.patch("/api/eventos/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      const { insertEventoSchema } = await import("@shared/schema");
+      const updates = insertEventoSchema.partial().parse(req.body);
+      
+      const evento = await storage.updateEvento(id, userId, updates);
+      if (!evento) {
+        return res.status(404).json({ message: "Evento not found" });
+      }
+      res.json(evento);
+    } catch (error: any) {
+      console.error("Error updating evento:", error);
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update evento" });
+      }
+    }
+  });
+
+  app.delete("/api/eventos/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.userId;
+      await storage.deleteEvento(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting evento:", error);
+      res.status(500).json({ message: "Failed to delete evento" });
+    }
+  });
+
   // Card routes
   app.get("/api/cartoes", isAuthenticated, async (req: any, res) => {
     try {

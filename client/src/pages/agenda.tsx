@@ -20,36 +20,41 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { Calendar as CalendarIcon, Plus, CreditCard } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Clock, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parse } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
-import type { Cartao } from "@shared/schema";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const eventoSchema = z.object({
   titulo: z.string().min(1, "Título obrigatório"),
   descricao: z.string().optional(),
   data: z.date(),
-  tipo: z.enum(["vencimento", "fechamento", "lembrete"]),
-  cartaoId: z.string().optional(),
-  valor: z.coerce.number().optional(),
+  hora: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Formato inválido (HH:mm)").optional(),
+  lembreteMinutos: z.enum(["30", "60", "1440"]).optional(),
 });
 
 type EventoFormData = z.infer<typeof eventoSchema>;
@@ -59,57 +64,32 @@ interface Evento {
   titulo: string;
   descricao?: string;
   data: string;
-  tipo: "vencimento" | "fechamento" | "lembrete";
-  cartaoId?: string;
-  valor?: number;
+  hora?: string;
+  lembreteMinutos?: number;
+  origem: "manual" | "whatsapp";
+  notificado: boolean;
 }
 
 export default function Agenda() {
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEvento, setEditingEvento] = useState<Evento | null>(null);
+  const [deletingEvento, setDeletingEvento] = useState<Evento | null>(null);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
 
-  // Fetch cards for events
-  const { data: cartoes } = useQuery<Cartao[]>({
-    queryKey: ["/api/cartoes"],
+  // Fetch eventos
+  const { data: eventos = [], isLoading } = useQuery<Evento[]>({
+    queryKey: ["/api/eventos"],
+    queryFn: async () => {
+      const response = await fetch("/api/eventos", {
+        credentials: "include",
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
   });
-
-  // Mock eventos - in real app, this would come from API
-  const eventos: Evento[] = [];
-  
-  // Calculate events from cards
-  if (cartoes) {
-    cartoes.forEach((cartao) => {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
-
-      // Vencimento
-      const vencimento = new Date(year, month, cartao.diaVencimento);
-      if (vencimento >= today) {
-        eventos.push({
-          id: `venc-${cartao.id}`,
-          titulo: `Vencimento - ${cartao.nomeCartao}`,
-          data: vencimento.toISOString(),
-          tipo: "vencimento",
-          cartaoId: cartao.id,
-        });
-      }
-
-      // Fechamento
-      const fechamento = new Date(year, month, cartao.diaFechamento);
-      if (fechamento >= today) {
-        eventos.push({
-          id: `fech-${cartao.id}`,
-          titulo: `Fechamento - ${cartao.nomeCartao}`,
-          data: fechamento.toISOString(),
-          tipo: "fechamento",
-          cartaoId: cartao.id,
-        });
-      }
-    });
-  }
 
   const form = useForm<EventoFormData>({
     resolver: zodResolver(eventoSchema),
@@ -117,28 +97,56 @@ export default function Agenda() {
       titulo: "",
       descricao: "",
       data: new Date(),
-      tipo: "lembrete",
-      cartaoId: undefined,
-      valor: undefined,
+      hora: undefined,
+      lembreteMinutos: undefined,
     },
   });
 
   const createEventoMutation = useMutation({
     mutationFn: async (data: EventoFormData) => {
-      // In a real app, this would save to backend
-      // For now, we'll just show success
-      return Promise.resolve({ id: Date.now().toString(), ...data });
+      const payload = {
+        ...data,
+        data: format(data.data, "yyyy-MM-dd"),
+      };
+      return apiRequest("POST", "/api/eventos", payload);
     },
     onSuccess: () => {
-      toast({ title: "Evento criado com sucesso!" });
-      queryClient.invalidateQueries({ queryKey: ["/api/agenda"] });
+      toast({
+        title: "Evento criado com sucesso!",
+        description: editingEvento
+          ? "O evento foi atualizado."
+          : `Evento criado para ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}${form.watch("hora") ? ` às ${form.watch("hora")}` : ""}${form.watch("lembreteMinutos") ? ` (com ${getLembreteLabel(form.watch("lembreteMinutos")!)} lembrete)` : ""}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/eventos"] });
       setDialogOpen(false);
+      setEditingEvento(null);
       form.reset();
     },
     onError: (error: any) => {
       toast({
         title: "Erro ao criar evento",
-        description: error.message,
+        description: error.message || "Não foi possível criar o evento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteEventoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/eventos/${id}`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Evento excluído!",
+        description: "O evento foi removido com sucesso.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/eventos"] });
+      setDeletingEvento(null);
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o evento.",
         variant: "destructive",
       });
     },
@@ -152,160 +160,276 @@ export default function Agenda() {
 
   const selectedDateEvents = getEventsForDate(selectedDate);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
+  const getLembreteLabel = (minutos: string | number) => {
+    const m = typeof minutos === "string" ? parseInt(minutos) : minutos;
+    if (m === 30) return "30 minutos antes";
+    if (m === 60) return "1 hora antes";
+    if (m === 1440) return "1 dia antes";
+    return "";
   };
+
+  const handleEdit = (evento: Evento) => {
+    setEditingEvento(evento);
+    form.reset({
+      titulo: evento.titulo,
+      descricao: evento.descricao || "",
+      data: new Date(evento.data),
+      hora: evento.hora || undefined,
+      lembreteMinutos: evento.lembreteMinutos?.toString() as "30" | "60" | "1440" | undefined,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (evento: Evento) => {
+    setDeletingEvento(evento);
+  };
+
+  const onSubmit = (data: EventoFormData) => {
+    if (editingEvento) {
+      // Update mutation would go here
+      createEventoMutation.mutate(data);
+    } else {
+      createEventoMutation.mutate(data);
+    }
+  };
+
+  // Generate time picker options
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
   return (
     <DashboardContainer>
       <div className="space-y-6 pb-24">
-        <DashboardHeader />
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+            Minha Agenda
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Organize seus compromissos e eventos
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar */}
-          <div className="lg:col-span-2">
-            <Card className="rounded-2xl">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold">Calendário</h2>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      form.reset();
-                      form.setValue("data", selectedDate);
-                      setDialogOpen(true);
-                    }}
-                    className="gap-2"
+        {/* Calendar Card */}
+        <Card className="rounded-[20px] border bg-card shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const prevMonth = new Date(currentMonth);
+                    prevMonth.setMonth(prevMonth.getMonth() - 1);
+                    setCurrentMonth(prevMonth);
+                  }}
+                  className="h-8 w-8"
+                >
+                  ←
+                </Button>
+                <h2 className="text-lg font-bold text-[#005CA9]">
+                  {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const nextMonth = new Date(currentMonth);
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    setCurrentMonth(nextMonth);
+                  }}
+                  className="h-8 w-8"
+                >
+                  →
+                </Button>
+              </div>
+            </div>
+
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              month={currentMonth}
+              onMonthChange={setCurrentMonth}
+              className="rounded-lg"
+              modifiers={{
+                hasEvents: (date) => getEventsForDate(date).length > 0,
+                today: (date) => isToday(date),
+              }}
+              modifiersClassNames={{
+                hasEvents: "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-[#005CA9]",
+                today: "bg-[#005CA9] text-white font-bold rounded-full",
+              }}
+            />
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#005CA9]"></div>
+                <span>Hoje</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                <span>Com eventos</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#F39200]"></div>
+                <span>Eventos</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Events List Card */}
+        <Card className="rounded-[20px] border bg-card shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5 text-[#005CA9]" />
+                <h2 className="text-lg font-semibold">
+                  {format(selectedDate, "dd/MM", { locale: ptBR })}
+                </h2>
+                {selectedDateEvents.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {selectedDateEvents.length}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                ))}
+              </div>
+            ) : selectedDateEvents.length > 0 ? (
+              <div className="space-y-3">
+                {selectedDateEvents.map((evento) => (
+                  <div
+                    key={evento.id}
+                    className="p-4 bg-[#F39200]/10 rounded-xl border border-[#F39200]/20"
                   >
-                    <Plus className="h-4 w-4" />
-                    Novo Evento
-                  </Button>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setSelectedDate(date)}
-                  month={currentMonth}
-                  onMonthChange={setCurrentMonth}
-                  className="rounded-lg border-0"
-                  modifiers={{
-                    hasEvents: (date) => getEventsForDate(date).length > 0,
-                  }}
-                  modifiersClassNames={{
-                    hasEvents: "bg-primary/10 font-bold",
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Events List */}
-          <div>
-            <Card className="rounded-2xl">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <CalendarIcon className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-semibold">
-                    {format(selectedDate, "d 'de' MMMM", { locale: ptBR })}
-                  </h2>
-                </div>
-
-                {selectedDateEvents.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedDateEvents.map((evento) => (
-                      <div
-                        key={evento.id}
-                        className="p-4 bg-muted/50 rounded-xl border"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-sm mb-1">
-                              {evento.titulo}
-                            </h3>
-                            {evento.descricao && (
-                              <p className="text-xs text-muted-foreground">
-                                {evento.descricao}
-                              </p>
-                            )}
-                          </div>
-                          <Badge
-                            variant={
-                              evento.tipo === "vencimento"
-                                ? "destructive"
-                                : evento.tipo === "fechamento"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {evento.tipo === "vencimento"
-                              ? "Vencimento"
-                              : evento.tipo === "fechamento"
-                              ? "Fechamento"
-                              : "Lembrete"}
-                          </Badge>
-                        </div>
-                        {evento.cartaoId && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <CreditCard className="h-3 w-3 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              {
-                                cartoes?.find((c) => c.id === evento.cartaoId)
-                                  ?.nomeCartao
-                              }
-                            </p>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-base mb-2">
+                          {evento.titulo}
+                        </h3>
+                        {evento.hora && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <Clock className="h-4 w-4" />
+                            <span>{evento.hora}</span>
                           </div>
                         )}
+                        {evento.lembreteMinutos && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-[#F39200]/20 border-[#F39200]/40 text-[#F39200]"
+                          >
+                            {getLembreteLabel(evento.lembreteMinutos)}
+                          </Badge>
+                        )}
+                        {evento.descricao && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {evento.descricao}
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <CalendarIcon className="h-8 w-8 text-muted-foreground" />
+                      <div className="flex items-center gap-2 ml-4">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => {
+                            // Mark as completed - implementar depois
+                            toast({
+                              title: "Evento concluído!",
+                              description: "Funcionalidade em desenvolvimento.",
+                            });
+                          }}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                          onClick={() => handleEdit(evento)}
+                        >
+                          <AlertCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDelete(evento)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-sm font-medium mb-1">
-                      Nenhum evento neste dia
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Clique em "Novo Evento" para adicionar
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        form.reset();
-                        form.setValue("data", selectedDate);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Evento
-                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <CalendarIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium mb-1">Nenhum evento</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Adicione um evento para esta data
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    form.reset();
+                    form.setValue("data", selectedDate);
+                    setEditingEvento(null);
+                    setDialogOpen(true);
+                  }}
+                  className="bg-[#005CA9] hover:bg-[#003F73] text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Evento
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* FAB Button */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <Button
+            size="lg"
+            onClick={() => {
+              form.reset();
+              form.setValue("data", selectedDate);
+              setEditingEvento(null);
+              setDialogOpen(true);
+            }}
+            className="rounded-full h-14 w-14 bg-[#005CA9] hover:bg-[#003F73] text-white shadow-lg"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
         </div>
 
         {/* Event Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Novo Evento</DialogTitle>
+              <DialogTitle>
+                {editingEvento ? "Editar Evento" : "Novo Evento"}
+              </DialogTitle>
               <DialogDescription>
-                Adicione um evento à sua agenda financeira
+                {editingEvento
+                  ? "Edite os detalhes do evento"
+                  : "Adicione um evento à sua agenda"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit((data) =>
-                  createEventoMutation.mutate(data)
-                )}
+                onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-4"
               >
                 <FormField
@@ -315,7 +439,11 @@ export default function Agenda() {
                     <FormItem>
                       <FormLabel>Título</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Vencimento da fatura" {...field} />
+                        <Input
+                          placeholder="Digite o título do evento"
+                          {...field}
+                          className="rounded-xl"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -324,25 +452,17 @@ export default function Agenda() {
 
                 <FormField
                   control={form.control}
-                  name="tipo"
+                  name="descricao"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tipo</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="vencimento">Vencimento</SelectItem>
-                          <SelectItem value="fechamento">Fechamento</SelectItem>
-                          <SelectItem value="lembrete">Lembrete</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Descrição (opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Adicione detalhes sobre o evento"
+                          {...field}
+                          className="rounded-xl"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -365,6 +485,7 @@ export default function Agenda() {
                           onChange={(e) =>
                             field.onChange(new Date(e.target.value))
                           }
+                          className="rounded-xl"
                         />
                       </FormControl>
                       <FormMessage />
@@ -372,75 +493,186 @@ export default function Agenda() {
                   )}
                 />
 
-                {cartoes && cartoes.length > 0 && (
-                  <FormField
-                    control={form.control}
-                    name="cartaoId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cartão (opcional)</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value || "none"}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">Sem cartão</SelectItem>
-                            {cartoes.map((card) => (
-                              <SelectItem key={card.id} value={card.id}>
-                                {card.nomeCartao}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
                 <FormField
                   control={form.control}
-                  name="descricao"
+                  name="hora"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Descrição (opcional)</FormLabel>
+                      <FormLabel>Hora</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Adicione uma descrição..." {...field} />
+                        <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal rounded-xl",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              <Clock className="mr-2 h-4 w-4" />
+                              {field.value || "--:--"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <div className="flex">
+                              <div className="max-h-[200px] overflow-y-auto p-2">
+                                {hours.map((hour) => (
+                                  <div
+                                    key={hour}
+                                    className={cn(
+                                      "px-3 py-1 cursor-pointer hover:bg-muted rounded",
+                                      field.value?.startsWith(hour) && "bg-primary text-primary-foreground"
+                                    )}
+                                    onClick={() => {
+                                      const currentMin = field.value?.split(":")[1] || "00";
+                                      field.onChange(`${hour}:${currentMin}`);
+                                    }}
+                                  >
+                                    {hour}
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="max-h-[200px] overflow-y-auto p-2 border-l">
+                                {minutes.map((minute) => (
+                                  <div
+                                    key={minute}
+                                    className={cn(
+                                      "px-3 py-1 cursor-pointer hover:bg-muted rounded",
+                                      field.value?.endsWith(`:${minute}`) && "bg-primary text-primary-foreground"
+                                    )}
+                                    onClick={() => {
+                                      const currentHour = field.value?.split(":")[0] || "00";
+                                      field.onChange(`${currentHour}:${minute}`);
+                                      setTimePickerOpen(false);
+                                    }}
+                                  >
+                                    {minute}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="p-2 border-t">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  field.onChange(undefined);
+                                  setTimePickerOpen(false);
+                                }}
+                              >
+                                Limpar
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <DialogFooter>
+                <FormField
+                  control={form.control}
+                  name="lembreteMinutos"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lembretes</FormLabel>
+                      <FormControl>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { value: "30", label: "30 minutos antes" },
+                            { value: "60", label: "1 hora antes" },
+                            { value: "1440", label: "1 dia antes" },
+                          ].map((option) => (
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={
+                                field.value === option.value
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className={cn(
+                                "rounded-xl",
+                                field.value === option.value &&
+                                  "bg-[#F39200] hover:bg-[#D87E00] text-white border-[#F39200]"
+                              )}
+                              onClick={() => {
+                                if (field.value === option.value) {
+                                  field.onChange(undefined);
+                                } else {
+                                  field.onChange(option.value as "30" | "60" | "1440");
+                                }
+                              }}
+                            >
+                              {option.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setDialogOpen(false)}
+                    onClick={() => {
+                      setDialogOpen(false);
+                      setEditingEvento(null);
+                      form.reset();
+                    }}
                     disabled={createEventoMutation.isPending}
+                    className="w-full sm:w-auto rounded-xl"
                   >
                     Cancelar
                   </Button>
                   <Button
                     type="submit"
                     disabled={createEventoMutation.isPending}
+                    className="w-full sm:w-auto bg-[#005CA9] hover:bg-[#003F73] text-white rounded-xl"
                   >
                     {createEventoMutation.isPending
                       ? "Salvando..."
-                      : "Criar Evento"}
+                      : editingEvento
+                      ? "Salvar Alterações"
+                      : "Salvar Evento"}
                   </Button>
                 </DialogFooter>
               </form>
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={!!deletingEvento}
+          onOpenChange={(open) => !open && setDeletingEvento(null)}
+        >
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o evento "{deletingEvento?.titulo}"? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deletingEvento && deleteEventoMutation.mutate(deletingEvento.id)}
+                disabled={deleteEventoMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 rounded-xl"
+              >
+                {deleteEventoMutation.isPending ? "Excluindo..." : "Excluir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardContainer>
   );
 }
-

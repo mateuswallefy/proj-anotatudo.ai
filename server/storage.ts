@@ -15,6 +15,7 @@ import {
   alertas,
   insights,
   notificationPreferences,
+  eventos,
   subscriptions,
   subscriptionEvents,
   systemLogs,
@@ -65,6 +66,8 @@ import {
   type InsertInsight,
   type NotificationPreferences,
   type UpdateNotificationPreferences,
+  type Evento,
+  type InsertEvento,
   type Subscription,
   type InsertSubscription,
   type SubscriptionEvent,
@@ -232,6 +235,13 @@ export interface IStorage {
   // Notification preferences operations
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   upsertNotificationPreferences(userId: string, preferences: UpdateNotificationPreferences): Promise<NotificationPreferences>;
+
+  // Eventos/Agenda operations
+  getEventos(userId: string): Promise<Evento[]>;
+  createEvento(evento: InsertEvento): Promise<Evento>;
+  updateEvento(id: string, userId: string, updates: Partial<InsertEvento>): Promise<Evento | undefined>;
+  deleteEvento(id: string, userId: string): Promise<void>;
+  getEventosParaLembrete(): Promise<Evento[]>; // Para buscar eventos que precisam ser notificados
 
   // Admin operations
   listUsers(filters?: { search?: string; status?: string; accessStatus?: string; plan?: string; billingStatus?: string; page?: number; pageSize?: number }): Promise<{ items: User[]; total: number }>;
@@ -1226,6 +1236,75 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Eventos/Agenda operations
+  async getEventos(userId: string): Promise<Evento[]> {
+    return await db
+      .select()
+      .from(eventos)
+      .where(eq(eventos.userId, userId))
+      .orderBy(desc(eventos.data), desc(eventos.hora));
+  }
+
+  async createEvento(evento: InsertEvento): Promise<Evento> {
+    const [novoEvento] = await db
+      .insert(eventos)
+      .values({
+        ...evento,
+        updatedAt: new Date(),
+      })
+      .returning();
+    return novoEvento;
+  }
+
+  async updateEvento(id: string, userId: string, updates: Partial<InsertEvento>): Promise<Evento | undefined> {
+    const [updated] = await db
+      .update(eventos)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(eventos.id, id),
+          eq(eventos.userId, userId)
+        )
+      )
+      .returning();
+    return updated;
+  }
+
+  async deleteEvento(id: string, userId: string): Promise<void> {
+    await db
+      .delete(eventos)
+      .where(
+        and(
+          eq(eventos.id, id),
+          eq(eventos.userId, userId)
+        )
+      );
+  }
+
+  async getEventosParaLembrete(): Promise<Evento[]> {
+    const now = new Date();
+    const currentTime = format(now, "HH:mm");
+    const currentDate = format(now, "yyyy-MM-dd");
+
+    // Buscar eventos que:
+    // 1. Ainda não foram notificados
+    // 2. Têm lembrete configurado
+    // 3. A data/hora do lembrete já passou ou está próxima (dentro de 5 minutos)
+    return await db
+      .select()
+      .from(eventos)
+      .where(
+        and(
+          eq(eventos.notificado, false),
+          sqlOp`${eventos.lembreteMinutos} IS NOT NULL`,
+          sqlOp`DATE(${eventos.data}) = ${currentDate} OR DATE(${eventos.data}) > ${currentDate}`
+        ) as any
+      );
   }
 
   // Admin operations

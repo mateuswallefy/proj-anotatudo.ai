@@ -887,3 +887,40 @@ export const insertLatencyAlertSchema = createInsertSchema(latencyAlerts).omit({
 
 export type InsertLatencyAlert = z.infer<typeof insertLatencyAlertSchema>;
 export type LatencyAlert = typeof latencyAlerts.$inferSelect;
+
+// Events/Agenda table (eventos e compromissos)
+export const eventos = pgTable("eventos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  titulo: varchar("titulo").notNull(),
+  descricao: text("descricao"),
+  data: date("data").notNull(),
+  hora: varchar("hora"), // formato HH:mm
+  lembreteMinutos: integer("lembrete_minutos"), // 30, 60, 1440 (1 dia)
+  origem: varchar("origem", { enum: ['manual', 'whatsapp'] }).default('manual').notNull(),
+  whatsappMessageId: varchar("whatsapp_message_id"), // ID da mensagem do WhatsApp que criou o evento
+  notificado: boolean("notificado").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_eventos_user_id").on(table.userId),
+  index("IDX_eventos_data").on(table.data),
+  index("IDX_eventos_notificado").on(table.notificado),
+]);
+
+export const eventosRelations = relations(eventos, ({ one }) => ({
+  user: one(users, {
+    fields: [eventos.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertEventoSchema = createInsertSchema(eventos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  notificado: true,
+});
+
+export type InsertEvento = z.infer<typeof insertEventoSchema>;
+export type Evento = typeof eventos.$inferSelect;
