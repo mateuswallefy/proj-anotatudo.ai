@@ -30,7 +30,7 @@ import { Calendar as CalendarIcon, Plus, Clock, CheckCircle2, AlertCircle, Trash
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { format, isSameDay, isToday } from "date-fns";
+import { format, isSameDay, isToday, startOfDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
 import {
@@ -72,7 +72,8 @@ interface Evento {
 
 export default function Agenda() {
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  // Normaliza a data inicial para meia-noite no timezone local
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvento, setEditingEvento] = useState<Evento | null>(null);
@@ -177,9 +178,18 @@ export default function Agenda() {
   });
 
   const getEventsForDate = (date: Date) => {
-    return eventos.filter((evento) =>
-      isSameDay(new Date(evento.data), date)
-    );
+    // Normaliza a data selecionada para meia-noite no timezone local
+    const normalizedSelectedDate = startOfDay(date);
+    
+    return eventos.filter((evento) => {
+      // Parse a data do evento e normaliza para meia-noite
+      // Se evento.data já é uma string YYYY-MM-DD, parseISO garante timezone local
+      const eventDate = evento.data instanceof Date 
+        ? startOfDay(evento.data)
+        : startOfDay(parseISO(evento.data));
+      
+      return isSameDay(eventDate, normalizedSelectedDate);
+    });
   };
 
   const selectedDateEvents = getEventsForDate(selectedDate);
@@ -194,10 +204,15 @@ export default function Agenda() {
 
   const handleEdit = (evento: Evento) => {
     setEditingEvento(evento);
+    // Parse a data corretamente, normalizando para timezone local
+    const eventDate = evento.data instanceof Date 
+      ? evento.data 
+      : parseISO(evento.data);
+    
     form.reset({
       titulo: evento.titulo,
       descricao: evento.descricao || "",
-      data: new Date(evento.data),
+      data: startOfDay(eventDate), // Normaliza para meia-noite local
       hora: evento.hora || undefined,
       lembreteMinutos: evento.lembreteMinutos?.toString() as "30" | "60" | "1440" | undefined,
     });
@@ -288,7 +303,14 @@ export default function Agenda() {
                     <Calendar
                       mode="single"
                       selected={selectedDate}
-                      onSelect={(date) => date && setSelectedDate(date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          // Normaliza a data selecionada para meia-noite no timezone local
+                          // Isso evita problemas de timezone
+                          const normalizedDate = startOfDay(date);
+                          setSelectedDate(normalizedDate);
+                        }
+                      }}
                       month={currentMonth}
                       onMonthChange={setCurrentMonth}
                       className="rounded-lg mx-auto"
@@ -320,8 +342,11 @@ export default function Agenda() {
                         today: (date) => isToday(date),
                         selectedWithEvents: (date) => {
                           // Verifica se o dia está selecionado E tem eventos
-                          const isSelected = selectedDate && 
-                            format(selectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                          // Normaliza ambas as datas para comparação correta
+                          if (!selectedDate) return false;
+                          const normalizedSelected = startOfDay(selectedDate);
+                          const normalizedDate = startOfDay(date);
+                          const isSelected = isSameDay(normalizedSelected, normalizedDate);
                           return isSelected && getEventsForDate(date).length > 0;
                         },
                       }}
@@ -454,7 +479,7 @@ export default function Agenda() {
                         size="default"
                         onClick={() => {
                           form.reset();
-                          form.setValue("data", selectedDate);
+                          form.setValue("data", startOfDay(selectedDate));
                           setEditingEvento(null);
                           setDialogOpen(true);
                         }}
@@ -476,7 +501,7 @@ export default function Agenda() {
               size="lg"
               onClick={() => {
                 form.reset();
-                form.setValue("data", selectedDate);
+                form.setValue("data", startOfDay(selectedDate));
                 setEditingEvento(null);
                 setDialogOpen(true);
               }}
