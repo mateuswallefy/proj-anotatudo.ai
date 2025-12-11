@@ -10,7 +10,10 @@
     "build": "npm run build:client && npm run build:server",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
     "build:client": "vite build",
-    "start": "NODE_ENV=production node dist/server.js"
+    "start": "NODE_ENV=production node dist/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "tsx drizzle/run-migrations.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
