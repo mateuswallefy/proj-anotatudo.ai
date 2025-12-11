@@ -3,7 +3,9 @@
     "allow": [
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(npm run build:client:*)"
+      "Bash(npm run build:client:*)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout 10 npm run dev:*)"
     ]
   }
 }

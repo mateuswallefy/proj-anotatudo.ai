@@ -31,67 +31,89 @@ export interface EventoExtractedData {
  */
 export async function classifyTextMessage(text: string, userId: string): Promise<TransacaoExtractedData> {
   const today = new Date().toISOString().split('T')[0];
-  
+
+  // Primeiro, tentar extração rápida via regex para mensagens simples
+  // Isso é muito mais rápido que chamar a IA para casos óbvios
+  const quickResult = extractSimpleTransaction(text);
+  if (quickResult.valor !== null && quickResult.confianca >= 0.8) {
+    console.log("[AI] Extração rápida bem-sucedida, pulando chamada à IA");
+    return quickResult;
+  }
+
   // Buscar categorias customizadas do usuário
   const categoriasCustomizadas = await storage.getCategoriasCustomizadas(userId);
   const customCategoryNames = categoriasCustomizadas.map(c => `${c.emoji} ${c.nome}`).join(', ');
-  
-  const categoriasDisponiveis = customCategoryNames 
+
+  const categoriasDisponiveis = customCategoryNames
     ? `Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Compras, Contas, Salário, Investimentos, Outros, ${customCategoryNames}`
     : 'Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Compras, Contas, Salário, Investimentos, Outros';
-  
-  const prompt = `Você é um assistente financeiro especializado em interpretar mensagens sobre transações financeiras.
 
-Analise a seguinte mensagem e extraia os dados estruturados:
+  const prompt = `Você é um assistente financeiro especializado em interpretar mensagens sobre transações financeiras no Brasil.
 
-Mensagem: "${text}"
+IMPORTANTE: Você DEVE extrair dados de QUALQUER mensagem que mencione dinheiro, valores ou transações financeiras. Seja flexível na interpretação.
+
+Mensagem do usuário: "${text}"
 
 Data de hoje: ${today}
 
-Extraia e retorne um JSON com:
-- tipo: "entrada" (receita/ganho) ou "saida" (despesa/gasto)
-- categoria: uma das opções: ${categoriasDisponiveis}
-- valor: número com 2 casas decimais (ou null se não identificado)
-- dataReal: data no formato YYYY-MM-DD (use hoje se não especificada)
-- descricao: descrição clara e objetiva da transação
-- confianca: número de 0 a 1 indicando sua confiança na interpretação
+REGRAS DE INTERPRETAÇÃO:
+1. Se a mensagem menciona "recebi", "ganhei", "entrou", "pagou" (alguém pagou para o usuário), "cliente", "venda" → tipo = "entrada"
+2. Se a mensagem menciona "gastei", "paguei", "comprei", "saiu", "despesa" → tipo = "saida"
+3. QUALQUER número na mensagem deve ser considerado como valor potencial
+4. Se não houver data específica, use a data de hoje
+5. Se a mensagem menciona "cliente" → categoria provavelmente é "Salário" ou trabalho/serviço
+6. Seja GENEROSO na interpretação - é melhor registrar do que ignorar
 
-IMPORTANTE: Para a categoria, retorne APENAS o nome da categoria (sem o emoji). Se a transação se encaixar em uma das categorias personalizadas do usuário, use o nome exato da categoria personalizada.
+EXEMPLOS:
+- "hoje recebi 100 de um cliente" → entrada, 100, Salário, "Recebimento de cliente"
+- "recebi 50 reais" → entrada, 50, Salário
+- "gastei 30 no almoço" → saida, 30, Alimentação
+- "paguei 150 de luz" → saida, 150, Contas
+- "vendi por 200" → entrada, 200, Salário
 
-Responda APENAS com JSON válido neste formato:
+Retorne um JSON com:
+- tipo: "entrada" ou "saida"
+- categoria: ${categoriasDisponiveis}
+- valor: número (SEMPRE tente extrair um número, mesmo que aproximado)
+- dataReal: "${today}" (ou outra data se especificada)
+- descricao: descrição clara da transação
+- confianca: 0 a 1
+
+IMPORTANTE: Retorne APENAS o nome da categoria (sem emoji). SEMPRE tente extrair um valor numérico.
+
+Responda APENAS com JSON válido:
 {
   "tipo": "entrada" | "saida",
   "categoria": "string",
-  "valor": number | null,
+  "valor": number,
   "dataReal": "YYYY-MM-DD",
   "descricao": "string",
   "confianca": number
 }`;
 
   try {
-    // Timeout wrapper para garantir resposta rápida
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Timeout ao processar mensagem")), 25000)
-    );
-
-    const apiPromise = openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "Você é um especialista em análise financeira. Sempre responda com JSON válido."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
-      temperature: 0.3, // Reduzir temperatura para respostas mais consistentes
-    });
-
-    const response = await Promise.race([apiPromise, timeoutPromise]) as any;
+    // Usar gpt-4o-mini para respostas mais rápidas com timeout reduzido
+    const response = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini", // Modelo mais rápido
+        messages: [
+          {
+            role: "system",
+            content: "Você é um especialista em análise financeira brasileira. Responda APENAS com JSON válido. SEMPRE extraia valores numéricos."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 300, // Reduzido para resposta mais rápida
+        temperature: 0.2, // Mais determinístico
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 12000) // 12 segundos
+      )
+    ]) as any;
 
     const content = response.choices[0].message.content || "{}";
     const result = JSON.parse(content);
@@ -252,54 +274,196 @@ export async function analyzeVideoForFinancialData(videoFrameBase64: string): Pr
 }
 
 /**
+ * Detecta rapidamente se uma mensagem pode ser um evento (pré-filtro local)
+ */
+function quickEventDetection(text: string): { isLikelyEvent: boolean; keywords: string[] } {
+  const lowerText = text.toLowerCase();
+
+  const eventKeywords = [
+    'reunião', 'reuniao', 'meeting', 'consulta', 'compromisso',
+    'lembrete', 'lembrar', 'não esquecer', 'nao esquecer', 'não esquece', 'nao esquece',
+    'agendar', 'agendamento', 'agenda', 'marcar', 'marcado',
+    'evento', 'encontro', 'entrevista', 'apresentação', 'apresentacao',
+    'dentista', 'médico', 'medico', 'exame', 'prova',
+    'aniversário', 'aniversario', 'festa', 'casamento',
+    'voo', 'viagem', 'hotel', 'reserva',
+    'prazo', 'deadline', 'vencimento', 'pagar dia', 'vence dia'
+  ];
+
+  const timeKeywords = [
+    'às', 'as', 'hora', 'h', 'manhã', 'manha', 'tarde', 'noite',
+    'amanhã', 'amanha', 'depois de amanhã', 'semana que vem',
+    'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado', 'domingo',
+    'dia', 'próximo', 'proximo', 'próxima', 'proxima'
+  ];
+
+  const foundEventKw = eventKeywords.filter(kw => lowerText.includes(kw));
+  const foundTimeKw = timeKeywords.filter(kw => lowerText.includes(kw));
+
+  // É provável ser evento se tem palavra-chave de evento OU combinação de tempo + contexto
+  const isLikelyEvent = foundEventKw.length > 0 || (foundTimeKw.length >= 2);
+
+  return { isLikelyEvent, keywords: [...foundEventKw, ...foundTimeKw] };
+}
+
+/**
+ * Extrai data de texto em português
+ */
+function extractDateFromText(text: string): string | null {
+  const today = new Date();
+  const lowerText = text.toLowerCase();
+
+  // Hoje
+  if (lowerText.includes('hoje')) {
+    return today.toISOString().split('T')[0];
+  }
+
+  // Amanhã
+  if (lowerText.includes('amanhã') || lowerText.includes('amanha')) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  // Depois de amanhã
+  if (lowerText.includes('depois de amanhã') || lowerText.includes('depois de amanha')) {
+    const dayAfter = new Date(today);
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    return dayAfter.toISOString().split('T')[0];
+  }
+
+  // Dia específico do mês: "dia 15", "no dia 20"
+  const diaMatch = lowerText.match(/(?:dia|no dia)\s*(\d{1,2})/);
+  if (diaMatch) {
+    const dia = parseInt(diaMatch[1]);
+    const result = new Date(today.getFullYear(), today.getMonth(), dia);
+    // Se o dia já passou, assume próximo mês
+    if (result < today) {
+      result.setMonth(result.getMonth() + 1);
+    }
+    return result.toISOString().split('T')[0];
+  }
+
+  // Dias da semana
+  const diasSemana = ['domingo', 'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado'];
+  for (let i = 0; i < diasSemana.length; i++) {
+    if (lowerText.includes(diasSemana[i])) {
+      const targetDay = i < 2 ? i : Math.floor(i / 2) + (i % 2); // Ajustar para índice correto
+      const currentDay = today.getDay();
+      let daysToAdd = targetDay - currentDay;
+      if (daysToAdd <= 0) daysToAdd += 7; // Próxima semana
+      const result = new Date(today);
+      result.setDate(result.getDate() + daysToAdd);
+      return result.toISOString().split('T')[0];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extrai hora de texto
+ */
+function extractTimeFromText(text: string): string | null {
+  const lowerText = text.toLowerCase();
+
+  // Padrão: "às 15h", "as 15:30", "15h30", "às 15 horas"
+  const timeMatch = lowerText.match(/(?:às|as|,)?\s*(\d{1,2})(?::|\s*h\s*|h)(\d{2})?\s*(?:horas?|h)?/);
+  if (timeMatch) {
+    const hours = parseInt(timeMatch[1]);
+    const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+  }
+
+  // Períodos do dia
+  if (lowerText.includes('manhã') || lowerText.includes('manha')) return '09:00';
+  if (lowerText.includes('meio-dia') || lowerText.includes('meio dia')) return '12:00';
+  if (lowerText.includes('tarde')) return '14:00';
+  if (lowerText.includes('noite')) return '19:00';
+
+  return null;
+}
+
+/**
  * Detecta se uma mensagem é sobre um evento/compromisso e extrai dados
+ * OTIMIZADO: Primeiro tenta detecção local, só chama IA se necessário
  */
 export async function detectEventoInMessage(text: string): Promise<EventoExtractedData> {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  
-  const prompt = `Você é um assistente especializado em detectar compromissos e eventos em mensagens.
 
-Analise a seguinte mensagem e determine se ela menciona um compromisso, evento, reunião ou algo que precisa ser lembrado em uma data/hora específica:
+  // ========================================
+  // ETAPA 1: PRÉ-FILTRO RÁPIDO LOCAL
+  // ========================================
+  const quickCheck = quickEventDetection(text);
 
-Mensagem: "${text}"
+  // Se não parece ser evento, retornar imediatamente
+  if (!quickCheck.isLikelyEvent) {
+    return { isEvento: false, confianca: 0 };
+  }
+
+  // ========================================
+  // ETAPA 2: TENTAR EXTRAÇÃO LOCAL
+  // ========================================
+  const extractedDate = extractDateFromText(text);
+  const extractedTime = extractTimeFromText(text);
+
+  // Se conseguiu extrair data/hora localmente, usar isso
+  if (extractedDate && quickCheck.keywords.length > 0) {
+    // Gerar título baseado nas keywords encontradas
+    let titulo = text.substring(0, 50).trim();
+    if (titulo.length > 40) titulo = titulo.substring(0, 40) + '...';
+
+    return {
+      isEvento: true,
+      titulo,
+      descricao: text,
+      data: extractedDate,
+      hora: extractedTime || undefined,
+      confianca: 0.8,
+    };
+  }
+
+  // ========================================
+  // ETAPA 3: CHAMAR IA APENAS SE NECESSÁRIO
+  // ========================================
+  const prompt = `Analise se esta mensagem é um EVENTO/COMPROMISSO/LEMBRETE que precisa ser agendado:
+
+"${text}"
 
 Data de hoje: ${todayStr}
 
-Responda com JSON válido:
+IMPORTANTE:
+- Se for sobre DINHEIRO/TRANSAÇÃO FINANCEIRA, retorne isEvento: false
+- Só retorne isEvento: true se for um compromisso, reunião, consulta, lembrete de algo a fazer
+
+JSON esperado:
 {
-  "isEvento": boolean (true se a mensagem menciona um compromisso/evento, false caso contrário),
-  "titulo": string (título do evento, se detectado),
-  "descricao": string (descrição adicional, se houver),
-  "data": "YYYY-MM-DD" (data do evento, use hoje se não especificada mas mencionar "hoje", use amanhã se mencionar "amanhã", etc.),
-  "hora": "HH:mm" (hora do evento, se mencionada, ou null),
-  "confianca": number (0 a 1, confiança na detecção)
-}
-
-Exemplos de eventos:
-- "Amanhã tenho reunião às 15h"
-- "Reunião com cliente na terça às 10h"
-- "Consulta médica dia 20 às 14:30"
-- "Não esqueça: pagar conta no dia 15"
-
-Responda APENAS com JSON válido.`;
+  "isEvento": boolean,
+  "titulo": "string curto",
+  "data": "YYYY-MM-DD",
+  "hora": "HH:mm ou null",
+  "confianca": 0-1
+}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "Você é um especialista em detectar compromissos e eventos. Sempre responda com JSON válido."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500,
-    });
+    const response = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini", // Usar modelo mais rápido
+        messages: [
+          { role: "system", content: "Detecte eventos/compromissos. Responda apenas JSON." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 200,
+        temperature: 0.3,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 8000)
+      )
+    ]) as any;
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
     return {
@@ -312,133 +476,232 @@ Responda APENAS com JSON válido.`;
     } as EventoExtractedData;
   } catch (error) {
     console.error("Erro ao detectar evento:", error);
-    return {
-      isEvento: false,
-      confianca: 0,
-    };
+    // Se IA falhou mas temos dados locais, usar eles
+    if (extractedDate) {
+      return {
+        isEvento: true,
+        titulo: text.substring(0, 50),
+        data: extractedDate,
+        hora: extractedTime || undefined,
+        confianca: 0.6,
+      };
+    }
+    return { isEvento: false, confianca: 0 };
   }
 }
 
 /**
  * Extração simples via regex (fallback quando IA falha)
+ * OTIMIZADO para máxima performance e detecção
  */
 export function extractSimpleTransaction(text: string): TransacaoExtractedData {
   const today = new Date().toISOString().split('T')[0];
   const lowerText = text.toLowerCase().trim();
-  
-  // Extrair valor - múltiplos padrões
+  const originalText = text.trim();
+
+  // ========================================
+  // EXTRAIR VALOR - MÚLTIPLOS PADRÕES
+  // ========================================
   let valor: number | null = null;
-  
-  // Padrão 1: "recebi 100 reais" ou "100 reais"
-  const valorMatch1 = lowerText.match(/(\d+(?:[.,]\d{2})?)\s*(?:reais?|r\$|rs\.?)/i);
+
+  // Padrão 1: "R$ 100", "R$100", "R$ 100,00", "R$100.00"
+  const valorMatch1 = text.match(/r\$\s*(\d+(?:[.,]\d{1,2})?)/i);
   if (valorMatch1) {
     valor = parseFloat(valorMatch1[1].replace(',', '.'));
   }
-  
-  // Padrão 2: "R$ 100" ou "R$100"
+
+  // Padrão 2: "100 reais", "100reais", "100 real"
   if (!valor) {
-    const valorMatch2 = lowerText.match(/(?:r\$|rs\.?)\s*(\d+(?:[.,]\d{2})?)/i);
+    const valorMatch2 = text.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:reais?|real)/i);
     if (valorMatch2) {
       valor = parseFloat(valorMatch2[1].replace(',', '.'));
     }
   }
-  
-  // Padrão 3: Qualquer número no texto (último recurso)
+
+  // Padrão 3: Número após palavras-chave de valor
   if (!valor) {
-    const valorMatch3 = lowerText.match(/(\d+(?:[.,]\d{2})?)/);
+    const valorMatch3 = lowerText.match(/(?:recebi|ganhei|gastei|paguei|comprei|vendi|entrou|saiu|de|por)\s+(\d+(?:[.,]\d{1,2})?)/);
     if (valorMatch3) {
       valor = parseFloat(valorMatch3[1].replace(',', '.'));
     }
   }
-  
-  // Detectar tipo (entrada/saída) - palavras-chave expandidas
-  const entradaKeywords = [
-    'recebi', 'ganhei', 'entrada', 'salário', 'salario', 
-    'pagamento recebido', 'crédito', 'credito', 'depositei',
-    'cliente pagou', 'pagou', 'venda', 'vendi', 'lucro',
-    'renda', 'provento', 'recebimento'
-  ];
-  const saidaKeywords = [
-    'gastei', 'paguei', 'comprei', 'despesa', 'saída', 'saida', 
-    'débito', 'debito', 'gasto', 'compra', 'pagamento',
-    'conta', 'boleto', 'fatura', 'dívida', 'divida'
-  ];
-  
-  const isEntrada = entradaKeywords.some(kw => lowerText.includes(kw));
-  const isSaida = saidaKeywords.some(kw => lowerText.includes(kw));
-  
-  // Se não detectou, tentar pelo contexto
-  let tipo: 'entrada' | 'saida' = 'saida'; // Default para saída
-  if (isEntrada) {
-    tipo = 'entrada';
-  } else if (isSaida) {
-    tipo = 'saida';
-  } else if (lowerText.includes('recebi') || lowerText.includes('ganhei')) {
-    tipo = 'entrada';
+
+  // Padrão 4: Qualquer número no texto (último recurso, mas confiável para números isolados)
+  if (!valor) {
+    // Pegar o primeiro número que pareça um valor monetário (>= 1)
+    const allNumbers = text.match(/\d+(?:[.,]\d{1,2})?/g);
+    if (allNumbers) {
+      for (const num of allNumbers) {
+        const parsed = parseFloat(num.replace(',', '.'));
+        if (parsed >= 1) { // Ignorar números muito pequenos como IDs
+          valor = parsed;
+          break;
+        }
+      }
+    }
   }
-  
-  // Categoria simples expandida
+
+  // ========================================
+  // DETECTAR TIPO (ENTRADA/SAÍDA)
+  // ========================================
+  const entradaKeywords = [
+    'recebi', 'ganhei', 'entrou', 'entrada', 'salário', 'salario',
+    'pagamento recebido', 'crédito', 'credito', 'depositei', 'depósito', 'deposito',
+    'cliente pagou', 'me pagou', 'pagou-me', 'venda', 'vendi', 'lucro',
+    'renda', 'provento', 'recebimento', 'freelance', 'freela', 'serviço',
+    'de um cliente', 'do cliente', 'cliente'
+  ];
+
+  const saidaKeywords = [
+    'gastei', 'paguei', 'comprei', 'despesa', 'saída', 'saida',
+    'débito', 'debito', 'gasto', 'compra', 'pagamento de', 'pagar',
+    'conta de', 'boleto', 'fatura', 'dívida', 'divida', 'parcela',
+    'prestação', 'prestacao', 'aluguel', 'mensalidade'
+  ];
+
+  let entradaScore = 0;
+  let saidaScore = 0;
+
+  for (const kw of entradaKeywords) {
+    if (lowerText.includes(kw)) {
+      entradaScore += kw.length; // Palavras mais longas são mais específicas
+    }
+  }
+
+  for (const kw of saidaKeywords) {
+    if (lowerText.includes(kw)) {
+      saidaScore += kw.length;
+    }
+  }
+
+  // Se menciona "cliente" é muito provável que seja entrada
+  if (lowerText.includes('cliente')) {
+    entradaScore += 20;
+  }
+
+  let tipo: 'entrada' | 'saida';
+  if (entradaScore > saidaScore) {
+    tipo = 'entrada';
+  } else if (saidaScore > entradaScore) {
+    tipo = 'saida';
+  } else {
+    // Default: se tem "recebi/ganhei" é entrada, senão saída
+    tipo = lowerText.includes('recebi') || lowerText.includes('ganhei') ? 'entrada' : 'saida';
+  }
+
+  // ========================================
+  // CATEGORIA
+  // ========================================
   const categoriaMap: Record<string, string> = {
-    'almoço': 'Alimentação',
-    'almoco': 'Alimentação',
-    'jantar': 'Alimentação',
-    'comida': 'Alimentação',
-    'restaurante': 'Alimentação',
-    'mercado': 'Alimentação',
-    'supermercado': 'Alimentação',
-    'padaria': 'Alimentação',
-    'gasolina': 'Transporte',
-    'combustível': 'Transporte',
-    'combustivel': 'Transporte',
-    'uber': 'Transporte',
-    'taxi': 'Transporte',
-    'transporte': 'Transporte',
-    'ônibus': 'Transporte',
-    'onibus': 'Transporte',
-    'conta': 'Contas',
-    'luz': 'Contas',
-    'água': 'Contas',
-    'agua': 'Contas',
-    'internet': 'Contas',
-    'telefone': 'Contas',
-    'cliente': 'Salário',
-    'salário': 'Salário',
-    'salario': 'Salário',
-    'venda': 'Salário',
-    'recebimento': 'Salário',
+    // Alimentação
+    'almoço': 'Alimentação', 'almoco': 'Alimentação', 'jantar': 'Alimentação',
+    'café': 'Alimentação', 'cafe': 'Alimentação', 'lanche': 'Alimentação',
+    'comida': 'Alimentação', 'restaurante': 'Alimentação', 'ifood': 'Alimentação',
+    'mercado': 'Alimentação', 'supermercado': 'Alimentação', 'padaria': 'Alimentação',
+    'açougue': 'Alimentação', 'acougue': 'Alimentação', 'feira': 'Alimentação',
+
+    // Transporte
+    'gasolina': 'Transporte', 'combustível': 'Transporte', 'combustivel': 'Transporte',
+    'uber': 'Transporte', '99': 'Transporte', 'taxi': 'Transporte',
+    'ônibus': 'Transporte', 'onibus': 'Transporte', 'metrô': 'Transporte',
+    'passagem': 'Transporte', 'estacionamento': 'Transporte', 'pedágio': 'Transporte',
+
+    // Contas
+    'luz': 'Contas', 'energia': 'Contas', 'água': 'Contas', 'agua': 'Contas',
+    'internet': 'Contas', 'telefone': 'Contas', 'celular': 'Contas',
+    'gás': 'Contas', 'gas': 'Contas', 'condomínio': 'Contas', 'condominio': 'Contas',
+    'aluguel': 'Moradia', 'iptu': 'Contas', 'ipva': 'Contas',
+
+    // Salário/Entrada
+    'cliente': 'Salário', 'salário': 'Salário', 'salario': 'Salário',
+    'venda': 'Salário', 'recebimento': 'Salário', 'freelance': 'Salário',
+    'freela': 'Salário', 'serviço': 'Salário', 'servico': 'Salário',
+    'comissão': 'Salário', 'comissao': 'Salário', 'pagamento': 'Salário',
+
+    // Saúde
+    'médico': 'Saúde', 'medico': 'Saúde', 'farmácia': 'Saúde', 'farmacia': 'Saúde',
+    'remédio': 'Saúde', 'remedio': 'Saúde', 'consulta': 'Saúde', 'exame': 'Saúde',
+    'hospital': 'Saúde', 'dentista': 'Saúde', 'plano de saúde': 'Saúde',
+
+    // Lazer
+    'cinema': 'Lazer', 'show': 'Lazer', 'festa': 'Lazer', 'bar': 'Lazer',
+    'cerveja': 'Lazer', 'viagem': 'Lazer', 'passeio': 'Lazer', 'netflix': 'Lazer',
+    'spotify': 'Lazer', 'streaming': 'Lazer', 'jogo': 'Lazer', 'game': 'Lazer',
+
+    // Compras
+    'roupa': 'Compras', 'sapato': 'Compras', 'tênis': 'Compras', 'tenis': 'Compras',
+    'shopping': 'Compras', 'loja': 'Compras', 'presente': 'Compras',
+    'amazon': 'Compras', 'mercado livre': 'Compras', 'shopee': 'Compras',
+
+    // Educação
+    'curso': 'Educação', 'escola': 'Educação', 'faculdade': 'Educação',
+    'livro': 'Educação', 'mensalidade': 'Educação', 'material': 'Educação',
   };
-  
-  let categoria = 'Outros';
+
+  let categoria = tipo === 'entrada' ? 'Salário' : 'Outros';
   for (const [keyword, cat] of Object.entries(categoriaMap)) {
     if (lowerText.includes(keyword)) {
       categoria = cat;
       break;
     }
   }
-  
-  // Se não encontrou valor, retornar null mas ainda criar estrutura válida
+
+  // ========================================
+  // GERAR DESCRIÇÃO
+  // ========================================
+  let descricao = originalText.substring(0, 100);
+
+  // Tentar gerar descrição mais limpa
+  if (tipo === 'entrada' && lowerText.includes('cliente')) {
+    descricao = 'Recebimento de cliente';
+  } else if (tipo === 'entrada' && (lowerText.includes('recebi') || lowerText.includes('ganhei'))) {
+    descricao = originalText.replace(/hoje|ontem|agora/gi, '').trim().substring(0, 100) || 'Recebimento';
+  }
+
+  // ========================================
+  // CALCULAR CONFIANÇA
+  // ========================================
+  let confianca = 0.5; // Base
+
+  if (valor !== null && valor > 0) {
+    confianca += 0.2; // Valor encontrado
+  }
+
+  if (entradaScore > 0 || saidaScore > 0) {
+    confianca += 0.15; // Tipo detectado com keywords
+  }
+
+  if (categoria !== 'Outros' && categoria !== 'Salário') {
+    confianca += 0.1; // Categoria específica encontrada
+  }
+
+  // Boost para padrões muito claros
+  if (lowerText.match(/recebi\s+\d+/) || lowerText.match(/gastei\s+\d+/)) {
+    confianca = Math.min(confianca + 0.2, 0.95);
+  }
+
+  // Se não encontrou valor
   if (!valor || valor <= 0) {
     console.log("[Fallback] Valor não encontrado na mensagem:", text);
-    // Retornar estrutura mas com valor null para que o sistema saiba que falhou
     return {
       tipo,
       categoria,
       valor: null,
       dataReal: today,
-      descricao: text.substring(0, 100),
+      descricao,
       confianca: 0.2,
     };
   }
-  
-  console.log(`[Fallback] Extraído: tipo=${tipo}, valor=${valor}, categoria=${categoria}`);
-  
+
+  console.log(`[Fallback] Extraído: tipo=${tipo}, valor=${valor}, categoria=${categoria}, confiança=${confianca}`);
+
   return {
     tipo,
     categoria,
     valor,
     dataReal: today,
-    descricao: text.substring(0, 100),
-    confianca: 0.7, // Aumentar confiança do fallback
+    descricao,
+    confianca,
   };
 }
 
@@ -929,90 +1192,27 @@ Responda APENAS com a headline, sem aspas, emojis ou formatação extra.`;
   }
 
   try {
-    // Timeout wrapper para geração de resposta
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Timeout ao gerar resposta")), 15000)
-    );
-
-    const apiPromise = openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `Você é o assistente oficial do AnotaTudo AI.
-
-Sua missão: Criar HEADLINES (títulos/frases principais) extremamente humanas, simpáticas, acolhedoras, naturais e diferentes a cada mensagem.
-
-⚠️ REGRAS CRÍTICAS:
-
-Você NUNCA deve gerar emojis.
-Você NUNCA deve gerar estrutura de mensagem.
-Você NUNCA deve gerar bullets, listas ou blocos.
-Você gera APENAS a frase principal (headline) da mensagem.
-A estrutura, emojis e formatação são adicionados pelo servidor.
-
-### DIRETRIZES:
-
-1. PERSONALIZAÇÃO
-- Sempre que possível, use o primeiro nome do usuário (já fornecido no contexto).
-- Trate-o com carinho e proximidade, mas com profissionalismo leve.
-
-2. TOM DA PERSONALIDADE
-- amigável
-- caloroso
-- acolhedor
-- leve e humano
-- empático, sem exagero
-- inteligente e claro
-- natural (parecendo conversa real)
-
-3. ESTILO DAS HEADLINES
-- frases curtas, naturais e diferentes a cada vez (máximo 1-2 frases)
-- não use gírias pesadas, apenas leveza
-- evite repetições
-- não seja formal demais
-- jamais responda com robótica ou linguagem dura
-- APENAS a headline, sem detalhes adicionais
-
-4. CONTEXTUALIZAÇÃO
-- Se a transação for alimentação → comente algo sobre isso brevemente
-- Se for mercado → comente naturalmente
-- Se for transporte → mencione viagens, deslocamento
-- Se for lazer → reaja com alegria
-- Se for despesa → empatia leve
-- Se for entrada de dinheiro → comemore junto
-
-5. PROIBIDO
-- NÃO gerar emojis (o servidor adiciona)
-- NÃO gerar estrutura (descrição, valor, categoria - o servidor adiciona)
-- NÃO mencionar "confiança", "probabilidade", "processamento" ou termos técnicos
-- NÃO parecer máquina
-- NÃO repetir textos
-- NÃO usar blocos ou listas
-- NÃO mostrar prompts
-- NÃO usar linguagem técnica
-
-6. EXEMPLOS DE HEADLINES (apenas o texto, sem emojis ou estrutura):
-
-✓ "Mateus, ótimo registro!"
-✓ "Perfeito, transação anotada!"
-✓ "Anotado com sucesso, João!"
-✓ "Ótimo, tudo registrado!"
-✓ "Transação salva com sucesso!"
-
-✗ "Mateus, ótimo registro! 💰 Descrição: ..." (NÃO - apenas a headline)
-
-7. OBJETIVO FINAL
-Gerar apenas uma headline natural, única e humanizada. O servidor completa o resto.`
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.9,
-      max_tokens: 400,
-    });
+    // Usar modelo mais rápido para geração de resposta com timeout curto
+    const response = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `Você é o assistente oficial do AnotaTudo AI. Gere APENAS uma frase curta e natural (headline) sem emojis ou estrutura. O servidor adiciona formatação depois.`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 100,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 8000)
+      )
+    ]) as any;
 
     let message = response.choices[0].message.content || "";
     
