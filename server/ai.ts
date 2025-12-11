@@ -97,14 +97,17 @@ Responda APENAS com JSON válido neste formato:
     const result = JSON.parse(content);
     
     // Validação robusta dos dados extraídos
+    // Se validação falhar, tentar fallback imediatamente
     if (!result.tipo || (result.tipo !== 'entrada' && result.tipo !== 'saida')) {
       console.error("[AI] Tipo inválido:", result.tipo);
-      throw new Error("Tipo de transação inválido");
+      console.log("[AI] Tentando fallback devido a tipo inválido...");
+      return extractSimpleTransaction(text);
     }
 
     if (!result.valor || typeof result.valor !== 'number' || result.valor <= 0) {
       console.error("[AI] Valor inválido:", result.valor);
-      throw new Error("Valor não identificado ou inválido");
+      console.log("[AI] Tentando fallback devido a valor inválido...");
+      return extractSimpleTransaction(text);
     }
 
     if (!result.categoria || typeof result.categoria !== 'string') {
@@ -130,13 +133,14 @@ Responda APENAS com JSON válido neste formato:
   } catch (error: any) {
     console.error("Erro ao classificar texto:", error);
     
-    // Se for timeout ou erro de API, tentar extração simples via regex
-    if (error.message?.includes("Timeout") || error.message?.includes("API")) {
-      console.log("[AI] Tentando extração simples via regex...");
+    // SEMPRE tentar fallback quando houver erro
+    console.log("[AI] Erro na classificação, tentando fallback...");
+    try {
       return extractSimpleTransaction(text);
+    } catch (fallbackError) {
+      console.error("[AI] Fallback também falhou:", fallbackError);
+      throw new Error("Falha ao processar mensagem de texto");
     }
-    
-    throw new Error("Falha ao processar mensagem de texto");
   }
 }
 
@@ -318,41 +322,90 @@ Responda APENAS com JSON válido.`;
 /**
  * Extração simples via regex (fallback quando IA falha)
  */
-function extractSimpleTransaction(text: string): TransacaoExtractedData {
+export function extractSimpleTransaction(text: string): TransacaoExtractedData {
   const today = new Date().toISOString().split('T')[0];
+  const lowerText = text.toLowerCase().trim();
   
-  // Extrair valor (R$ 100, 100 reais, etc)
-  const valorMatch = text.match(/(?:r\$|reais?|rs\.?)\s*(\d+(?:[.,]\d{2})?)/i) || 
-                      text.match(/(\d+(?:[.,]\d{2})?)\s*(?:reais?|r\$)/i) ||
-                      text.match(/(\d+(?:[.,]\d{2})?)/);
+  // Extrair valor - múltiplos padrões
+  let valor: number | null = null;
   
-  const valor = valorMatch ? parseFloat(valorMatch[1].replace(',', '.')) : null;
+  // Padrão 1: "recebi 100 reais" ou "100 reais"
+  const valorMatch1 = lowerText.match(/(\d+(?:[.,]\d{2})?)\s*(?:reais?|r\$|rs\.?)/i);
+  if (valorMatch1) {
+    valor = parseFloat(valorMatch1[1].replace(',', '.'));
+  }
   
-  // Detectar tipo (entrada/saída)
-  const entradaKeywords = ['recebi', 'ganhei', 'entrada', 'salário', 'pagamento recebido', 'crédito'];
-  const saidaKeywords = ['gastei', 'paguei', 'comprei', 'despesa', 'saída', 'débito'];
+  // Padrão 2: "R$ 100" ou "R$100"
+  if (!valor) {
+    const valorMatch2 = lowerText.match(/(?:r\$|rs\.?)\s*(\d+(?:[.,]\d{2})?)/i);
+    if (valorMatch2) {
+      valor = parseFloat(valorMatch2[1].replace(',', '.'));
+    }
+  }
   
-  const lowerText = text.toLowerCase();
+  // Padrão 3: Qualquer número no texto (último recurso)
+  if (!valor) {
+    const valorMatch3 = lowerText.match(/(\d+(?:[.,]\d{2})?)/);
+    if (valorMatch3) {
+      valor = parseFloat(valorMatch3[1].replace(',', '.'));
+    }
+  }
+  
+  // Detectar tipo (entrada/saída) - palavras-chave expandidas
+  const entradaKeywords = [
+    'recebi', 'ganhei', 'entrada', 'salário', 'salario', 
+    'pagamento recebido', 'crédito', 'credito', 'depositei',
+    'cliente pagou', 'pagou', 'venda', 'vendi', 'lucro',
+    'renda', 'provento', 'recebimento'
+  ];
+  const saidaKeywords = [
+    'gastei', 'paguei', 'comprei', 'despesa', 'saída', 'saida', 
+    'débito', 'debito', 'gasto', 'compra', 'pagamento',
+    'conta', 'boleto', 'fatura', 'dívida', 'divida'
+  ];
+  
   const isEntrada = entradaKeywords.some(kw => lowerText.includes(kw));
   const isSaida = saidaKeywords.some(kw => lowerText.includes(kw));
   
-  const tipo = isEntrada ? 'entrada' : (isSaida ? 'saida' : 'saida'); // Default para saída
+  // Se não detectou, tentar pelo contexto
+  let tipo: 'entrada' | 'saida' = 'saida'; // Default para saída
+  if (isEntrada) {
+    tipo = 'entrada';
+  } else if (isSaida) {
+    tipo = 'saida';
+  } else if (lowerText.includes('recebi') || lowerText.includes('ganhei')) {
+    tipo = 'entrada';
+  }
   
-  // Categoria simples
+  // Categoria simples expandida
   const categoriaMap: Record<string, string> = {
     'almoço': 'Alimentação',
+    'almoco': 'Alimentação',
     'jantar': 'Alimentação',
     'comida': 'Alimentação',
+    'restaurante': 'Alimentação',
     'mercado': 'Alimentação',
     'supermercado': 'Alimentação',
+    'padaria': 'Alimentação',
     'gasolina': 'Transporte',
+    'combustível': 'Transporte',
+    'combustivel': 'Transporte',
     'uber': 'Transporte',
     'taxi': 'Transporte',
     'transporte': 'Transporte',
+    'ônibus': 'Transporte',
+    'onibus': 'Transporte',
     'conta': 'Contas',
     'luz': 'Contas',
     'água': 'Contas',
+    'agua': 'Contas',
     'internet': 'Contas',
+    'telefone': 'Contas',
+    'cliente': 'Salário',
+    'salário': 'Salário',
+    'salario': 'Salário',
+    'venda': 'Salário',
+    'recebimento': 'Salário',
   };
   
   let categoria = 'Outros';
@@ -363,13 +416,29 @@ function extractSimpleTransaction(text: string): TransacaoExtractedData {
     }
   }
   
+  // Se não encontrou valor, retornar null mas ainda criar estrutura válida
+  if (!valor || valor <= 0) {
+    console.log("[Fallback] Valor não encontrado na mensagem:", text);
+    // Retornar estrutura mas com valor null para que o sistema saiba que falhou
+    return {
+      tipo,
+      categoria,
+      valor: null,
+      dataReal: today,
+      descricao: text.substring(0, 100),
+      confianca: 0.2,
+    };
+  }
+  
+  console.log(`[Fallback] Extraído: tipo=${tipo}, valor=${valor}, categoria=${categoria}`);
+  
   return {
     tipo,
     categoria,
     valor,
     dataReal: today,
     descricao: text.substring(0, 100),
-    confianca: valor ? 0.6 : 0.3, // Confiança baixa mas funcional
+    confianca: 0.7, // Aumentar confiança do fallback
   };
 }
 

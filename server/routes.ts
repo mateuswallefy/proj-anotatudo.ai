@@ -1214,6 +1214,26 @@ export async function registerRoutes(app: Express): Promise<void> {
           }
 
           // Validação adicional antes de criar transação
+          // Se valor for null ou inválido, tentar fallback uma última vez
+          if (!extractedData || !extractedData.valor || extractedData.valor <= 0) {
+            console.log("[WhatsApp] ⚠️ Dados inválidos da IA, tentando fallback final...");
+            if (messageType === 'text' && content) {
+              try {
+                const { extractSimpleTransaction } = await import("./ai.js");
+                const fallbackResult = extractSimpleTransaction(content);
+                console.log("[WhatsApp] Fallback result:", fallbackResult);
+                if (fallbackResult && fallbackResult.valor && fallbackResult.valor > 0) {
+                  extractedData = fallbackResult;
+                  console.log("[WhatsApp] ✅ Fallback final funcionou! Valor:", fallbackResult.valor);
+                } else {
+                  console.log("[WhatsApp] ❌ Fallback também não encontrou valor válido");
+                }
+              } catch (fallbackError) {
+                console.error("[WhatsApp] Erro no fallback:", fallbackError);
+              }
+            }
+          }
+          
           if (extractedData && extractedData.tipo && extractedData.valor && extractedData.valor > 0) {
             const transacao = await storage.createTransacao({
               userId: user.id,
