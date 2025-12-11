@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { motion } from "framer-motion";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -10,32 +11,37 @@ interface DashboardStatCardProps {
   icon: ReactNode;
   color: "green" | "red" | "blue" | "orange";
   isLoading?: boolean;
+  index?: number;
 }
 
-const colorClasses = {
+const colorConfig = {
   green: {
-    bg: "bg-emerald-50 dark:bg-emerald-950/20",
-    icon: "bg-emerald-500",
-    text: "text-emerald-600 dark:text-emerald-400",
-    border: "border-emerald-200 dark:border-emerald-800",
+    gradient: "from-emerald-500 to-emerald-600",
+    bg: "bg-emerald-500/10",
+    glow: "shadow-emerald-500/20",
+    text: "text-emerald-500",
+    iconBg: "from-emerald-500/20 to-emerald-600/10",
   },
   red: {
-    bg: "bg-red-50 dark:bg-red-950/20",
-    icon: "bg-red-500",
-    text: "text-red-600 dark:text-red-400",
-    border: "border-red-200 dark:border-red-800",
+    gradient: "from-rose-500 to-rose-600",
+    bg: "bg-rose-500/10",
+    glow: "shadow-rose-500/20",
+    text: "text-rose-500",
+    iconBg: "from-rose-500/20 to-rose-600/10",
   },
   blue: {
-    bg: "bg-blue-50 dark:bg-blue-950/20",
-    icon: "bg-blue-500",
-    text: "text-blue-600 dark:text-blue-400",
-    border: "border-blue-200 dark:border-blue-800",
+    gradient: "from-blue-500 to-blue-600",
+    bg: "bg-blue-500/10",
+    glow: "shadow-blue-500/20",
+    text: "text-blue-500",
+    iconBg: "from-blue-500/20 to-blue-600/10",
   },
   orange: {
-    bg: "bg-orange-50 dark:bg-orange-950/20",
-    icon: "bg-orange-500",
-    text: "text-orange-600 dark:text-orange-400",
-    border: "border-orange-200 dark:border-orange-800",
+    gradient: "from-amber-500 to-orange-600",
+    bg: "bg-amber-500/10",
+    glow: "shadow-amber-500/20",
+    text: "text-amber-500",
+    iconBg: "from-amber-500/20 to-orange-600/10",
   },
 };
 
@@ -46,8 +52,9 @@ export function DashboardStatCard({
   icon,
   color,
   isLoading = false,
+  index = 0,
 }: DashboardStatCardProps) {
-  const colors = colorClasses[color];
+  const config = colorConfig[color];
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -57,66 +64,99 @@ export function DashboardStatCard({
   };
 
   const formatVariation = (val: number) => {
-    const sign = val >= 0 ? "+" : "";
+    const sign = val > 0 ? "+" : "";
     return `${sign}${val.toFixed(1)}%`;
+  };
+
+  const getTrendIcon = () => {
+    if (variation > 0) return <TrendingUp className="h-3.5 w-3.5" />;
+    if (variation < 0) return <TrendingDown className="h-3.5 w-3.5" />;
+    return <Minus className="h-3.5 w-3.5" />;
+  };
+
+  const getVariationColor = () => {
+    // Para despesas, inversão da lógica (menos é melhor)
+    if (color === "red" || color === "orange") {
+      if (variation < 0) return "text-emerald-500 bg-emerald-500/10";
+      if (variation > 0) return "text-rose-500 bg-rose-500/10";
+    } else {
+      if (variation > 0) return "text-emerald-500 bg-emerald-500/10";
+      if (variation < 0) return "text-rose-500 bg-rose-500/10";
+    }
+    return "text-muted-foreground bg-muted/50";
   };
 
   if (isLoading) {
     return (
-      <div className="bg-card rounded-[20px] border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-        <Skeleton className="h-12 w-12 rounded-full mb-3" />
-        <Skeleton className="h-3 w-20 mb-1.5" />
-        <Skeleton className="h-6 w-24 mb-1" />
-        <Skeleton className="h-2 w-16" />
+      <div className="relative rounded-[20px] border-0 bg-card p-4 shadow-lg overflow-hidden">
+        <div className="flex items-start justify-between mb-4">
+          <Skeleton className="h-12 w-12 rounded-xl" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+        </div>
+        <Skeleton className="h-4 w-20 mb-2" />
+        <Skeleton className="h-8 w-28" />
       </div>
     );
   }
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.1, ease: "easeOut" }}
+      whileHover={{ y: -2, transition: { duration: 0.2 } }}
       className={cn(
-        "rounded-[20px] border bg-card p-4 transition-all hover:shadow-md",
-        "shadow-[0_2px_8px_rgba(0,0,0,0.05)]",
-        colors.border,
-        "flex flex-col h-full"
+        "relative rounded-[20px] border-0 bg-card p-4 overflow-hidden",
+        "shadow-lg hover:shadow-xl transition-shadow duration-300",
+        config.glow
       )}
     >
-      <div className="flex items-center justify-between mb-3">
+      {/* Background decoration */}
+      <div
+        className={cn(
+          "absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-30",
+          config.bg
+        )}
+      />
+
+      {/* Header */}
+      <div className="relative flex items-start justify-between mb-3">
         <div
           className={cn(
-            "w-12 h-12 rounded-full flex items-center justify-center text-white shadow-sm",
-            colors.icon
+            "p-3 rounded-xl bg-gradient-to-br backdrop-blur-sm",
+            config.iconBg
           )}
         >
-          {icon}
+          <div className={config.text}>
+            {icon}
+          </div>
         </div>
+
+        {/* Variation badge */}
         <div
           className={cn(
-            "flex items-center gap-1 text-xs font-semibold",
-            variation >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+            "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold",
+            getVariationColor()
           )}
         >
-          {variation >= 0 ? (
-            <TrendingUp className="h-3 w-3" />
-          ) : (
-            <TrendingDown className="h-3 w-3" />
-          )}
+          {getTrendIcon()}
           <span>{formatVariation(variation)}</span>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-end">
-        <p className="text-xs font-medium text-muted-foreground mb-1.5">
+      {/* Content */}
+      <div className="relative">
+        <p className="text-xs font-medium text-muted-foreground mb-1">
           {title}
         </p>
-        <p className="text-2xl sm:text-3xl font-bold text-foreground mb-1 leading-tight">
+        <p className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-foreground tabular-nums">
           {formatCurrency(value)}
         </p>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+          <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
           vs período anterior
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }
-

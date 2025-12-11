@@ -1,4 +1,9 @@
-import { ArrowDownCircle, ArrowUpCircle, Wallet, CreditCard } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet2,
+  CreditCard,
+} from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -25,33 +30,37 @@ export default function Dashboard() {
             title="Receitas"
             value={stats.receitas}
             variation={stats.variacaoReceitas}
-            icon={<ArrowDownCircle className="h-6 w-6" />}
+            icon={<TrendingUp className="h-5 w-5" />}
             color="green"
             isLoading={stats.isLoading}
+            index={0}
           />
           <DashboardStatCard
             title="Despesas"
             value={stats.despesas}
             variation={stats.variacaoDespesas}
-            icon={<ArrowUpCircle className="h-6 w-6" />}
+            icon={<TrendingDown className="h-5 w-5" />}
             color="red"
             isLoading={stats.isLoading}
+            index={1}
           />
           <DashboardStatCard
             title="Saldo"
             value={stats.saldo}
             variation={stats.variacaoSaldo}
-            icon={<Wallet className="h-6 w-6" />}
+            icon={<Wallet2 className="h-5 w-5" />}
             color="blue"
             isLoading={stats.isLoading}
+            index={2}
           />
           <DashboardStatCard
-            title="Faturas do Cartão"
+            title="Faturas"
             value={stats.faturasCartao}
             variation={0}
-            icon={<CreditCard className="h-6 w-6" />}
+            icon={<CreditCard className="h-5 w-5" />}
             color="orange"
             isLoading={stats.isLoading}
+            index={3}
           />
         </div>
 
@@ -74,4 +83,3 @@ export default function Dashboard() {
     </DashboardContainer>
   );
 }
-

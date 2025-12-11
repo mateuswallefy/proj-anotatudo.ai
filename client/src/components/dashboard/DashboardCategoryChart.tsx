@@ -11,19 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCategorySpending } from "@/hooks/useCategorySpending";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart as PieChartIcon, TrendingDown, Wallet } from "lucide-react";
-
-// Cores vibrantes e modernas com gradientes
-const COLORS = [
-  { main: "#8b5cf6", light: "#a78bfa" }, // violet
-  { main: "#06b6d4", light: "#22d3ee" }, // cyan
-  { main: "#f43f5e", light: "#fb7185" }, // rose
-  { main: "#f59e0b", light: "#fbbf24" }, // amber
-  { main: "#10b981", light: "#34d399" }, // emerald
-  { main: "#ec4899", light: "#f472b6" }, // pink
-  { main: "#3b82f6", light: "#60a5fa" }, // blue
-  { main: "#ef4444", light: "#f87171" }, // red
-];
+import { PieChart as PieChartIcon, Wallet } from "lucide-react";
+import { getCategoryColor, getCategoryIcon } from "@/lib/categoryColors";
 
 // Componente de setor ativo com efeito de destaque
 const renderActiveShape = (props: any) => {
@@ -35,9 +24,6 @@ const renderActiveShape = (props: any) => {
     startAngle,
     endAngle,
     fill,
-    payload,
-    value,
-    percentual,
   } = props;
 
   return (
@@ -47,7 +33,7 @@ const renderActiveShape = (props: any) => {
         cx={cx}
         cy={cy}
         innerRadius={innerRadius - 2}
-        outerRadius={outerRadius + 8}
+        outerRadius={outerRadius + 10}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
@@ -59,12 +45,12 @@ const renderActiveShape = (props: any) => {
         cx={cx}
         cy={cy}
         innerRadius={innerRadius}
-        outerRadius={outerRadius + 6}
+        outerRadius={outerRadius + 8}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
         stroke="#fff"
-        strokeWidth={2}
+        strokeWidth={3}
       />
       {/* Setor interno */}
       <Sector
@@ -72,7 +58,7 @@ const renderActiveShape = (props: any) => {
         cy={cy}
         startAngle={startAngle}
         endAngle={endAngle}
-        innerRadius={innerRadius - 4}
+        innerRadius={innerRadius - 6}
         outerRadius={innerRadius}
         fill={fill}
         opacity={0.5}
@@ -98,12 +84,14 @@ export function DashboardCategoryChart() {
 
   // Categoria ativa
   const activeData = activeIndex !== null ? data?.[activeIndex] : null;
+  const activeColor = activeData ? getCategoryColor(activeData.categoria, activeIndex) : null;
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0];
       const colorIndex = data?.findIndex((d) => d.categoria === item.name) || 0;
-      const color = COLORS[colorIndex % COLORS.length];
+      const color = getCategoryColor(item.name, colorIndex);
+      const Icon = getCategoryIcon(item.name);
 
       return (
         <motion.div
@@ -111,23 +99,22 @@ export function DashboardCategoryChart() {
           animate={{ opacity: 1, scale: 1 }}
           className="backdrop-blur-xl bg-background/90 border border-border/50 rounded-2xl p-4 shadow-2xl min-w-[180px]"
         >
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2.5 mb-3">
             <div
-              className="w-3 h-3 rounded-full"
-              style={{
-                background: `linear-gradient(135deg, ${color.main}, ${color.light})`,
-                boxShadow: `0 2px 8px ${color.main}50`,
-              }}
-            />
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: color.bg }}
+            >
+              <Icon className="h-4 w-4" style={{ color: color.main }} />
+            </div>
             <p className="text-sm font-bold text-foreground">{item.name}</p>
           </div>
-          <p className="text-xl font-bold" style={{ color: color.main }}>
+          <p className="text-2xl font-bold" style={{ color: color.main }}>
             {new Intl.NumberFormat("pt-BR", {
               style: "currency",
               currency: "BRL",
             }).format(item.value)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1.5">
             {item.payload.percentual?.toFixed(1)}% do total de gastos
           </p>
         </motion.div>
@@ -211,33 +198,35 @@ export function DashboardCategoryChart() {
                 <p className="text-xs text-muted-foreground mt-0.5">Distribuição das despesas</p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-500">
-              <TrendingDown className="h-3.5 w-3.5" />
-              <span>{data.length} categorias</span>
+            <div className="px-3 py-1.5 rounded-full text-xs font-semibold bg-muted/50 text-muted-foreground">
+              {data.length} {data.length === 1 ? 'categoria' : 'categorias'}
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-5 sm:p-6 pt-0 relative">
-          <div className="flex flex-col lg:flex-row items-center gap-4">
+          <div className="flex flex-col lg:flex-row items-center gap-6">
             {/* Donut Chart */}
-            <div className="relative w-full lg:w-1/2 h-[280px]">
+            <div className="relative w-full lg:w-1/2 h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <defs>
-                    {COLORS.map((color, index) => (
-                      <linearGradient
-                        key={`gradient-${index}`}
-                        id={`colorGradient-${index}`}
-                        x1="0"
-                        y1="0"
-                        x2="1"
-                        y2="1"
-                      >
-                        <stop offset="0%" stopColor={color.main} />
-                        <stop offset="100%" stopColor={color.light} />
-                      </linearGradient>
-                    ))}
+                    {data.map((entry, index) => {
+                      const color = getCategoryColor(entry.categoria, index);
+                      return (
+                        <linearGradient
+                          key={`gradient-${index}`}
+                          id={`categoryGradient-${index}`}
+                          x1="0"
+                          y1="0"
+                          x2="1"
+                          y2="1"
+                        >
+                          <stop offset="0%" stopColor={color.main} />
+                          <stop offset="100%" stopColor={color.light} />
+                        </linearGradient>
+                      );
+                    })}
                   </defs>
                   <Pie
                     activeIndex={activeIndex !== null ? activeIndex : undefined}
@@ -245,9 +234,9 @@ export function DashboardCategoryChart() {
                     data={data}
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={3}
+                    innerRadius={65}
+                    outerRadius={95}
+                    paddingAngle={4}
                     dataKey="valor"
                     nameKey="categoria"
                     onMouseEnter={onPieEnter}
@@ -256,23 +245,26 @@ export function DashboardCategoryChart() {
                     animationDuration={1200}
                     animationEasing="ease-out"
                   >
-                    {data.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={`url(#colorGradient-${index % COLORS.length})`}
-                        stroke="transparent"
-                        style={{
-                          filter: activeIndex === index ? `drop-shadow(0 0 8px ${COLORS[index % COLORS.length].main}80)` : 'none',
-                          transition: 'filter 0.3s ease',
-                        }}
-                      />
-                    ))}
+                    {data.map((entry, index) => {
+                      const color = getCategoryColor(entry.categoria, index);
+                      return (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`url(#categoryGradient-${index})`}
+                          stroke="transparent"
+                          style={{
+                            filter: activeIndex === index ? `drop-shadow(0 0 12px ${color.main}80)` : 'none',
+                            transition: 'filter 0.3s ease',
+                          }}
+                        />
+                      );
+                    })}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
 
-              {/* Centro do Donut - Mostra total ou categoria ativa */}
+              {/* Centro do Donut */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -283,14 +275,23 @@ export function DashboardCategoryChart() {
                     transition={{ duration: 0.2 }}
                     className="text-center"
                   >
-                    {activeData ? (
+                    {activeData && activeColor ? (
                       <>
-                        <p className="text-xs text-muted-foreground mb-1 truncate max-w-[100px]">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2"
+                          style={{ backgroundColor: activeColor.bg }}
+                        >
+                          {(() => {
+                            const Icon = getCategoryIcon(activeData.categoria);
+                            return <Icon className="h-5 w-5" style={{ color: activeColor.main }} />;
+                          })()}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-0.5 truncate max-w-[90px]">
                           {activeData.categoria}
                         </p>
                         <p
                           className="text-lg font-bold"
-                          style={{ color: COLORS[activeIndex! % COLORS.length].main }}
+                          style={{ color: activeColor.main }}
                         >
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
@@ -298,13 +299,10 @@ export function DashboardCategoryChart() {
                             notation: "compact",
                           }).format(activeData.valor)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {activeData.percentual?.toFixed(1)}%
-                        </p>
                       </>
                     ) : (
                       <>
-                        <p className="text-xs text-muted-foreground mb-1">Total</p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Total</p>
                         <p className="text-xl font-bold text-foreground">
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
@@ -312,7 +310,6 @@ export function DashboardCategoryChart() {
                             notation: "compact",
                           }).format(total)}
                         </p>
-                        <p className="text-xs text-muted-foreground">em gastos</p>
                       </>
                     )}
                   </motion.div>
@@ -321,9 +318,10 @@ export function DashboardCategoryChart() {
             </div>
 
             {/* Legend */}
-            <div className="w-full lg:w-1/2 space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-2">
+            <div className="w-full lg:w-1/2 space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
               {data.map((entry, index) => {
-                const color = COLORS[index % COLORS.length];
+                const color = getCategoryColor(entry.categoria, index);
+                const Icon = getCategoryIcon(entry.categoria);
                 const isActive = activeIndex === index;
 
                 return (
@@ -334,40 +332,38 @@ export function DashboardCategoryChart() {
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                     onMouseEnter={() => setActiveIndex(index)}
                     onMouseLeave={() => setActiveIndex(null)}
-                    className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-300 ${
+                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all duration-300 ${
                       isActive
-                        ? 'bg-muted/80 scale-[1.02] shadow-lg'
-                        : 'bg-muted/30 hover:bg-muted/50'
+                        ? 'scale-[1.02]'
+                        : 'hover:bg-muted/30'
                     }`}
                     style={{
-                      borderLeft: `4px solid ${color.main}`,
-                      boxShadow: isActive ? `0 4px 20px ${color.main}20` : 'none',
+                      backgroundColor: isActive ? color.bg : 'transparent',
+                      boxShadow: isActive ? `0 4px 20px ${color.main}15` : 'none',
                     }}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform duration-300"
                         style={{
                           background: `linear-gradient(135deg, ${color.main}20, ${color.light}10)`,
+                          transform: isActive ? 'scale(1.1)' : 'scale(1)',
                         }}
                       >
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{
-                            background: `linear-gradient(135deg, ${color.main}, ${color.light})`,
-                            boxShadow: `0 2px 6px ${color.main}40`,
-                          }}
+                        <Icon
+                          className="h-4 w-4 transition-colors"
+                          style={{ color: color.main }}
                         />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{entry.categoria}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.percentual?.toFixed(1)}% do total
+                        <p className="text-[11px] text-muted-foreground">
+                          {entry.percentual?.toFixed(1)}%
                         </p>
                       </div>
                     </div>
                     <p
-                      className="text-sm font-bold flex-shrink-0 ml-2"
+                      className="text-sm font-bold flex-shrink-0 ml-2 tabular-nums"
                       style={{ color: color.main }}
                     >
                       {new Intl.NumberFormat("pt-BR", {
