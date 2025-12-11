@@ -3,9 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { pipeline } from 'stream';
-import { db } from "./db.js";
-import { whatsappLatency } from "../shared/schema.js";
-import { eq } from "drizzle-orm";
+import { storage } from "./storage.js";
 
 const streamPipeline = promisify(pipeline);
 
@@ -292,11 +290,11 @@ export async function sendWhatsAppReply(to: string, message: string, latencyId?:
       const { storage } = await import("./storage.js");
       await storage.updateWhatsAppLatency(latencyId, { responseQueuedAt });
       
-      // Logar evento
+      // Logar evento - buscar userId do latency via storage
       const { logClientEvent, EventTypes } = await import("./clientLogger.js");
-      const latency = await db.select().from(whatsappLatency).where(eq(whatsappLatency.id, latencyId)).limit(1);
-      if (latency[0]?.userId) {
-        await logClientEvent(latency[0].userId, EventTypes.WHATSAPP_RESPONSE_SENT, `Resposta enviada ao WhatsApp`, {
+      const latency = await storage.getWhatsAppLatencyById(latencyId);
+      if (latency?.userId) {
+        await logClientEvent(latency.userId, EventTypes.WHATSAPP_RESPONSE_SENT, `Resposta enviada ao WhatsApp`, {
           to,
           latencyId,
           responseQueuedAt: responseQueuedAt.toISOString(),

@@ -111,9 +111,9 @@ export const transacoes = pgTable("transacoes", {
   cartaoId: varchar("cartao_id").references(() => cartoes.id, { onDelete: 'set null' }),
   goalId: varchar("goal_id").references(() => goals.id, { onDelete: 'set null' }),
   // New fields for payment status and method
-  status: varchar("status", { enum: ['paid', 'pending'] }).default('paid').notNull(),
+  status: varchar("status").default('paid').notNull(),
   // pendingKind can be NULL (when paid), 'to_receive' (income pending), or 'to_pay' (expense pending)
-  pendingKind: varchar("pending_kind", { enum: ['to_receive', 'to_pay'] }),
+  pendingKind: varchar("pending_kind"),
   paymentMethod: varchar("payment_method", { enum: ['cash', 'pix', 'transfer', 'credit_card', 'debit_card', 'boleto', 'other'] }).default('other').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

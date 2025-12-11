@@ -338,6 +338,7 @@ export interface IStorage {
 
   // WhatsApp latency operations
   createWhatsAppLatency(latency: InsertWhatsAppLatency): Promise<WhatsAppLatency>;
+  getWhatsAppLatencyById(id: string): Promise<WhatsAppLatency | undefined>;
   getWhatsAppLatencies(filters?: { userId?: string; limit?: number; startDate?: Date; endDate?: Date }): Promise<WhatsAppLatency[]>;
   getWhatsAppLatencyStats(startDate?: Date, endDate?: Date): Promise<{
     avgTotalLatency: number;

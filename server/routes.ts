@@ -30,7 +30,6 @@ import {
   adminEventLogs,
   webhookEvents,
   webhookProcessedEvents,
-  whatsappLatency,
 } from "@shared/schema";
 import { eq, and, or, desc, sql as sqlOp, sql, inArray } from "drizzle-orm";
 import { 
