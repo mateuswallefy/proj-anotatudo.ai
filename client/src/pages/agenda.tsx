@@ -247,7 +247,23 @@ export default function Agenda() {
                   </div>
 
                   {/* Calendar - Centralizado */}
-                  <div className="flex justify-center items-center w-full">
+                  <div className="flex justify-center items-center w-full [&_.rdp-day_today:not(.rdp-day_selected)]:bg-transparent [&_.rdp-day_today:not(.rdp-day_selected)]:text-foreground [&_.rdp-cell]:[&:has([aria-selected])]:!bg-transparent [&_.rdp-cell]:[&:has([aria-selected])]:!shadow-none">
+                    <style>{`
+                      /* Remove completamente qualquer fundo accent do cell quando há seleção */
+                      .rdp-cell:has([aria-selected]),
+                      .rdp-cell:has(.rdp-day_selected),
+                      .rdp-cell[class*="has-selected"] {
+                        background-color: transparent !important;
+                        background: transparent !important;
+                        box-shadow: none !important;
+                      }
+                      /* Garante que apenas o day em si tenha o fundo azul */
+                      .rdp-day_selected {
+                        background-color: #005CA9 !important;
+                        color: white !important;
+                        border-radius: 9999px !important;
+                      }
+                    `}</style>
                     <Calendar
                       mode="single"
                       selected={selectedDate}
@@ -268,11 +284,11 @@ export default function Agenda() {
                         head_row: "flex justify-center",
                         head_cell: "text-muted-foreground rounded-md w-9 lg:w-12 xl:w-14 font-normal text-[0.8rem] lg:text-sm",
                         row: "flex w-full mt-2 justify-center",
-                        cell: "h-9 w-9 lg:h-12 lg:w-12 xl:h-14 xl:w-14 text-center text-sm lg:text-base p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                        cell: "h-9 w-9 lg:h-12 lg:w-12 xl:h-14 xl:w-14 text-center text-sm lg:text-base p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:!bg-transparent [&:has([aria-selected])]:!bg-transparent [&:has([aria-selected])]:!shadow-none first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
                         day: "h-9 w-9 lg:h-12 lg:w-12 xl:h-14 xl:w-14 p-0 font-normal aria-selected:opacity-100 text-sm lg:text-base",
                         day_range_end: "day-range-end",
-                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                        day_today: "!bg-transparent", // Força remoção do fundo amarelo padrão
+                        day_selected: "!bg-[#005CA9] !text-white hover:!bg-[#003F73] focus:!bg-[#005CA9] rounded-full", // Azul circular como no concorrente
+                        day_today: "", // Removido completamente - será sobrescrito pelo modificador
                         day_outside: "day-outside text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
                         day_disabled: "text-muted-foreground opacity-50",
                         day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
@@ -281,10 +297,17 @@ export default function Agenda() {
                       modifiers={{
                         hasEvents: (date) => getEventsForDate(date).length > 0,
                         today: (date) => isToday(date),
+                        selectedWithEvents: (date) => {
+                          // Verifica se o dia está selecionado E tem eventos
+                          const isSelected = selectedDate && 
+                            format(selectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                          return isSelected && getEventsForDate(date).length > 0;
+                        },
                       }}
                       modifiersClassNames={{
                         hasEvents: "relative after:content-[''] after:absolute after:bottom-1 lg:after:bottom-2 after:left-1/2 after:-translate-x-1/2 after:w-2 after:h-2 lg:after:w-2.5 lg:after:h-2.5 after:rounded-full after:bg-[#F39200]",
-                        today: "!bg-[#005CA9] !text-white !font-bold rounded-full", // !important para sobrescrever qualquer estilo padrão
+                        selectedWithEvents: "relative after:content-[''] after:absolute after:bottom-1 lg:after:bottom-2 after:left-1/2 after:-translate-x-1/2 after:w-2 after:h-2 lg:after:w-2.5 lg:after:h-2.5 after:rounded-full after:!bg-white", // Branco quando selecionado e tem eventos
+                        today: "!bg-[#005CA9] !text-white !font-bold rounded-full", // Força o azul com !important
                       }}
                     />
                   </div>
