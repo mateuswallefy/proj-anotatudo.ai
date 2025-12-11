@@ -197,26 +197,26 @@ export default function Agenda() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="p-4 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="space-y-4 sm:space-y-6 pb-24">
+      <main className="p-4 sm:p-4 md:p-6 lg:p-8 xl:p-10 max-w-[1600px] mx-auto">
+        <div className="space-y-4 sm:space-y-6 lg:space-y-8 pb-24">
           {/* Header - Centralizado */}
           <div className="text-center sm:text-left">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
               Minha Agenda
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Organize seus compromissos e eventos
             </p>
           </div>
 
-          {/* Layout: Mobile vertical, Desktop 2 colunas */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Calendar Card - Mobile full width, Desktop 2 colunas */}
-            <div className="lg:col-span-2">
+          {/* Layout: Mobile vertical, Desktop 2 colunas com mais espaço */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8 xl:gap-10">
+            {/* Calendar Card - Mobile full width, Desktop 3 colunas */}
+            <div className="lg:col-span-3">
               <Card className="rounded-[20px] border bg-card shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-                <CardContent className="p-4 sm:p-6">
+                <CardContent className="p-6 sm:p-8 lg:p-10 xl:p-12">
                   {/* Month Navigation */}
-                  <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6">
+                  <div className="flex items-center justify-center gap-4 mb-6 sm:mb-8">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -225,11 +225,11 @@ export default function Agenda() {
                         prevMonth.setMonth(prevMonth.getMonth() - 1);
                         setCurrentMonth(prevMonth);
                       }}
-                      className="h-8 w-8"
+                      className="h-10 w-10 lg:h-12 lg:w-12"
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft className="h-5 w-5 lg:h-6 lg:w-6" />
                     </Button>
-                    <h2 className="text-base sm:text-lg font-bold text-[#005CA9] min-w-[180px] text-center">
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#005CA9] min-w-[220px] lg:min-w-[280px] text-center">
                       {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
                     </h2>
                     <Button
@@ -240,44 +240,67 @@ export default function Agenda() {
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
                         setCurrentMonth(nextMonth);
                       }}
-                      className="h-8 w-8"
+                      className="h-10 w-10 lg:h-12 lg:w-12"
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-5 w-5 lg:h-6 lg:w-6" />
                     </Button>
                   </div>
 
-                  {/* Calendar */}
-                  <div className="flex justify-center">
+                  {/* Calendar - Centralizado */}
+                  <div className="flex justify-center items-center w-full">
                     <Calendar
                       mode="single"
                       selected={selectedDate}
                       onSelect={(date) => date && setSelectedDate(date)}
                       month={currentMonth}
                       onMonthChange={setCurrentMonth}
-                      className="rounded-lg w-full max-w-fit"
+                      className="rounded-lg mx-auto"
+                      classNames={{
+                        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",
+                        month: "space-y-4 lg:space-y-6",
+                        caption: "flex justify-center pt-1 relative items-center",
+                        caption_label: "text-sm sm:text-base lg:text-lg font-medium",
+                        nav: "space-x-1 flex items-center",
+                        nav_button: "h-7 w-7 lg:h-10 lg:w-10 bg-transparent p-0 opacity-50 hover:opacity-100",
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse space-y-1 mx-auto",
+                        head_row: "flex justify-center",
+                        head_cell: "text-muted-foreground rounded-md w-9 lg:w-12 xl:w-14 font-normal text-[0.8rem] lg:text-sm",
+                        row: "flex w-full mt-2 justify-center",
+                        cell: "h-9 w-9 lg:h-12 lg:w-12 xl:h-14 xl:w-14 text-center text-sm lg:text-base p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                        day: "h-9 w-9 lg:h-12 lg:w-12 xl:h-14 xl:w-14 p-0 font-normal aria-selected:opacity-100 text-sm lg:text-base",
+                        day_range_end: "day-range-end",
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                        day_today: "!bg-transparent", // Força remoção do fundo amarelo padrão
+                        day_outside: "day-outside text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
+                        day_disabled: "text-muted-foreground opacity-50",
+                        day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                        day_hidden: "invisible",
+                      }}
                       modifiers={{
                         hasEvents: (date) => getEventsForDate(date).length > 0,
                         today: (date) => isToday(date),
                       }}
                       modifiersClassNames={{
-                        hasEvents: "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-[#F39200]",
-                        today: "bg-[#005CA9] text-white font-bold rounded-full",
+                        hasEvents: "relative after:content-[''] after:absolute after:bottom-1 lg:after:bottom-2 after:left-1/2 after:-translate-x-1/2 after:w-2 after:h-2 lg:after:w-2.5 lg:after:h-2.5 after:rounded-full after:bg-[#F39200]",
+                        today: "!bg-[#005CA9] !text-white !font-bold rounded-full", // !important para sobrescrever qualquer estilo padrão
                       }}
                     />
                   </div>
 
                   {/* Legend - Centralizada */}
-                  <div className="flex items-center justify-center gap-4 sm:gap-6 mt-4 sm:mt-6 text-xs text-muted-foreground flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#005CA9]"></div>
+                  <div className="flex items-center justify-center gap-6 sm:gap-8 mt-6 sm:mt-8 text-sm sm:text-base text-muted-foreground flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#005CA9]"></div>
                       <span>Hoje</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
                       <span>Com eventos</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#F39200]"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#F39200]"></div>
                       <span>Eventos</span>
                     </div>
                   </div>
@@ -285,17 +308,17 @@ export default function Agenda() {
               </Card>
             </div>
 
-            {/* Events List Card - Mobile full width, Desktop 1 coluna */}
-            <div className="lg:col-span-1">
+            {/* Events List Card - Mobile full width, Desktop 2 colunas */}
+            <div className="lg:col-span-2">
               <Card className="rounded-[20px] border bg-card shadow-[0_2px_8px_rgba(0,0,0,0.05)] h-full">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-center gap-2 mb-4 sm:mb-6">
-                    <CalendarIcon className="h-5 w-5 text-[#005CA9]" />
-                    <h2 className="text-base sm:text-lg font-semibold">
+                <CardContent className="p-6 sm:p-8 lg:p-10 xl:p-12">
+                  <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                    <CalendarIcon className="h-6 w-6 lg:h-7 lg:w-7 xl:h-8 xl:w-8 text-[#005CA9]" />
+                    <h2 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-semibold">
                       {format(selectedDate, "dd/MM", { locale: ptBR })}
                     </h2>
                     {selectedDateEvents.length > 0 && (
-                      <Badge variant="secondary" className="ml-2">
+                      <Badge variant="secondary" className="ml-2 text-sm lg:text-base xl:text-lg px-3 py-1.5">
                         {selectedDateEvents.length}
                       </Badge>
                     )}
@@ -308,42 +331,42 @@ export default function Agenda() {
                       ))}
                     </div>
                   ) : selectedDateEvents.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
                       {selectedDateEvents.map((evento) => (
                         <div
                           key={evento.id}
-                          className="p-3 sm:p-4 bg-[#F39200]/10 rounded-xl border border-[#F39200]/20"
+                          className="p-5 sm:p-6 lg:p-7 xl:p-8 bg-[#F39200]/10 rounded-xl border border-[#F39200]/20 hover:bg-[#F39200]/15 transition-colors"
                         >
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start justify-between gap-4 sm:gap-5">
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-sm sm:text-base mb-2 truncate">
+                              <h3 className="font-semibold text-base sm:text-lg lg:text-xl xl:text-2xl mb-3 lg:mb-4 truncate">
                                 {evento.titulo}
                               </h3>
                               {evento.hora && (
-                                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-2">
-                                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                                  <span>{evento.hora}</span>
+                                <div className="flex items-center gap-2.5 text-sm sm:text-base lg:text-lg text-muted-foreground mb-3 lg:mb-4">
+                                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 flex-shrink-0" />
+                                  <span className="font-medium">{evento.hora}</span>
                                 </div>
                               )}
                               {evento.lembreteMinutos && (
                                 <Badge
                                   variant="outline"
-                                  className="text-xs bg-[#F39200]/20 border-[#F39200]/40 text-[#F39200] mb-2"
+                                  className="text-xs sm:text-sm lg:text-base bg-[#F39200]/20 border-[#F39200]/40 text-[#F39200] mb-3 lg:mb-4 px-3 py-1.5"
                                 >
                                   Lembretes: {getLembreteLabel(evento.lembreteMinutos)}
                                 </Badge>
                               )}
                               {evento.descricao && (
-                                <p className="text-xs sm:text-sm text-muted-foreground mt-2 line-clamp-2">
+                                <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mt-3 lg:mt-4 line-clamp-3">
                                   {evento.descricao}
                                 </p>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className="flex flex-col items-center gap-2 sm:gap-3 flex-shrink-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 sm:h-8 sm:w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                className="h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 text-green-600 hover:text-green-700 hover:bg-green-50"
                                 onClick={() => {
                                   toast({
                                     title: "Evento concluído!",
@@ -351,23 +374,23 @@ export default function Agenda() {
                                   });
                                 }}
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 sm:h-8 sm:w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                className="h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                                 onClick={() => handleEdit(evento)}
                               >
-                                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 sm:h-8 sm:w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                className="h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 xl:h-14 xl:w-14 text-red-600 hover:text-red-700 hover:bg-red-50"
                                 onClick={() => handleDelete(evento)}
                               >
-                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" />
                               </Button>
                             </div>
                           </div>
@@ -375,25 +398,25 @@ export default function Agenda() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 sm:py-12">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <CalendarIcon className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
+                    <div className="text-center py-12 sm:py-16 lg:py-20">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <CalendarIcon className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-medium mb-1">Nenhum evento</p>
-                      <p className="text-xs text-muted-foreground mb-4">
+                      <p className="text-base sm:text-lg lg:text-xl font-medium mb-2">Nenhum evento</p>
+                      <p className="text-sm sm:text-base text-muted-foreground mb-6">
                         Adicione um evento para esta data
                       </p>
                       <Button
-                        size="sm"
+                        size="default"
                         onClick={() => {
                           form.reset();
                           form.setValue("data", selectedDate);
                           setEditingEvento(null);
                           setDialogOpen(true);
                         }}
-                        className="bg-[#005CA9] hover:bg-[#003F73] text-white"
+                        className="bg-[#005CA9] hover:bg-[#003F73] text-white h-11 px-6"
                       >
-                        <Plus className="h-4 w-4 mr-2" />
+                        <Plus className="h-5 w-5 mr-2" />
                         Criar Evento
                       </Button>
                     </div>
