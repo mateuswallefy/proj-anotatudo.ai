@@ -893,28 +893,6 @@ export async function registerRoutes(app: Express): Promise<void> {
     const { handleWhatsAppWebhook } = await import("./whatsappHandler.js");
     await handleWhatsAppWebhook(req, res, "/api/webhook/whatsapp");
   });
-              phoneNumber,
-              "transacao_nao_entendida",
-              { user: { firstName: user.firstName || null, id: user.id } }
-            );
-          }
-        } catch (error: any) {
-          console.error("[WhatsApp] Unexpected error processing transaction:", error);
-            const userForError = await storage.getUserByPhone(phoneNumber);
-            await sendAIMessage(
-              phoneNumber,
-              "erro_inesperado",
-              { user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null } }
-            );
-        }
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      console.error("Error processing WhatsApp webhook:", error);
-      res.status(200).json({ success: true }); // Sempre retornar 200 para o WhatsApp
-    }
-  });
 
   // Verificação do webhook (GET)
   app.get("/api/webhook/whatsapp", (req, res) => {
