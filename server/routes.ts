@@ -85,7 +85,7 @@ function parsePeriodParam(period?: string): { mes?: number; ano?: number } {
 }
 
 // Função utilitária para extrair texto de mensagens WhatsApp de forma segura
-function extractTextFromMessage(message: any): string {
+export function extractTextFromMessage(message: any): string {
   return (
     message?.text?.body ||
     message?.image?.caption ||
@@ -888,405 +888,11 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // WhatsApp Webhook route
+  // WhatsApp Webhook route - USANDO HANDLER ÚNICO
   app.post("/api/webhook/whatsapp", async (req, res) => {
-    try {
-      // Verificar se é uma verificação do webhook do Meta
-      if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token']) {
-        const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'anotatudo_verify_token';
-        if (req.query['hub.verify_token'] === verifyToken) {
-          res.status(200).send(req.query['hub.challenge']);
-          return;
-        } else {
-          res.status(403).send('Forbidden');
-          return;
-        }
-      }
-
-      // Processar mensagem recebida do WhatsApp
-      const { entry } = req.body;
-      
-      if (!entry || !entry[0]) {
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      const changes = entry[0].changes;
-      if (!changes || !changes[0]) {
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      const message = changes[0].value?.messages?.[0];
-      if (!message) {
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      // Extrair informações da mensagem
-      const phoneNumber = message.from;
-      const messageType = message.type;
-      let content = "";
-      let mediaId = "";
-
-      // Extrair conteúdo baseado no tipo de mensagem
-      switch (messageType) {
-        case 'text':
-          content = extractTextFromMessage(message);
-          break;
-        case 'audio':
-          mediaId = message.audio?.id || "";
-          content = extractTextFromMessage(message);
-          break;
-        case 'image':
-          mediaId = message.image?.id || "";
-          content = extractTextFromMessage(message);
-          break;
-        case 'video':
-          mediaId = message.video?.id || "";
-          content = extractTextFromMessage(message);
-          // Vídeo não suportado ainda - requer extração de frames via ffmpeg
-          if (!content) {
-            const user = await storage.getUserByPhone(phoneNumber);
-            await sendAIMessage(
-              phoneNumber,
-              "video_nao_suportado",
-              { user: { firstName: user?.firstName || null, id: user?.id, email: user?.email || null } }
-            );
-            res.status(200).json({ success: true });
-            return;
-          }
-          break;
-        default:
-          // Tentar extrair texto mesmo para tipos não suportados
-          content = extractTextFromMessage(message);
-          if (!content) {
-            console.log(`[WhatsApp] Unsupported message type: ${messageType}`);
-            res.status(200).json({ success: true });
-            return;
-          }
-          break;
-      }
-
-      console.log("📩 WhatsApp Email Message Content:", content);
-
-      // Se não tem conteúdo de texto e não tem mídia, logar mas não ignorar completamente
-      if (!content && !mediaId) {
-        console.log("⚠️ WhatsApp message ignored because content was empty but message may have data:", JSON.stringify(message, null, 2));
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      // Rate limiting: 10 mensagens por minuto por telefone
-      if (!checkRateLimit(phoneNumber)) {
-        const user = await storage.getUserByPhone(phoneNumber);
-        await sendAIMessage(
-          phoneNumber,
-          "rate_limit_excedido",
-          { user: { firstName: user?.firstName || null, id: user?.id, email: user?.email || null } }
-        );
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      // Buscar usuário pelo telefone
-      let user = await storage.getUserByPhone(phoneNumber);
-
-      // Se não existe usuário, criar com status='awaiting_email'
-      if (!user) {
-        user = await storage.createUserFromPhone(phoneNumber);
-        await sendAIMessage(phoneNumber, "pedir_email_inicial", {});
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      // Se usuário está aguardando email
-      if (user.status === 'awaiting_email') {
-        // Tentar extrair email do conteúdo (funciona mesmo com formatações diferentes do WhatsApp)
-        const email = extractEmail(content);
-        
-        // Se não conseguiu extrair email, pedir novamente
-        if (!email) {
-          // Check if message is a greeting or short message
-          const normalizedContent = content.toLowerCase().trim();
-          const isGreeting = ["oi", "olá", "ola"].includes(normalizedContent);
-          
-          // If it's a greeting, respond with empathy
-          if (isGreeting) {
-            await sendAIMessage(phoneNumber, "pedir_email_inicial", {});
-          } else {
-            await sendAIMessage(phoneNumber, "pedir_email", {});
-          }
-          res.status(200).json({ success: true });
-          return;
-        }
-
-        // Buscar compra aprovada
-        const purchase = await storage.getPurchaseByEmail(email);
-
-        if (!purchase || purchase.status !== 'approved') {
-          await sendAIMessage(phoneNumber, "email_nao_encontrado", {});
-          res.status(200).json({ success: true });
-          return;
-        }
-
-        // Verificar se já existe usuário web com esse email (criado via webhook Caktos)
-        const existingWebUser = await storage.getUserByEmail(email);
-
-        if (existingWebUser) {
-          // Usuário web já existe - vincular telefone
-          await storage.updateUserTelefone(existingWebUser.id, phoneNumber);
-          await storage.updateUserStatus(existingWebUser.id, 'authenticated');
-          await storage.updatePurchasePhone(email, phoneNumber);
-
-          // Se havia usuário temporário, transferir transações
-          if (user.id !== existingWebUser.id) {
-            await storage.transferTransactions(user.id, existingWebUser.id);
-          }
-
-          // Gerar senha temporária segura usando crypto.randomBytes
-          const crypto = await import('crypto');
-          const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
-          const passwordHash = await hashPassword(tempPassword);
-          await storage.updateUserPassword(existingWebUser.id, passwordHash);
-
-          console.log(`[WhatsApp] ✅ Temporary password generated for ${email}`);
-
-          const userByEmail = await storage.getUserByEmail(email);
-          await sendAIMessage(
-            phoneNumber,
-            "senha_temporaria_enviada",
-            {
-              user: {
-                firstName: userByEmail?.firstName || null,
-                id: userByEmail?.id,
-                email: userByEmail?.email || null
-              },
-              context: {
-                email: email,
-                tempPassword: tempPassword,
-                domain: process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'
-              }
-            }
-          );
-        } else {
-          // Usuário não existe - atualizar dados do usuário temporário
-          await storage.updateUserEmail(user.id, email);
-          await storage.updateUserStatus(user.id, 'authenticated');
-          await storage.updatePurchasePhone(email, phoneNumber);
-
-          // Gerar senha temporária segura usando crypto.randomBytes
-          const crypto = await import('crypto');
-          const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
-          const passwordHash = await hashPassword(tempPassword);
-          await storage.updateUserPassword(user.id, passwordHash);
-
-          console.log(`[WhatsApp] ✅ Temporary password generated for ${email}`);
-
-          const userByEmail = await storage.getUserByEmail(email);
-          await sendAIMessage(
-            phoneNumber,
-            "senha_temporaria_enviada",
-            {
-              user: {
-                firstName: userByEmail?.firstName || null,
-                id: userByEmail?.id,
-                email: userByEmail?.email || null
-              },
-              context: {
-                email: email,
-                tempPassword: tempPassword,
-                domain: process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'
-              }
-            }
-          );
-        }
-
-        res.status(200).json({ success: true });
-        return;
-      }
-
-      // Se usuário está autenticado, processar mensagem
-      if (user.status === 'authenticated') {
-        // Comando para recuperar senha
-        if (messageType === 'text' && content) {
-          const lowerContent = content.toLowerCase().trim();
-          if (lowerContent === 'senha' || lowerContent === 'recuperar senha' || lowerContent === 'esqueci senha' || lowerContent === 'nova senha') {
-            // Gerar nova senha temporária segura
-            const crypto = await import('crypto');
-            const tempPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
-            const passwordHash = await hashPassword(tempPassword);
-            await storage.updateUserPassword(user.id, passwordHash);
-
-            console.log(`[WhatsApp] 🔑 Password reset for user ${user.id}`);
-
-            await sendAIMessage(
-              phoneNumber,
-              "senha_temporaria_enviada",
-              {
-                user: {
-                  firstName: user.firstName || null,
-                  id: user.id,
-                  email: user.email || null
-                },
-                context: {
-                  email: user.email || '',
-                  tempPassword: tempPassword,
-                  domain: process.env.REPLIT_DEV_DOMAIN || 'anotatudo.replit.app'
-                }
-              }
-            );
-
-            res.status(200).json({ success: true });
-            return;
-          }
-        }
-
-        // Processar mensagem de texto usando NLP simplificado
-        if (messageType === 'text' && content) {
-          try {
-            const { processIncomingMessage } = await import("./whatsappNLP.js");
-            const messageId = message.id || undefined;
-            
-            await processIncomingMessage(
-              {
-                id: user.id,
-                firstName: user.firstName,
-                whatsappNumber: user.whatsappNumber || phoneNumber,
-              },
-              content,
-              phoneNumber,
-              messageId
-            );
-
-            res.status(200).json({ success: true });
-            return;
-          } catch (nlpError: any) {
-            console.error("[WhatsApp] Erro no processamento NLP:", nlpError);
-            // Fallback para processamento antigo se NLP falhar
-          }
-        }
-
-        // Fallback: Processar mídia (áudio, imagem, vídeo) usando sistema antigo
-        try {
-          let processedContent = content;
-          let mediaUrl = "";
-
-          // Se tem mídia, baixar e processar
-          if (mediaId) {
-            try {
-              const mediaPath = await downloadWhatsAppMedia(mediaId, messageType as 'audio' | 'image' | 'video');
-              console.log(`[WhatsApp] Media downloaded: ${mediaPath}`);
-              mediaUrl = mediaPath;
-
-              // Para imagem, converter para base64
-              if (messageType === 'image') {
-                const fs = await import('fs');
-                const fileBuffer = fs.readFileSync(mediaPath);
-                const base64 = fileBuffer.toString('base64');
-                processedContent = base64;
-              } else {
-                // Para áudio, passar o caminho do arquivo
-                processedContent = mediaPath;
-              }
-            } catch (mediaError) {
-              console.error("[WhatsApp] Error downloading media:", mediaError);
-              const userForError = await storage.getUserByPhone(phoneNumber);
-              await sendAIMessage(
-                phoneNumber,
-                "erro_download_midia",
-                { user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null } }
-              );
-              res.status(200).json({ success: true });
-              return;
-            }
-          }
-
-          // Processar com IA (com timeout adicional para garantir resposta rápida)
-          let extractedData: any = null;
-          try {
-            // Timeout de 20 segundos para processamento completo
-            const processingTimeout = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error("Timeout no processamento")), 20000)
-            );
-            
-            const processingPromise = processWhatsAppMessage(messageType, processedContent || content, user.id);
-            extractedData = await Promise.race([processingPromise, processingTimeout]);
-          } catch (aiError: any) {
-            console.error("[WhatsApp] AI processing error:", aiError);
-            const userForError = await storage.getUserByPhone(phoneNumber);
-            
-            // Se for timeout, mensagem específica
-            if (aiError.message?.includes("Timeout")) {
-              await sendAIMessage(
-                phoneNumber,
-                "erro_processar_midia",
-                {
-                  user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null },
-                  context: { messageType: messageType }
-                }
-              );
-            } else {
-              await sendAIMessage(
-                phoneNumber,
-                "transacao_nao_entendida",
-                {
-                  user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null }
-                }
-              );
-            }
-            res.status(200).json({ success: true });
-            return;
-          }
-
-          // Validação adicional antes de criar transação
-          // Se valor for null ou inválido, tentar fallback uma última vez
-          if (!extractedData || !extractedData.valor || extractedData.valor <= 0) {
-            console.log("[WhatsApp] ⚠️ Dados inválidos da IA, tentando fallback final...");
-            if (messageType === 'text' && content) {
-              try {
-                const { extractSimpleTransaction } = await import("./ai.js");
-                const fallbackResult = extractSimpleTransaction(content);
-                console.log("[WhatsApp] Fallback result:", fallbackResult);
-                if (fallbackResult && fallbackResult.valor && fallbackResult.valor > 0) {
-                  extractedData = fallbackResult;
-                  console.log("[WhatsApp] ✅ Fallback final funcionou! Valor:", fallbackResult.valor);
-                } else {
-                  console.log("[WhatsApp] ❌ Fallback também não encontrou valor válido");
-                }
-              } catch (fallbackError) {
-                console.error("[WhatsApp] Erro no fallback:", fallbackError);
-              }
-            }
-          }
-          
-          if (extractedData && extractedData.tipo && extractedData.valor && extractedData.valor > 0) {
-            const transacao = await storage.createTransacao({
-              userId: user.id,
-              tipo: extractedData.tipo,
-              categoria: extractedData.categoria || 'Outros',
-              valor: String(extractedData.valor),
-              descricao: extractedData.descricao || content || `${messageType} recebido`,
-              dataReal: extractedData.dataReal || new Date().toISOString().split('T')[0],
-              origem: messageType,
-              mediaUrl: mediaUrl || undefined,
-              status: 'paid',
-              paymentMethod: 'other',
-            });
-
-            console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}: ${extractedData.tipo} R$ ${extractedData.valor}`);
-
-            await sendWhatsAppTransactionMessage(phoneNumber, {
-              id: transacao.id,
-              tipo: extractedData.tipo,
-              valor: extractedData.valor.toString(),
-              categoria: extractedData.categoria,
-              descricao: extractedData.descricao || content || `${messageType} recebido`,
-              data: extractedData.dataReal || null,
-            }, { firstName: user.firstName || null, id: user.id, email: user.email || null });
-          } else {
-            console.log(`[WhatsApp] ⚠️ Could not extract transaction data from ${messageType}`);
-            await sendAIMessage(
+    const { handleWhatsAppWebhook } = await import("./whatsappHandler.js");
+    await handleWhatsAppWebhook(req, res, "/api/webhook/whatsapp");
+  });
               phoneNumber,
               "transacao_nao_entendida",
               { user: { firstName: user.firstName || null, id: user.id } }
@@ -2666,7 +2272,49 @@ export async function registerRoutes(app: Express): Promise<void> {
               
               try {
                 // ========================================
-                // DETECTAR EVENTOS/COMPROMISSOS PRIMEIRO
+                // NOVO: PROCESSAR COM NLP SIMPLIFICADO PRIMEIRO
+                // ========================================
+                if (messageType === 'text' && messageContent) {
+                  console.log(`[WhatsApp] 🤖 Processando mensagem de texto com NLP novo...`);
+                  
+                  try {
+                    const { processIncomingMessage } = await import("./whatsappNLP.js");
+                    
+                    await processIncomingMessage(
+                      {
+                        id: user.id,
+                        firstName: user.firstName,
+                        whatsappNumber: user.whatsappNumber || fromNumber,
+                      },
+                      messageContent,
+                      fromNumber,
+                      messageId
+                    );
+                    
+                    // Atualizar processedAt
+                    try {
+                      const processedAt = new Date();
+                      await storage.updateWhatsAppLatency(latencyId, { processedAt, userId: user.id });
+                      
+                      await logClientEvent(user.id, EventTypes.WHATSAPP_MESSAGE_PROCESSED, `Mensagem processada com NLP`, {
+                        messageId,
+                        messageType,
+                        processedAt: processedAt.toISOString(),
+                      });
+                    } catch (error) {
+                      console.error(`[WhatsApp] Erro ao atualizar processedAt:`, error);
+                    }
+                    
+                    console.log(`[WhatsApp] ✅ NLP processado com sucesso`);
+                    continue; // Mensagem processada, pular para próxima
+                  } catch (nlpError: any) {
+                    console.error("[WhatsApp] ❌ Erro no processamento NLP:", nlpError);
+                    // Continuar para fallback antigo se NLP falhar
+                  }
+                }
+                
+                // ========================================
+                // FALLBACK: DETECTAR EVENTOS/COMPROMISSOS (sistema antigo)
                 // ========================================
                 // Só detectar eventos em mensagens de texto (por enquanto)
                 if (messageType === 'text' && messageContent) {
@@ -2772,9 +2420,9 @@ export async function registerRoutes(app: Express): Promise<void> {
                 }
                 
                 // ========================================
-                // PROCESSAR COMO TRANSAÇÃO (código existente)
+                // FALLBACK: PROCESSAR COMO TRANSAÇÃO (sistema antigo para mídia)
                 // ========================================
-                // Call AI to process the message
+                // Call AI to process the message (apenas para mídia agora)
                 const processStartTime = Date.now();
                 const result = await processWhatsAppMessage(
                   messageType as 'text' | 'audio' | 'image' | 'video',
@@ -2786,7 +2434,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                 
                 // Atualizar processedAt e calcular botLatencyMs
                 try {
-                  await storage.updateWhatsAppLatency(latencyId, { processedAt });
+                  await storage.updateWhatsAppLatency(latencyId, { processedAt, userId: user.id });
                   
                   await logClientEvent(user.id, EventTypes.WHATSAPP_MESSAGE_PROCESSED, `Mensagem processada com sucesso`, {
                     messageId,
@@ -2810,6 +2458,8 @@ export async function registerRoutes(app: Express): Promise<void> {
                     dataReal: result.dataReal,
                     descricao: result.descricao || '',
                     origem: messageType === 'text' ? 'texto' : messageType === 'audio' ? 'audio' : messageType === 'image' ? 'foto' : 'video',
+                    status: 'paid',
+                    paymentMethod: 'other',
                   });
                   
                   console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}`);
