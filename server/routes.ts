@@ -46,7 +46,7 @@ import {
   updateNotificationPreferencesSchema,
   insertContaSchema
 } from "@shared/schema";
-import { processWhatsAppMessage } from "./ai.js";
+import { processWhatsAppMessage, detectEventoInMessage } from "./ai.js";
 import { logClientEvent, EventTypes } from "./clientLogger.js";
 import { v4 as uuidv4 } from "uuid";
 import { 
@@ -2062,6 +2062,78 @@ export async function registerRoutes(app: Express): Promise<void> {
                 
                 continue;
               }
+              
+              // Handle LEMBRETE buttons (for event creation)
+              if (buttonId.startsWith("lembrete_")) {
+                if (!user) {
+                  await sendAIMessage(fromNumber, "pedir_email", {}, undefined, latencyId);
+                  continue;
+                }
+                
+                const userState = await storage.getUserState(fromNumber);
+                if (userState?.mode !== 'awaiting_lembrete' || !userState?.eventoData) {
+                  await sendAIMessage(fromNumber, "erro_geral", { user: { firstName: user.firstName || null, id: user.id } }, undefined, latencyId);
+                  continue;
+                }
+                
+                let lembreteMinutos: number | undefined = undefined;
+                if (buttonId === 'lembrete_30') {
+                  lembreteMinutos = 30;
+                } else if (buttonId === 'lembrete_60') {
+                  lembreteMinutos = 60;
+                } else if (buttonId === 'lembrete_1440') {
+                  lembreteMinutos = 1440;
+                } else if (buttonId === 'lembrete_none') {
+                  lembreteMinutos = undefined;
+                }
+                
+                // Criar evento com lembrete
+                const eventoData = userState.eventoData;
+                const evento = await storage.createEvento({
+                  userId: user.id,
+                  titulo: eventoData.titulo || 'Evento',
+                  descricao: eventoData.descricao,
+                  data: eventoData.data || new Date().toISOString().split('T')[0],
+                  hora: eventoData.hora,
+                  lembreteMinutos: lembreteMinutos,
+                  origem: 'whatsapp',
+                  whatsappMessageId: messageId,
+                });
+                
+                // Limpar estado
+                await storage.setUserState(fromNumber, null);
+                
+                // Enviar confirmação
+                const lembreteText = lembreteMinutos 
+                  ? lembreteMinutos === 30 ? '30 minutos antes' 
+                    : lembreteMinutos === 60 ? '1 hora antes' 
+                    : '1 dia antes'
+                  : 'sem lembrete';
+                
+                const dataFormatada = evento.data 
+                  ? new Date(evento.data + 'T00:00:00').toLocaleDateString('pt-BR')
+                  : 'hoje';
+                const horaText = evento.hora ? ` às ${evento.hora}` : '';
+                
+                await sendAIMessage(
+                  fromNumber,
+                  "transacao_registrada", // Reutilizar tipo
+                  {
+                    user: { firstName: user.firstName || null, id: user.id },
+                    context: { 
+                      evento: true,
+                      titulo: evento.titulo,
+                      data: dataFormatada,
+                      hora: horaText,
+                      lembrete: lembreteText
+                    }
+                  },
+                  undefined,
+                  latencyId
+                );
+                
+                continue;
+              }
             }
             
             // Extract message content using safe extraction function
@@ -2467,6 +2539,115 @@ export async function registerRoutes(app: Express): Promise<void> {
               }
               
               try {
+                // ========================================
+                // DETECTAR EVENTOS/COMPROMISSOS PRIMEIRO
+                // ========================================
+                // Só detectar eventos em mensagens de texto (por enquanto)
+                if (messageType === 'text' && messageContent) {
+                  const eventoDetectado = await detectEventoInMessage(messageContent);
+                  
+                  if (eventoDetectado.isEvento && eventoDetectado.confianca > 0.7) {
+                    console.log(`[WhatsApp] 📅 Evento detectado:`, eventoDetectado);
+                    
+                    // Verificar se já está aguardando resposta de lembrete
+                    const userState = await storage.getUserState(fromNumber);
+                    
+                    if (userState?.mode === 'awaiting_lembrete' && userState?.eventoData) {
+                      // Usuário está respondendo sobre o lembrete
+                      let lembreteMinutos: number | undefined = undefined;
+                      
+                      const resposta = messageContent.toLowerCase().trim();
+                      if (resposta.includes('30') || resposta.includes('trinta')) {
+                        lembreteMinutos = 30;
+                      } else if (resposta.includes('1 hora') || resposta.includes('uma hora') || resposta.includes('60')) {
+                        lembreteMinutos = 60;
+                      } else if (resposta.includes('1 dia') || resposta.includes('um dia') || resposta.includes('1440')) {
+                        lembreteMinutos = 1440;
+                      } else if (resposta.includes('não') || resposta.includes('nao') || resposta.includes('sem')) {
+                        lembreteMinutos = undefined;
+                      }
+                      
+                      // Criar evento com lembrete
+                      const eventoData = userState.eventoData;
+                      const evento = await storage.createEvento({
+                        userId: user.id,
+                        titulo: eventoData.titulo || 'Evento',
+                        descricao: eventoData.descricao,
+                        data: eventoData.data || new Date().toISOString().split('T')[0],
+                        hora: eventoData.hora,
+                        lembreteMinutos: lembreteMinutos,
+                        origem: 'whatsapp',
+                        whatsappMessageId: messageId,
+                      });
+                      
+                      // Limpar estado
+                      await storage.setUserState(fromNumber, null);
+                      
+                      // Enviar confirmação
+                      const lembreteText = lembreteMinutos 
+                        ? lembreteMinutos === 30 ? '30 minutos antes' 
+                          : lembreteMinutos === 60 ? '1 hora antes' 
+                          : '1 dia antes'
+                        : 'sem lembrete';
+                      
+                      await sendAIMessage(
+                        fromNumber,
+                        "transacao_registrada", // Reutilizar tipo de resposta
+                        {
+                          user: { firstName: user.firstName || null, id: user.id },
+                          context: { 
+                            evento: true,
+                            titulo: evento.titulo,
+                            data: evento.data,
+                            hora: evento.hora || '',
+                            lembrete: lembreteText
+                          }
+                        },
+                        undefined,
+                        latencyId
+                      );
+                      
+                      continue;
+                    } else {
+                      // Primeira detecção - perguntar sobre lembrete
+                      const eventoData = {
+                        titulo: eventoDetectado.titulo || 'Evento',
+                        descricao: eventoDetectado.descricao,
+                        data: eventoDetectado.data || new Date().toISOString().split('T')[0],
+                        hora: eventoDetectado.hora,
+                      };
+                      
+                      // Salvar estado para aguardar resposta sobre lembrete
+                      await storage.setUserState(fromNumber, {
+                        mode: 'awaiting_lembrete',
+                        eventoData: eventoData,
+                      });
+                      
+                      // Perguntar sobre lembrete
+                      const dataFormatada = eventoData.data 
+                        ? new Date(eventoData.data + 'T00:00:00').toLocaleDateString('pt-BR')
+                        : 'hoje';
+                      const horaText = eventoData.hora ? ` às ${eventoData.hora}` : '';
+                      
+                      await sendWhatsAppInteractiveMessage(
+                        fromNumber,
+                        `📅 *Evento detectado!*\n\n*${eventoData.titulo}*\n📆 ${dataFormatada}${horaText}\n\nCom quantos minutos deseja ser avisado?`,
+                        [
+                          { id: 'lembrete_30', title: '⏰ 30 minutos antes' },
+                          { id: 'lembrete_60', title: '⏰ 1 hora antes' },
+                          { id: 'lembrete_1440', title: '📅 1 dia antes' },
+                          { id: 'lembrete_none', title: '❌ Sem lembrete' }
+                        ]
+                      );
+                      
+                      continue;
+                    }
+                  }
+                }
+                
+                // ========================================
+                // PROCESSAR COMO TRANSAÇÃO (código existente)
+                // ========================================
                 // Call AI to process the message
                 const processStartTime = Date.now();
                 const result = await processWhatsAppMessage(

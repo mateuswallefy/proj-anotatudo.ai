@@ -1287,14 +1287,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEventosParaLembrete(): Promise<Evento[]> {
-    const now = new Date();
-    const currentTime = format(now, "HH:mm");
-    const currentDate = format(now, "yyyy-MM-dd");
-
     // Buscar eventos que:
     // 1. Ainda não foram notificados
     // 2. Têm lembrete configurado
-    // 3. A data/hora do lembrete já passou ou está próxima (dentro de 5 minutos)
+    // 3. A data do evento ainda não passou
+    const now = new Date();
+    const currentDate = format(now, "yyyy-MM-dd");
+
     return await db
       .select()
       .from(eventos)
@@ -1302,7 +1301,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(eventos.notificado, false),
           sqlOp`${eventos.lembreteMinutos} IS NOT NULL`,
-          sqlOp`DATE(${eventos.data}) = ${currentDate} OR DATE(${eventos.data}) > ${currentDate}`
+          sqlOp`DATE(${eventos.data}) >= ${currentDate}`
         ) as any
       );
   }

@@ -9,6 +9,7 @@ import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
 import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
 import { initializeDatabaseAsync } from "./db.js";
+import { processarLembretes } from "./lembretes.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -103,6 +104,19 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
       // Run seeds and database setup AFTER server is listening (non-blocking)
       runDatabaseSetup().catch((error) => {
         console.error("Database setup error:", error);
+      });
+      
+      // Iniciar job de lembretes (executa a cada minuto)
+      console.log("✅ Job de lembretes iniciado (executa a cada 1 minuto)");
+      setInterval(() => {
+        processarLembretes().catch((error) => {
+          console.error("[Lembretes] Erro no job de lembretes:", error);
+        });
+      }, 60000); // 1 minuto
+      
+      // Executar imediatamente também
+      processarLembretes().catch((error) => {
+        console.error("[Lembretes] Erro na execução inicial de lembretes:", error);
       });
     });
 

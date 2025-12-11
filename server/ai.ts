@@ -13,6 +13,15 @@ export interface TransacaoExtractedData {
   confianca: number;
 }
 
+export interface EventoExtractedData {
+  isEvento: boolean;
+  titulo?: string;
+  descricao?: string;
+  data?: string; // YYYY-MM-DD
+  hora?: string; // HH:mm
+  confianca: number;
+}
+
 /**
  * Classifica mensagem de texto e extrai dados financeiros
  */
@@ -165,6 +174,74 @@ export async function analyzeVideoForFinancialData(videoFrameBase64: string): Pr
   // Para vídeos, vamos analisar um frame extraído como se fosse uma imagem
   // Em produção, você poderia extrair múltiplos frames e consolidar os dados
   return await analyzeImageForFinancialData(videoFrameBase64);
+}
+
+/**
+ * Detecta se uma mensagem é sobre um evento/compromisso e extrai dados
+ */
+export async function detectEventoInMessage(text: string): Promise<EventoExtractedData> {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  
+  const prompt = `Você é um assistente especializado em detectar compromissos e eventos em mensagens.
+
+Analise a seguinte mensagem e determine se ela menciona um compromisso, evento, reunião ou algo que precisa ser lembrado em uma data/hora específica:
+
+Mensagem: "${text}"
+
+Data de hoje: ${todayStr}
+
+Responda com JSON válido:
+{
+  "isEvento": boolean (true se a mensagem menciona um compromisso/evento, false caso contrário),
+  "titulo": string (título do evento, se detectado),
+  "descricao": string (descrição adicional, se houver),
+  "data": "YYYY-MM-DD" (data do evento, use hoje se não especificada mas mencionar "hoje", use amanhã se mencionar "amanhã", etc.),
+  "hora": "HH:mm" (hora do evento, se mencionada, ou null),
+  "confianca": number (0 a 1, confiança na detecção)
+}
+
+Exemplos de eventos:
+- "Amanhã tenho reunião às 15h"
+- "Reunião com cliente na terça às 10h"
+- "Consulta médica dia 20 às 14:30"
+- "Não esqueça: pagar conta no dia 15"
+
+Responda APENAS com JSON válido.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "Você é um especialista em detectar compromissos e eventos. Sempre responda com JSON válido."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 500,
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    return {
+      isEvento: result.isEvento || false,
+      titulo: result.titulo,
+      descricao: result.descricao,
+      data: result.data,
+      hora: result.hora,
+      confianca: result.confianca || 0,
+    } as EventoExtractedData;
+  } catch (error) {
+    console.error("Erro ao detectar evento:", error);
+    return {
+      isEvento: false,
+      confianca: 0,
+    };
+  }
 }
 
 /**
