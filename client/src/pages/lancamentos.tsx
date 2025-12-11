@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { ArrowDownCircle, ArrowUpCircle, Wallet, Clock, TrendingUp } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Wallet, Clock, TrendingUp, Edit, MoreVertical } from "lucide-react";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { QuickTransactionDialog } from "@/components/dashboard/QuickTransactionDialog";
+import { EditTransactionDialog } from "@/components/edit-transaction-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { TransactionFilters as FilterType } from "@/types/financial";
 import type { Transacao } from "@shared/schema";
 import { format } from "date-fns";
@@ -20,6 +27,7 @@ export default function Lancamentos() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"entrada" | "saida" | undefined>();
   const [filters, setFilters] = useState<FilterType>({ period });
+  const [editingTransaction, setEditingTransaction] = useState<Transacao | null>(null);
 
   // Build query string
   const buildQueryString = () => {
@@ -28,7 +36,12 @@ export default function Lancamentos() {
     if (filters.type) params.set("tipo", filters.type);
     if (filters.category) params.set("categoria", filters.category);
     if (filters.accountId) params.set("cartaoId", filters.accountId);
+    if (filters.goalId) params.set("goalId", filters.goalId);
     if (filters.search) params.set("search", filters.search);
+    if (filters.minAmount !== undefined) params.set("minAmount", filters.minAmount.toString());
+    if (filters.maxAmount !== undefined) params.set("maxAmount", filters.maxAmount.toString());
+    if (filters.startDate) params.set("startDate", filters.startDate);
+    if (filters.endDate) params.set("endDate", filters.endDate);
     return params.toString();
   };
 
@@ -307,16 +320,38 @@ export default function Lancamentos() {
                         )}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p
-                        className={cn(
-                          "text-lg font-bold font-mono",
-                          getTransactionColor(transaction.tipo)
-                        )}
-                      >
-                        {transaction.tipo === "entrada" ? "+" : "-"}
-                        {formatCurrency(parseFloat(transaction.valor))}
-                      </p>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <p
+                          className={cn(
+                            "text-lg font-bold font-mono",
+                            getTransactionColor(transaction.tipo)
+                          )}
+                        >
+                          {transaction.tipo === "entrada" ? "+" : "-"}
+                          {formatCurrency(parseFloat(transaction.valor))}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setEditingTransaction(transaction)}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </CardContent>
@@ -372,6 +407,19 @@ export default function Lancamentos() {
         onOpenChange={setDialogOpen}
         defaultType={transactionType}
       />
+
+      {/* Edit Transaction Dialog */}
+      {editingTransaction && (
+        <EditTransactionDialog
+          transaction={editingTransaction}
+          open={!!editingTransaction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingTransaction(null);
+            }
+          }}
+        />
+      )}
     </DashboardContainer>
   );
 }

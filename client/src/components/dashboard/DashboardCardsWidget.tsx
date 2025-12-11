@@ -1,13 +1,13 @@
 import { CreditCard, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useTab } from "@/contexts/TabContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Cartao } from "@shared/schema";
 
 export function DashboardCardsWidget() {
-  const [, setLocation] = useLocation();
+  const { setActiveTab } = useTab();
 
   const { data: cards, isLoading } = useQuery<Cartao[]>({
     queryKey: ["/api/cartoes"],
@@ -59,7 +59,7 @@ export function DashboardCardsWidget() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation("/cartoes")}
+            onClick={() => setActiveTab("contas")}
             className="text-xs"
           >
             Ver mais
@@ -77,7 +77,7 @@ export function DashboardCardsWidget() {
             </p>
             <Button
               size="sm"
-              onClick={() => setLocation("/cartoes")}
+              onClick={() => setActiveTab("contas")}
               className="gap-2"
             >
               <Plus className="h-4 w-4" />

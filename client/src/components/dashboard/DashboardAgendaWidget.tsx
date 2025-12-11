@@ -7,12 +7,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { motion } from "framer-motion";
-import { useLocation } from "wouter";
+import { useTab } from "@/contexts/TabContext";
 import { cn } from "@/lib/utils";
 import type { Cartao } from "@shared/schema";
 
 export function DashboardAgendaWidget() {
-  const [, setLocation] = useLocation();
+  const { setActiveTab } = useTab();
   const { period } = usePeriod();
   const [year, month] = period
     ? period.split("-").map(Number)
@@ -146,7 +146,7 @@ export function DashboardAgendaWidget() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setLocation("/cartoes")}
+              onClick={() => setActiveTab("contas")}
               className="text-xs h-8 px-2 hover:bg-muted/50"
             >
               Ver cartões
@@ -175,7 +175,7 @@ export function DashboardAgendaWidget() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group"
-                  onClick={() => setLocation("/cartoes")}
+                  onClick={() => setActiveTab("contas")}
                 >
                   <div
                     className={cn(

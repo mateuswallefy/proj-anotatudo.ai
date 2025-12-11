@@ -7,7 +7,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { useTransactionsSummary } from "@/hooks/useTransactionsSummary";
-import { useLocation } from "wouter";
+import { useTab } from "@/contexts/TabContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { getCategoryColor, getCategoryIcon } from "@/lib/categoryColors";
 
 export function DashboardLastMovements() {
-  const [, setLocation] = useLocation();
+  const { setActiveTab } = useTab();
   const { recent, isLoading } = useTransactionsSummary(5);
 
   const formatCurrency = (value: number) => {
@@ -100,7 +100,7 @@ export function DashboardLastMovements() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setLocation("/transacoes")}
+              onClick={() => setActiveTab("transacoes")}
               className="text-xs h-8 px-2 hover:bg-muted/50"
             >
               Ver todas
@@ -123,7 +123,7 @@ export function DashboardLastMovements() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => setLocation("/transacoes")}
+                onClick={() => setActiveTab("transacoes")}
               >
                 Adicionar transação
               </Button>
@@ -143,7 +143,7 @@ export function DashboardLastMovements() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                     className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-all cursor-pointer group"
-                    onClick={() => setLocation("/transacoes")}
+                    onClick={() => setActiveTab("transacoes")}
                   >
                     {/* Icon with category color */}
                     <div
@@ -208,7 +208,7 @@ export function DashboardLastMovements() {
                 <Button
                   variant="ghost"
                   className="w-full h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  onClick={() => setLocation("/transacoes")}
+                  onClick={() => setActiveTab("transacoes")}
                 >
                   <MoreHorizontal className="h-4 w-4 mr-2" />
                   Ver todas as transações
