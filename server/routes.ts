@@ -1106,7 +1106,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         return;
       }
 
-      // Se usuário está autenticado, processar transação
+      // Se usuário está autenticado, processar mensagem
       if (user.status === 'authenticated') {
         // Comando para recuperar senha
         if (messageType === 'text' && content) {
@@ -1142,6 +1142,32 @@ export async function registerRoutes(app: Express): Promise<void> {
           }
         }
 
+        // Processar mensagem de texto usando NLP simplificado
+        if (messageType === 'text' && content) {
+          try {
+            const { processIncomingMessage } = await import("./whatsappNLP.js");
+            const messageId = message.id || undefined;
+            
+            await processIncomingMessage(
+              {
+                id: user.id,
+                firstName: user.firstName,
+                whatsappNumber: user.whatsappNumber || phoneNumber,
+              },
+              content,
+              phoneNumber,
+              messageId
+            );
+
+            res.status(200).json({ success: true });
+            return;
+          } catch (nlpError: any) {
+            console.error("[WhatsApp] Erro no processamento NLP:", nlpError);
+            // Fallback para processamento antigo se NLP falhar
+          }
+        }
+
+        // Fallback: Processar mídia (áudio, imagem, vídeo) usando sistema antigo
         try {
           let processedContent = content;
           let mediaUrl = "";
@@ -1244,12 +1270,12 @@ export async function registerRoutes(app: Express): Promise<void> {
               dataReal: extractedData.dataReal || new Date().toISOString().split('T')[0],
               origem: messageType,
               mediaUrl: mediaUrl || undefined,
+              status: 'paid',
+              paymentMethod: 'other',
             });
 
             console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}: ${extractedData.tipo} R$ ${extractedData.valor}`);
 
-            // This code path should not be reached as new code uses sendWhatsAppTransactionMessage
-            // But keeping AI-generated message just in case
             await sendWhatsAppTransactionMessage(phoneNumber, {
               id: transacao.id,
               tipo: extractedData.tipo,
@@ -1260,8 +1286,6 @@ export async function registerRoutes(app: Express): Promise<void> {
             }, { firstName: user.firstName || null, id: user.id, email: user.email || null });
           } else {
             console.log(`[WhatsApp] ⚠️ Could not extract transaction data from ${messageType}`);
-            // This code path should not be reached as new code uses sendAIMessage
-            // But keeping AI-generated message just in case
             await sendAIMessage(
               phoneNumber,
               "transacao_nao_entendida",
