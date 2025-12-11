@@ -27,18 +27,11 @@ export interface EventoExtractedData {
 }
 
 /**
- * Classifica mensagem de texto e extrai dados financeiros
+ * Classifica mensagem de texto e extrai dados financeiros usando IA
+ * Esta função é chamada apenas quando a extração local não foi suficiente
  */
 export async function classifyTextMessage(text: string, userId: string): Promise<TransacaoExtractedData> {
   const today = new Date().toISOString().split('T')[0];
-
-  // Primeiro, tentar extração rápida via regex para mensagens simples
-  // Isso é muito mais rápido que chamar a IA para casos óbvios
-  const quickResult = extractSimpleTransaction(text);
-  if (quickResult.valor !== null && quickResult.confianca >= 0.8) {
-    console.log("[AI] Extração rápida bem-sucedida, pulando chamada à IA");
-    return quickResult;
-  }
 
   // Buscar categorias customizadas do usuário
   const categoriasCustomizadas = await storage.getCategoriasCustomizadas(userId);
@@ -153,16 +146,11 @@ Responda APENAS com JSON válido:
 
     return result as TransacaoExtractedData;
   } catch (error: any) {
-    console.error("Erro ao classificar texto:", error);
-    
-    // SEMPRE tentar fallback quando houver erro
-    console.log("[AI] Erro na classificação, tentando fallback...");
-    try {
-      return extractSimpleTransaction(text);
-    } catch (fallbackError) {
-      console.error("[AI] Fallback também falhou:", fallbackError);
-      throw new Error("Falha ao processar mensagem de texto");
-    }
+    console.error("Erro ao classificar texto:", error?.message || error);
+
+    // SEMPRE tentar fallback quando houver erro - NUNCA lançar exceção
+    console.log("[AI] Erro na classificação, usando fallback local...");
+    return extractSimpleTransaction(text);
   }
 }
 
@@ -275,35 +263,46 @@ export async function analyzeVideoForFinancialData(videoFrameBase64: string): Pr
 
 /**
  * Detecta rapidamente se uma mensagem pode ser um evento (pré-filtro local)
+ * IMPORTANTE: Não deve pegar mensagens de transação financeira
  */
 function quickEventDetection(text: string): { isLikelyEvent: boolean; keywords: string[] } {
   const lowerText = text.toLowerCase();
 
+  // PRIMEIRO: Verificar se é uma transação financeira (NÃO é evento)
+  const transactionKeywords = [
+    'recebi', 'ganhei', 'gastei', 'paguei', 'comprei', 'vendi',
+    'reais', 'real', 'r$', 'dinheiro', 'cliente', 'salário', 'salario',
+    'entrada', 'saída', 'saida', 'despesa', 'renda', 'lucro'
+  ];
+
+  // Se tem palavras de transação, NÃO é evento
+  const hasTransactionKeyword = transactionKeywords.some(kw => lowerText.includes(kw));
+  if (hasTransactionKeyword) {
+    return { isLikelyEvent: false, keywords: [] };
+  }
+
+  // Se tem número seguido de contexto financeiro, NÃO é evento
+  if (lowerText.match(/\d+\s*(reais?|real|r\$)/i) || lowerText.match(/(recebi|gastei|paguei)\s+\d+/)) {
+    return { isLikelyEvent: false, keywords: [] };
+  }
+
   const eventKeywords = [
     'reunião', 'reuniao', 'meeting', 'consulta', 'compromisso',
     'lembrete', 'lembrar', 'não esquecer', 'nao esquecer', 'não esquece', 'nao esquece',
-    'agendar', 'agendamento', 'agenda', 'marcar', 'marcado',
+    'agendar', 'agendamento', 'marcar', 'marcado',
     'evento', 'encontro', 'entrevista', 'apresentação', 'apresentacao',
     'dentista', 'médico', 'medico', 'exame', 'prova',
     'aniversário', 'aniversario', 'festa', 'casamento',
     'voo', 'viagem', 'hotel', 'reserva',
-    'prazo', 'deadline', 'vencimento', 'pagar dia', 'vence dia'
-  ];
-
-  const timeKeywords = [
-    'às', 'as', 'hora', 'h', 'manhã', 'manha', 'tarde', 'noite',
-    'amanhã', 'amanha', 'depois de amanhã', 'semana que vem',
-    'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado', 'domingo',
-    'dia', 'próximo', 'proximo', 'próxima', 'proxima'
+    'prazo', 'deadline'
   ];
 
   const foundEventKw = eventKeywords.filter(kw => lowerText.includes(kw));
-  const foundTimeKw = timeKeywords.filter(kw => lowerText.includes(kw));
 
-  // É provável ser evento se tem palavra-chave de evento OU combinação de tempo + contexto
-  const isLikelyEvent = foundEventKw.length > 0 || (foundTimeKw.length >= 2);
+  // Só é evento se tiver palavra-chave EXPLÍCITA de evento
+  const isLikelyEvent = foundEventKw.length > 0;
 
-  return { isLikelyEvent, keywords: [...foundEventKw, ...foundTimeKw] };
+  return { isLikelyEvent, keywords: foundEventKw };
 }
 
 /**
@@ -706,52 +705,65 @@ export function extractSimpleTransaction(text: string): TransacaoExtractedData {
 }
 
 /**
- * Processa mensagem do WhatsApp com base no tipo (com retry)
+ * Processa mensagem do WhatsApp com base no tipo
+ * IMPORTANTE: NUNCA lança exceção - sempre retorna um resultado
  */
 export async function processWhatsAppMessage(
   messageType: 'text' | 'audio' | 'image' | 'video',
   content: string, // pode ser texto, base64, ou caminho de arquivo
   userId: string
 ): Promise<TransacaoExtractedData> {
-  const maxRetries = 2;
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      switch (messageType) {
-        case 'text':
-          return await classifyTextMessage(content, userId);
-        
-        case 'audio':
-          return await transcribeAndClassifyAudio(content, userId);
-        
-        case 'image':
-          return await analyzeImageForFinancialData(content);
-        
-        case 'video':
-          return await analyzeVideoForFinancialData(content);
-        
-        default:
-          throw new Error("Tipo de mensagem não suportado");
+  console.log(`[AI] Processando mensagem tipo=${messageType}, conteúdo=${content?.substring(0, 50)}...`);
+
+  try {
+    // Para texto, usar sempre a extração local primeiro para velocidade
+    if (messageType === 'text') {
+      // Extração rápida local
+      const quickResult = extractSimpleTransaction(content);
+      console.log(`[AI] Extração rápida: valor=${quickResult.valor}, confiança=${quickResult.confianca}`);
+
+      // Se a extração local foi boa, usar diretamente
+      if (quickResult.valor !== null && quickResult.confianca >= 0.7) {
+        console.log("[AI] Usando resultado da extração rápida");
+        return quickResult;
       }
-    } catch (error: any) {
-      lastError = error;
-      console.error(`[AI] Tentativa ${attempt + 1}/${maxRetries} falhou:`, error.message);
-      
-      // Se for última tentativa e for texto, tentar extração simples
-      if (attempt === maxRetries - 1 && messageType === 'text') {
-        console.log("[AI] Usando extração simples como fallback...");
-        return extractSimpleTransaction(content);
+
+      // Tentar IA apenas se extração local falhou
+      try {
+        const aiResult = await classifyTextMessage(content, userId);
+        if (aiResult && aiResult.valor !== null) {
+          return aiResult;
+        }
+      } catch (aiError: any) {
+        console.error("[AI] Erro na IA, usando fallback:", aiError?.message);
       }
-      
-      // Aguardar antes de retry (exponential backoff)
-      if (attempt < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-      }
+
+      // Retornar resultado local mesmo se valor for null
+      return quickResult;
     }
+
+    // Para outros tipos de mídia
+    switch (messageType) {
+      case 'audio':
+        return await transcribeAndClassifyAudio(content, userId);
+
+      case 'image':
+        return await analyzeImageForFinancialData(content);
+
+      case 'video':
+        return await analyzeVideoForFinancialData(content);
+
+      default:
+        console.log("[AI] Tipo não suportado, usando extração de texto");
+        return extractSimpleTransaction(content);
+    }
+  } catch (error: any) {
+    console.error(`[AI] Erro ao processar mensagem:`, error?.message || error);
+
+    // NUNCA lançar exceção - retornar extração local
+    console.log("[AI] Erro geral, usando fallback local...");
+    return extractSimpleTransaction(content);
   }
-  
-  throw lastError || new Error("Falha ao processar mensagem");
 }
 
 /**
