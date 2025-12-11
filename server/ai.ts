@@ -2,7 +2,11 @@ import OpenAI from "openai";
 import fs from "fs";
 import { storage } from "./storage.js";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: 30000, // 30 segundos timeout global
+  maxRetries: 2, // Retry automático
+});
 
 export interface TransacaoExtractedData {
   tipo: 'entrada' | 'saida';
@@ -65,7 +69,12 @@ Responda APENAS com JSON válido neste formato:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
+    // Timeout wrapper para garantir resposta rápida
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Timeout ao processar mensagem")), 25000)
+    );
+
+    const apiPromise = openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -79,12 +88,54 @@ Responda APENAS com JSON válido neste formato:
       ],
       response_format: { type: "json_object" },
       max_completion_tokens: 500,
+      temperature: 0.3, // Reduzir temperatura para respostas mais consistentes
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const response = await Promise.race([apiPromise, timeoutPromise]) as any;
+
+    const content = response.choices[0].message.content || "{}";
+    const result = JSON.parse(content);
+    
+    // Validação robusta dos dados extraídos
+    if (!result.tipo || (result.tipo !== 'entrada' && result.tipo !== 'saida')) {
+      console.error("[AI] Tipo inválido:", result.tipo);
+      throw new Error("Tipo de transação inválido");
+    }
+
+    if (!result.valor || typeof result.valor !== 'number' || result.valor <= 0) {
+      console.error("[AI] Valor inválido:", result.valor);
+      throw new Error("Valor não identificado ou inválido");
+    }
+
+    if (!result.categoria || typeof result.categoria !== 'string') {
+      result.categoria = 'Outros';
+    }
+
+    if (!result.descricao || typeof result.descricao !== 'string') {
+      result.descricao = text.substring(0, 100); // Usar texto original como fallback
+    }
+
+    // Validar e corrigir data
+    if (!result.dataReal || typeof result.dataReal !== 'string') {
+      result.dataReal = new Date().toISOString().split('T')[0];
+    } else {
+      // Validar formato de data
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(result.dataReal)) {
+        result.dataReal = new Date().toISOString().split('T')[0];
+      }
+    }
+
     return result as TransacaoExtractedData;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao classificar texto:", error);
+    
+    // Se for timeout ou erro de API, tentar extração simples via regex
+    if (error.message?.includes("Timeout") || error.message?.includes("API")) {
+      console.log("[AI] Tentando extração simples via regex...");
+      return extractSimpleTransaction(text);
+    }
+    
     throw new Error("Falha ao processar mensagem de texto");
   }
 }
@@ -120,7 +171,12 @@ export async function analyzeImageForFinancialData(imageBase64: string): Promise
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    const response = await openai.chat.completions.create({
+    // Timeout wrapper
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Timeout ao processar imagem")), 30000)
+    );
+
+    const apiPromise = openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -157,11 +213,26 @@ Responda APENAS com JSON válido.`
       ],
       response_format: { type: "json_object" },
       max_completion_tokens: 1000,
+      temperature: 0.3,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    const response = await Promise.race([apiPromise, timeoutPromise]) as any;
+    const content = response.choices[0].message.content || "{}";
+    const result = JSON.parse(content);
+    
+    // Validação
+    if (!result.tipo || (result.tipo !== 'entrada' && result.tipo !== 'saida')) {
+      result.tipo = 'saida'; // Default para despesa
+    }
+    if (!result.valor || typeof result.valor !== 'number' || result.valor <= 0) {
+      throw new Error("Valor não identificado na imagem");
+    }
+    if (!result.categoria) result.categoria = 'Outros';
+    if (!result.descricao) result.descricao = 'Documento financeiro';
+    if (!result.dataReal) result.dataReal = today;
+    
     return result as TransacaoExtractedData;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao analisar imagem:", error);
     throw new Error("Falha ao processar imagem");
   }
@@ -245,29 +316,110 @@ Responda APENAS com JSON válido.`;
 }
 
 /**
- * Processa mensagem do WhatsApp com base no tipo
+ * Extração simples via regex (fallback quando IA falha)
+ */
+function extractSimpleTransaction(text: string): TransacaoExtractedData {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Extrair valor (R$ 100, 100 reais, etc)
+  const valorMatch = text.match(/(?:r\$|reais?|rs\.?)\s*(\d+(?:[.,]\d{2})?)/i) || 
+                      text.match(/(\d+(?:[.,]\d{2})?)\s*(?:reais?|r\$)/i) ||
+                      text.match(/(\d+(?:[.,]\d{2})?)/);
+  
+  const valor = valorMatch ? parseFloat(valorMatch[1].replace(',', '.')) : null;
+  
+  // Detectar tipo (entrada/saída)
+  const entradaKeywords = ['recebi', 'ganhei', 'entrada', 'salário', 'pagamento recebido', 'crédito'];
+  const saidaKeywords = ['gastei', 'paguei', 'comprei', 'despesa', 'saída', 'débito'];
+  
+  const lowerText = text.toLowerCase();
+  const isEntrada = entradaKeywords.some(kw => lowerText.includes(kw));
+  const isSaida = saidaKeywords.some(kw => lowerText.includes(kw));
+  
+  const tipo = isEntrada ? 'entrada' : (isSaida ? 'saida' : 'saida'); // Default para saída
+  
+  // Categoria simples
+  const categoriaMap: Record<string, string> = {
+    'almoço': 'Alimentação',
+    'jantar': 'Alimentação',
+    'comida': 'Alimentação',
+    'mercado': 'Alimentação',
+    'supermercado': 'Alimentação',
+    'gasolina': 'Transporte',
+    'uber': 'Transporte',
+    'taxi': 'Transporte',
+    'transporte': 'Transporte',
+    'conta': 'Contas',
+    'luz': 'Contas',
+    'água': 'Contas',
+    'internet': 'Contas',
+  };
+  
+  let categoria = 'Outros';
+  for (const [keyword, cat] of Object.entries(categoriaMap)) {
+    if (lowerText.includes(keyword)) {
+      categoria = cat;
+      break;
+    }
+  }
+  
+  return {
+    tipo,
+    categoria,
+    valor,
+    dataReal: today,
+    descricao: text.substring(0, 100),
+    confianca: valor ? 0.6 : 0.3, // Confiança baixa mas funcional
+  };
+}
+
+/**
+ * Processa mensagem do WhatsApp com base no tipo (com retry)
  */
 export async function processWhatsAppMessage(
   messageType: 'text' | 'audio' | 'image' | 'video',
   content: string, // pode ser texto, base64, ou caminho de arquivo
   userId: string
 ): Promise<TransacaoExtractedData> {
-  switch (messageType) {
-    case 'text':
-      return await classifyTextMessage(content, userId);
-    
-    case 'audio':
-      return await transcribeAndClassifyAudio(content, userId);
-    
-    case 'image':
-      return await analyzeImageForFinancialData(content);
-    
-    case 'video':
-      return await analyzeVideoForFinancialData(content);
-    
-    default:
-      throw new Error("Tipo de mensagem não suportado");
+  const maxRetries = 2;
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      switch (messageType) {
+        case 'text':
+          return await classifyTextMessage(content, userId);
+        
+        case 'audio':
+          return await transcribeAndClassifyAudio(content, userId);
+        
+        case 'image':
+          return await analyzeImageForFinancialData(content);
+        
+        case 'video':
+          return await analyzeVideoForFinancialData(content);
+        
+        default:
+          throw new Error("Tipo de mensagem não suportado");
+      }
+    } catch (error: any) {
+      lastError = error;
+      console.error(`[AI] Tentativa ${attempt + 1}/${maxRetries} falhou:`, error.message);
+      
+      // Se for última tentativa e for texto, tentar extração simples
+      if (attempt === maxRetries - 1 && messageType === 'text') {
+        console.log("[AI] Usando extração simples como fallback...");
+        return extractSimpleTransaction(content);
+      }
+      
+      // Aguardar antes de retry (exponential backoff)
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
   }
+  
+  throw lastError || new Error("Falha ao processar mensagem");
 }
 
 /**
@@ -708,7 +860,12 @@ Responda APENAS com a headline, sem aspas, emojis ou formatação extra.`;
   }
 
   try {
-    const response = await openai.chat.completions.create({
+    // Timeout wrapper para geração de resposta
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Timeout ao gerar resposta")), 15000)
+    );
+
+    const apiPromise = openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {

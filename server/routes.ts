@@ -1176,26 +1176,45 @@ export async function registerRoutes(app: Express): Promise<void> {
             }
           }
 
-          // Processar com IA
+          // Processar com IA (com timeout adicional para garantir resposta rápida)
           let extractedData: any = null;
           try {
-            extractedData = await processWhatsAppMessage(messageType, processedContent || content, user.id);
+            // Timeout de 20 segundos para processamento completo
+            const processingTimeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Timeout no processamento")), 20000)
+            );
+            
+            const processingPromise = processWhatsAppMessage(messageType, processedContent || content, user.id);
+            extractedData = await Promise.race([processingPromise, processingTimeout]);
           } catch (aiError: any) {
             console.error("[WhatsApp] AI processing error:", aiError);
             const userForError = await storage.getUserByPhone(phoneNumber);
-            await sendAIMessage(
-              phoneNumber,
-              "erro_processar_midia",
-              {
-                user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null },
-                context: { messageType: messageType }
-              }
-            );
+            
+            // Se for timeout, mensagem específica
+            if (aiError.message?.includes("Timeout")) {
+              await sendAIMessage(
+                phoneNumber,
+                "erro_processar_midia",
+                {
+                  user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null },
+                  context: { messageType: messageType }
+                }
+              );
+            } else {
+              await sendAIMessage(
+                phoneNumber,
+                "transacao_nao_entendida",
+                {
+                  user: { firstName: userForError?.firstName || null, id: userForError?.id, email: userForError?.email || null }
+                }
+              );
+            }
             res.status(200).json({ success: true });
             return;
           }
 
-          if (extractedData && extractedData.tipo && extractedData.valor) {
+          // Validação adicional antes de criar transação
+          if (extractedData && extractedData.tipo && extractedData.valor && extractedData.valor > 0) {
             const transacao = await storage.createTransacao({
               userId: user.id,
               tipo: extractedData.tipo,
