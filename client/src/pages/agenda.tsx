@@ -104,18 +104,35 @@ export default function Agenda() {
 
   const createEventoMutation = useMutation({
     mutationFn: async (data: EventoFormData) => {
-      const payload = {
-        ...data,
+      // Constrói o payload removendo campos undefined
+      const payload: any = {
+        titulo: data.titulo,
         data: format(data.data, "yyyy-MM-dd"),
       };
-      if (editingEvento) {
-        return apiRequest("PATCH", `/api/eventos/${editingEvento.id}`, payload);
+      
+      // Adiciona campos opcionais apenas se tiverem valor
+      if (data.descricao && data.descricao.trim()) {
+        payload.descricao = data.descricao;
       }
-      return apiRequest("POST", "/api/eventos", payload);
+      
+      if (data.hora && data.hora.trim()) {
+        payload.hora = data.hora;
+      }
+      
+      // Converte lembreteMinutos de string para número
+      if (data.lembreteMinutos) {
+        payload.lembreteMinutos = parseInt(data.lembreteMinutos, 10);
+      }
+      
+      const response = editingEvento
+        ? await apiRequest("PATCH", `/api/eventos/${editingEvento.id}`, payload)
+        : await apiRequest("POST", "/api/eventos", payload);
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Evento criado com sucesso!",
+        title: editingEvento ? "Evento atualizado!" : "Evento criado com sucesso!",
         description: editingEvento
           ? "O evento foi atualizado."
           : `Evento criado para ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}${form.watch("hora") ? ` às ${form.watch("hora")}` : ""}${form.watch("lembreteMinutos") ? ` (com ${getLembreteLabel(form.watch("lembreteMinutos")!)} lembrete)` : ""}`,
@@ -126,9 +143,13 @@ export default function Agenda() {
       form.reset();
     },
     onError: (error: any) => {
+      console.error("Erro ao criar/atualizar evento:", error);
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (error?.response?.data?.errors ? JSON.stringify(error.response.data.errors) : "Não foi possível salvar o evento.");
       toast({
-        title: "Erro ao criar evento",
-        description: error.message || "Não foi possível criar o evento.",
+        title: "Erro ao salvar evento",
+        description: errorMessage,
         variant: "destructive",
       });
     },

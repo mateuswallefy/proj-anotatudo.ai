@@ -8,6 +8,7 @@ import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
 import { ensureAdminRootExists } from "./adminRootProtection.js";
 import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
+import { ensureEventosTable } from "./ensureEventosTable.js";
 import { initializeDatabaseAsync } from "./db.js";
 import { processarLembretes } from "./lembretes.js";
 
@@ -35,6 +36,7 @@ async function runDatabaseSetup() {
       seedAdmin(),
       ensureAdminRootExists(),
       ensureWebhookEventsTable(),
+      ensureEventosTable(),
     ]);
     
     log("✅ Database setup complete", "SERVER");

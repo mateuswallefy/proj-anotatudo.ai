@@ -44,7 +44,8 @@ import {
   insertCategoriaCustomizadaSchema,
   insertNotificationPreferencesSchema,
   updateNotificationPreferencesSchema,
-  insertContaSchema
+  insertContaSchema,
+  insertEventoSchema
 } from "@shared/schema";
 import { processWhatsAppMessage, detectEventoInMessage } from "./ai.js";
 import { logClientEvent, EventTypes } from "./clientLogger.js";
@@ -692,6 +693,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Eventos/Agenda routes
+  console.log("[ROUTES] Registrando rotas de eventos...");
   app.get("/api/eventos", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session.userId;
@@ -704,23 +706,49 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   app.post("/api/eventos", isAuthenticated, async (req: any, res) => {
+    console.log("[ROUTES] POST /api/eventos chamado");
     try {
       const userId = req.session.userId;
-      const { insertEventoSchema } = await import("@shared/schema");
-      const data = insertEventoSchema.parse({
-        ...req.body,
+      
+      // Prepara o payload com tipos corretos
+      const payload: any = {
+        titulo: req.body.titulo,
+        data: req.body.data, // Já vem como string YYYY-MM-DD
         userId,
         origem: req.body.origem || "manual",
-      });
+      };
       
+      // Adiciona campos opcionais apenas se existirem
+      if (req.body.descricao !== undefined && req.body.descricao !== null && req.body.descricao !== '') {
+        payload.descricao = req.body.descricao;
+      }
+      
+      if (req.body.hora !== undefined && req.body.hora !== null && req.body.hora !== '') {
+        payload.hora = req.body.hora;
+      }
+      
+      // Converte lembreteMinutos para número se existir
+      if (req.body.lembreteMinutos !== undefined && req.body.lembreteMinutos !== null) {
+        payload.lembreteMinutos = typeof req.body.lembreteMinutos === 'string' 
+          ? parseInt(req.body.lembreteMinutos, 10) 
+          : req.body.lembreteMinutos;
+      }
+      
+      const data = insertEventoSchema.parse(payload);
       const evento = await storage.createEvento(data);
       res.status(201).json(evento);
     } catch (error: any) {
       console.error("Error creating evento:", error);
       if (error.name === 'ZodError') {
-        res.status(400).json({ message: "Invalid data", errors: error.errors });
+        res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: error.errors.map((e: any) => ({
+            path: e.path.join('.'),
+            message: e.message,
+          }))
+        });
       } else {
-        res.status(500).json({ message: "Failed to create evento" });
+        res.status(500).json({ message: error.message || "Failed to create evento" });
       }
     }
   });
@@ -729,20 +757,55 @@ export async function registerRoutes(app: Express): Promise<void> {
     try {
       const { id } = req.params;
       const userId = req.session.userId;
-      const { insertEventoSchema } = await import("@shared/schema");
-      const updates = insertEventoSchema.partial().parse(req.body);
+      
+      // Prepara o payload apenas com campos que foram enviados
+      const payload: any = {};
+      
+      if (req.body.titulo !== undefined) {
+        payload.titulo = req.body.titulo;
+      }
+      
+      if (req.body.data !== undefined) {
+        payload.data = req.body.data;
+      }
+      
+      if (req.body.descricao !== undefined) {
+        payload.descricao = req.body.descricao === '' ? null : req.body.descricao;
+      }
+      
+      if (req.body.hora !== undefined) {
+        payload.hora = req.body.hora === '' ? null : req.body.hora;
+      }
+      
+      // Converte lembreteMinutos para número se existir
+      if (req.body.lembreteMinutos !== undefined) {
+        payload.lembreteMinutos = req.body.lembreteMinutos === null || req.body.lembreteMinutos === '' 
+          ? null 
+          : (typeof req.body.lembreteMinutos === 'string' 
+              ? parseInt(req.body.lembreteMinutos, 10) 
+              : req.body.lembreteMinutos);
+      }
+      
+      // Não permite atualizar userId ou origem via PATCH
+      const updates = insertEventoSchema.partial().parse(payload);
       
       const evento = await storage.updateEvento(id, userId, updates);
       if (!evento) {
-        return res.status(404).json({ message: "Evento not found" });
+        return res.status(404).json({ message: "Evento não encontrado ou não autorizado" });
       }
       res.json(evento);
     } catch (error: any) {
       console.error("Error updating evento:", error);
       if (error.name === 'ZodError') {
-        res.status(400).json({ message: "Invalid data", errors: error.errors });
+        res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: error.errors.map((e: any) => ({
+            path: e.path.join('.'),
+            message: e.message,
+          }))
+        });
       } else {
-        res.status(500).json({ message: "Failed to update evento" });
+        res.status(500).json({ message: error.message || "Failed to update evento" });
       }
     }
   });
