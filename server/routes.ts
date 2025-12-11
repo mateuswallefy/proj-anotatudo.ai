@@ -2436,8 +2436,7 @@ export async function registerRoutes(app: Express): Promise<void> {
                     dataReal: result.dataReal,
                     descricao: result.descricao || '',
                     origem: messageType === 'text' ? 'texto' : messageType === 'audio' ? 'audio' : messageType === 'image' ? 'foto' : 'video',
-                    status: 'paid',
-                    paymentMethod: 'other',
+                    // status e paymentMethod usam defaults do schema
                   });
                   
                   console.log(`[WhatsApp] ✅ Transaction created for user ${user.id}`);

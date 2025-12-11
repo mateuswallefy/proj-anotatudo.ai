@@ -7,10 +7,7 @@ import { storage } from "./storage.js";
 import { sendWhatsAppReply } from "./whatsapp.js";
 import { extractSimpleTransaction } from "./ai.js";
 import { detectEventoInMessage } from "./ai.js";
-import { db } from "./db.js";
-import { whatsappLatency, whatsappSessions } from "../shared/schema.js";
-import { eq } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+// Removidos imports não utilizados - usar storage diretamente
 
 export interface ClassifiedMessage {
   type: 'expense' | 'income' | 'reminder' | 'unknown';
@@ -304,37 +301,31 @@ export async function processIncomingMessage(
         receivedAt,
         userId: user.id,
       });
-    } catch (latencyError) {
-      console.error("[WhatsApp NLP] Erro ao criar latency:", latencyError);
+    } catch (latencyError: any) {
+      console.error("[WhatsApp NLP] ❌ Erro ao criar latency:", latencyError?.message || latencyError);
+      // Continuar processamento mesmo se latency falhar
     }
 
-    // Atualizar ou criar sessão WhatsApp
+    // Atualizar ou criar sessão WhatsApp usando storage
     try {
-      const existingSession = await db
-        .select()
-        .from(whatsappSessions)
-        .where(eq(whatsappSessions.phoneNumber, phoneNumber))
-        .limit(1);
-
-      if (existingSession.length > 0) {
-        await db
-          .update(whatsappSessions)
-          .set({
-            lastMessageAt: receivedAt,
-            userId: user.id,
-            updatedAt: new Date(),
-          })
-          .where(eq(whatsappSessions.phoneNumber, phoneNumber));
+      const existingSession = await storage.getWhatsAppSession(phoneNumber);
+      
+      if (existingSession) {
+        await storage.updateWhatsAppSession(phoneNumber, {
+          lastMessageAt: receivedAt,
+          userId: user.id,
+        });
       } else {
-        await db.insert(whatsappSessions).values({
+        await storage.createWhatsAppSession({
           phoneNumber,
           userId: user.id,
           status: 'verified',
           lastMessageAt: receivedAt,
         });
       }
-    } catch (sessionError) {
-      console.error("[WhatsApp NLP] Erro ao atualizar sessão:", sessionError);
+    } catch (sessionError: any) {
+      console.error("[WhatsApp NLP] ❌ Erro ao atualizar sessão:", sessionError?.message || sessionError);
+      // Não bloquear processamento se sessão falhar
     }
 
     // Classificar mensagem
@@ -357,8 +348,9 @@ export async function processIncomingMessage(
             classification.date = extracted.dataReal;
             classification.confidence = extracted.confianca;
           }
-        } catch (extractError) {
-          console.error("[WhatsApp NLP] Erro na extração avançada:", extractError);
+        } catch (extractError: any) {
+          console.error("[WhatsApp NLP] ❌ Erro na extração avançada:", extractError?.message || extractError);
+          // Continuar sem valor extraído
         }
       }
 
@@ -372,6 +364,7 @@ export async function processIncomingMessage(
       // Criar transação
       const tipo = classification.type === 'income' ? 'entrada' : 'saida';
       
+      // Criar transação sem status/paymentMethod (usam defaults do schema)
       const transacao = await storage.createTransacao({
         userId: user.id,
         tipo,
@@ -380,8 +373,7 @@ export async function processIncomingMessage(
         descricao: classification.description || text.substring(0, 200),
         dataReal: classification.date || new Date().toISOString().split('T')[0],
         origem: 'whatsapp',
-        status: 'paid', // Por padrão, transações do WhatsApp são pagas
-        paymentMethod: 'other',
+        // status e paymentMethod usam defaults do schema (paid, other)
       });
 
       console.log(`[WhatsApp NLP] ✅ Transação criada: ${tipo} R$ ${classification.value}`);
@@ -434,15 +426,17 @@ export async function processIncomingMessage(
                 processedAt: new Date(),
                 botLatencyMs: Date.now() - receivedAt.getTime(),
               });
-            } catch (updateError) {
-              console.error("[WhatsApp NLP] Erro ao atualizar latency:", updateError);
+            } catch (updateError: any) {
+              console.error("[WhatsApp NLP] ❌ Erro ao atualizar latency:", updateError?.message || updateError);
+              // Não bloquear resposta ao usuário
             }
           }
 
           return { success: true, message: responseMessage };
         }
-      } catch (eventoError) {
-        console.error("[WhatsApp NLP] Erro ao processar evento:", eventoError);
+      } catch (eventoError: any) {
+        console.error("[WhatsApp NLP] ❌ Erro ao processar evento:", eventoError?.message || eventoError);
+        // Continuar para resposta padrão
       }
 
       // Se não conseguiu criar evento, responder como desconhecido
@@ -461,8 +455,9 @@ export async function processIncomingMessage(
             processedAt: new Date(),
             botLatencyMs: Date.now() - receivedAt.getTime(),
           });
-        } catch (updateError) {
-          console.error("[WhatsApp NLP] Erro ao atualizar latency:", updateError);
+        } catch (updateError: any) {
+          console.error("[WhatsApp NLP] ❌ Erro ao atualizar latency:", updateError?.message || updateError);
+          // Não bloquear resposta ao usuário
         }
       }
 
@@ -470,11 +465,15 @@ export async function processIncomingMessage(
     }
 
   } catch (error: any) {
-    console.error("[WhatsApp NLP] Erro ao processar mensagem:", error);
+    console.error("[WhatsApp NLP] ❌ Erro crítico ao processar mensagem:", error?.message || error, error?.stack);
     
     // Enviar mensagem de erro amigável
     const errorMessage = "Ops, aconteceu algo inesperado. Pode tentar novamente?";
-    await sendWhatsAppReply(phoneNumber, errorMessage, latencyId);
+    try {
+      await sendWhatsAppReply(phoneNumber, errorMessage, latencyId);
+    } catch (replyError: any) {
+      console.error("[WhatsApp NLP] ❌ Erro ao enviar resposta de erro:", replyError?.message || replyError);
+    }
     
     // Atualizar latency com erro
     if (latencyId) {
@@ -483,8 +482,8 @@ export async function processIncomingMessage(
           processedAt: new Date(),
           botLatencyMs: Date.now() - receivedAt.getTime(),
         });
-      } catch (updateError) {
-        console.error("[WhatsApp NLP] Erro ao atualizar latency:", updateError);
+      } catch (updateError: any) {
+        console.error("[WhatsApp NLP] ❌ Erro ao atualizar latency:", updateError?.message || updateError);
       }
     }
 
