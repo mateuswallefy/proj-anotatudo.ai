@@ -21,6 +21,7 @@ import {
   systemLogs,
   adminEventLogs,
   whatsappSessions,
+  whatsappLatency,
   webhookEvents,
   webhookProcessedEvents,
   webhookLogs,
@@ -78,6 +79,8 @@ import {
   type InsertAdminEventLog,
   type WhatsAppSession,
   type InsertWhatsAppSession,
+  type WhatsAppLatency,
+  type InsertWhatsAppLatency,
   type WebhookEvent,
   type InsertWebhookEvent,
 } from "@shared/schema";
@@ -2349,6 +2352,15 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return newLatency;
+  }
+
+  async getWhatsAppLatencyById(id: string): Promise<WhatsAppLatency | undefined> {
+    const [latency] = await db
+      .select()
+      .from(whatsappLatency)
+      .where(eq(whatsappLatency.id, id))
+      .limit(1);
+    return latency;
   }
 
   async updateWhatsAppLatency(id: string, updates: Partial<InsertWhatsAppLatency>): Promise<WhatsAppLatency | undefined> {
