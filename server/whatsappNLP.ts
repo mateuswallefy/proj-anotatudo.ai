@@ -10,7 +10,7 @@ import { detectEventoInMessage } from "./ai.js";
 // Removidos imports não utilizados - usar storage diretamente
 
 export interface ClassifiedMessage {
-  type: 'expense' | 'income' | 'reminder' | 'unknown';
+  type: 'expense' | 'income' | 'reminder' | 'greeting' | 'unknown';
   value?: number;
   category?: string;
   date?: string; // YYYY-MM-DD
@@ -26,7 +26,29 @@ export function classifyMessage(text: string): ClassifiedMessage {
   const originalText = text.trim();
 
   // ========================================
-  // DETECTAR LEMBRETE/EVENTO PRIMEIRO
+  // DETECTAR SAUDAÇÕES PRIMEIRO
+  // ========================================
+  const greetingKeywords = [
+    'oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite',
+    'e aí', 'e ai', 'eae', 'opa', 'hey', 'hi', 'hello',
+    'tudo bem', 'td bem', 'tudo bom', 'td bom'
+  ];
+
+  const isGreeting = greetingKeywords.some(kw => {
+    // Verificar se a palavra-chave está no início da mensagem ou sozinha
+    return lowerText === kw || lowerText.startsWith(kw + ' ') || lowerText === kw;
+  });
+
+  if (isGreeting) {
+    return {
+      type: 'greeting',
+      description: originalText.substring(0, 200),
+      confidence: 0.9,
+    };
+  }
+
+  // ========================================
+  // DETECTAR LEMBRETE/EVENTO
   // ========================================
   const reminderKeywords = [
     'lembrete', 'lembrar', 'não esquecer', 'nao esquecer', 'não esquece', 'nao esquece',
@@ -208,6 +230,15 @@ export function classifyMessage(text: string): ClassifiedMessage {
   if (value && value > 0) confidence += 0.2;
   if (incomeScore > 0 || expenseScore > 0) confidence += 0.2;
   if (category !== 'Outros') confidence += 0.1;
+
+  // Fallback: se confidence >= 0.3 e não detectou nada específico, tratar como greeting
+  if (type === 'unknown' && confidence >= 0.3 && !value && incomeScore === 0 && expenseScore === 0) {
+    return {
+      type: 'greeting',
+      description: originalText.substring(0, 200),
+      confidence: 0.5,
+    };
+  }
 
   return {
     type,
@@ -443,6 +474,44 @@ export async function processIncomingMessage(
       const responseMessage = "Não entendi, posso registrar despesas, receitas ou lembretes. Ex: 'Almoço R$ 45' ou 'Reunião amanhã às 15h'";
       await sendWhatsAppReply(phoneNumber, responseMessage, latencyId);
       return { success: false, message: responseMessage };
+
+    } else if (classification.type === 'greeting') {
+      // É uma saudação
+      const greetingResponses = [
+        `Olá${user.firstName ? `, ${user.firstName}` : ''}! 👋 Como posso ajudar?`,
+        `Oi${user.firstName ? `, ${user.firstName}` : ''}! 😊 Posso registrar despesas, receitas ou lembretes.`,
+        `Bom dia${user.firstName ? `, ${user.firstName}` : ''}! 🌅 Em que posso ajudar hoje?`,
+        `Boa tarde${user.firstName ? `, ${user.firstName}` : ''}! ☀️ Como posso ajudar?`,
+        `Boa noite${user.firstName ? `, ${user.firstName}` : ''}! 🌙 Em que posso ajudar?`,
+      ];
+      
+      // Escolher resposta baseada na hora do dia
+      const hour = new Date().getHours();
+      let responseMessage: string;
+      if (hour >= 5 && hour < 12) {
+        responseMessage = greetingResponses[2]; // Bom dia
+      } else if (hour >= 12 && hour < 18) {
+        responseMessage = greetingResponses[3]; // Boa tarde
+      } else if (hour >= 18 || hour < 5) {
+        responseMessage = greetingResponses[4]; // Boa noite
+      } else {
+        responseMessage = greetingResponses[0]; // Olá genérico
+      }
+      
+      await sendWhatsAppReply(phoneNumber, responseMessage, latencyId);
+      
+      if (latencyId) {
+        try {
+          await storage.updateWhatsAppLatency(latencyId, {
+            processedAt: new Date(),
+            botLatencyMs: Date.now() - receivedAt.getTime(),
+          });
+        } catch (updateError: any) {
+          console.error("[WhatsApp NLP] ❌ Erro ao atualizar latency:", updateError?.message || updateError);
+        }
+      }
+
+      return { success: true, message: responseMessage };
 
     } else {
       // Tipo desconhecido

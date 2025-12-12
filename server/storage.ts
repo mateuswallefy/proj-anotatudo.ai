@@ -22,6 +22,7 @@ import {
   adminEventLogs,
   whatsappSessions,
   whatsappLatency,
+  clientLogs,
   webhookEvents,
   webhookProcessedEvents,
   webhookLogs,
@@ -81,6 +82,8 @@ import {
   type InsertWhatsAppSession,
   type WhatsAppLatency,
   type InsertWhatsAppLatency,
+  type ClientLog,
+  type InsertClientLog,
   type WebhookEvent,
   type InsertWebhookEvent,
 } from "@shared/schema";
