@@ -25,12 +25,12 @@ export default function Dashboard() {
         <DashboardHeader />
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
           <DashboardStatCard
             title="Receitas"
             value={stats.receitas}
             variation={stats.variacaoReceitas}
-            icon={<TrendingUp className="h-5 w-5" />}
+            icon={<TrendingUp className="h-5 w-5 lg:h-6 lg:w-6" />}
             color="green"
             isLoading={stats.isLoading}
             index={0}
@@ -39,7 +39,7 @@ export default function Dashboard() {
             title="Despesas"
             value={stats.despesas}
             variation={stats.variacaoDespesas}
-            icon={<TrendingDown className="h-5 w-5" />}
+            icon={<TrendingDown className="h-5 w-5 lg:h-6 lg:w-6" />}
             color="red"
             isLoading={stats.isLoading}
             index={1}
@@ -48,7 +48,7 @@ export default function Dashboard() {
             title="Saldo"
             value={stats.saldo}
             variation={stats.variacaoSaldo}
-            icon={<Wallet2 className="h-5 w-5" />}
+            icon={<Wallet2 className="h-5 w-5 lg:h-6 lg:w-6" />}
             color="blue"
             isLoading={stats.isLoading}
             index={2}
@@ -57,7 +57,7 @@ export default function Dashboard() {
             title="Faturas"
             value={stats.faturasCartao}
             variation={0}
-            icon={<CreditCard className="h-5 w-5" />}
+            icon={<CreditCard className="h-5 w-5 lg:h-6 lg:w-6" />}
             color="orange"
             isLoading={stats.isLoading}
             index={3}

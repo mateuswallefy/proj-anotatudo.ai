@@ -88,13 +88,13 @@ export function DashboardStatCard({
 
   if (isLoading) {
     return (
-      <div className="relative rounded-[20px] border-0 bg-card p-4 shadow-lg overflow-hidden">
-        <div className="flex items-start justify-between mb-4">
-          <Skeleton className="h-12 w-12 rounded-xl" />
-          <Skeleton className="h-6 w-16 rounded-full" />
+      <div className="relative rounded-xl lg:rounded-[20px] border-0 bg-card p-3 lg:p-4 shadow-sm lg:shadow-lg overflow-hidden">
+        <div className="flex items-start justify-between mb-3 lg:mb-4">
+          <Skeleton className="h-10 w-10 lg:h-12 lg:w-12 rounded-xl" />
+          <Skeleton className="h-5 w-12 lg:h-6 lg:w-16 rounded-full" />
         </div>
-        <Skeleton className="h-4 w-20 mb-2" />
-        <Skeleton className="h-8 w-28" />
+        <Skeleton className="h-3 w-16 lg:h-4 lg:w-20 mb-2" />
+        <Skeleton className="h-6 lg:h-8 w-24 lg:w-28" />
       </div>
     );
   }
@@ -106,8 +106,8 @@ export function DashboardStatCard({
       transition={{ duration: 0.4, delay: index * 0.1, ease: "easeOut" }}
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
       className={cn(
-        "relative rounded-[20px] border-0 bg-card p-4 overflow-hidden",
-        "shadow-lg hover:shadow-xl transition-shadow duration-300",
+        "relative rounded-xl lg:rounded-[20px] border-0 bg-card p-3 lg:p-4 overflow-hidden",
+        "shadow-sm lg:shadow-lg hover:shadow-md lg:hover:shadow-xl transition-shadow duration-300",
         config.glow
       )}
     >
@@ -120,10 +120,10 @@ export function DashboardStatCard({
       />
 
       {/* Header */}
-      <div className="relative flex items-start justify-between mb-3">
+      <div className="relative flex items-start justify-between mb-2 lg:mb-3">
         <div
           className={cn(
-            "p-3 rounded-xl bg-gradient-to-br backdrop-blur-sm",
+            "p-2 lg:p-3 rounded-lg lg:rounded-xl bg-gradient-to-br backdrop-blur-sm",
             config.iconBg
           )}
         >
@@ -135,7 +135,7 @@ export function DashboardStatCard({
         {/* Variation badge */}
         <div
           className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold",
+            "flex items-center gap-0.5 lg:gap-1 px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-full text-[10px] lg:text-xs font-semibold",
             getVariationColor()
           )}
         >
@@ -146,15 +146,16 @@ export function DashboardStatCard({
 
       {/* Content */}
       <div className="relative">
-        <p className="text-xs font-medium text-muted-foreground mb-1">
+        <p className="text-xs lg:text-xs font-medium text-muted-foreground mb-1">
           {title}
         </p>
-        <p className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-foreground tabular-nums">
+        <p className="text-lg lg:text-2xl xl:text-[1.75rem] font-semibold lg:font-bold tracking-tight text-foreground tabular-nums">
           {formatCurrency(value)}
         </p>
-        <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+        <p className="text-[9px] lg:text-[10px] text-muted-foreground mt-1 lg:mt-1.5 flex items-center gap-1">
           <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-          vs período anterior
+          <span className="hidden lg:inline">vs período anterior</span>
+          <span className="lg:hidden">vs anterior</span>
         </p>
       </div>
     </motion.div>
