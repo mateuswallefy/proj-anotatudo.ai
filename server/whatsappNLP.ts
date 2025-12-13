@@ -4,7 +4,7 @@
  */
 
 import { storage } from "./storage.js";
-import { sendWhatsAppReply } from "./whatsapp.js";
+import { sendWhatsAppReply, sendWhatsAppTransactionMessage } from "./whatsapp.js";
 import { extractSimpleTransaction } from "./ai.js";
 import { detectEventoInMessage } from "./ai.js";
 // Removidos imports não utilizados - usar storage diretamente
@@ -409,23 +409,45 @@ export async function processIncomingMessage(
 
       console.log(`[WhatsApp NLP] ✅ Transação criada: ${tipo} R$ ${classification.value}`);
 
-      // Enviar resposta automática
-      const tipoTexto = tipo === 'entrada' ? 'Receita' : 'Despesa';
-      const responseMessage = `${tipoTexto} registrada: ${classification.category || 'Outros'}, R$ ${classification.value.toFixed(2)}.`;
-      await sendWhatsAppReply(phoneNumber, responseMessage, latencyId);
+      // Enviar mensagem rica com botões interativos
+      const result = await sendWhatsAppTransactionMessage(
+        phoneNumber,
+        {
+          id: transacao.id,
+          tipo,
+          valor: String(classification.value),
+          categoria: classification.category || 'Outros',
+          descricao: classification.description || text.substring(0, 200),
+          data: classification.date || new Date().toISOString().split('T')[0],
+        },
+        {
+          firstName: user.firstName,
+          id: user.id,
+          email: user.email,
+        },
+        latencyId
+      );
 
-      // Atualizar latency com sucesso
+      // Atualizar latency com sucesso e messageId da resposta
       if (latencyId) {
         try {
-          await storage.updateWhatsAppLatency(latencyId, {
+          const updates: any = {
             processedAt: new Date(),
             botLatencyMs: Date.now() - receivedAt.getTime(),
-          });
+          };
+          
+          // Se a mensagem rica foi enviada com sucesso, atualizar responseMessageId
+          if (result.success && result.messageId) {
+            updates.responseMessageId = result.messageId;
+          }
+          
+          await storage.updateWhatsAppLatency(latencyId, updates);
         } catch (updateError) {
           console.error("[WhatsApp NLP] Erro ao atualizar latency:", updateError);
         }
       }
 
+      const responseMessage = `${tipo === 'entrada' ? 'Receita' : 'Despesa'} registrada com sucesso!`;
       return { success: true, message: responseMessage };
 
     } else if (classification.type === 'reminder') {

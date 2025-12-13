@@ -160,31 +160,9 @@ export async function sendWhatsAppTransactionMessage(
     descricao: string;
     data?: string;
   },
-  user?: { firstName?: string | null; id?: string; email?: string | null }
+  user?: { firstName?: string | null; id?: string; email?: string | null },
+  latencyId?: string
 ) {
-  const { generateAIResponse } = await import("./ai.js");
-  const { pickEmoji } = await import("./emoji.js");
-  
-  // Gerar apenas a headline via IA
-  const headlineText = await generateAIResponse("transacao_registrada", {
-    user: user ? {
-      id: user.id,
-      firstName: user.firstName,
-      email: user.email
-    } : undefined,
-    transaction: {
-      id: content.id,
-      tipo: content.tipo,
-      valor: content.valor,
-      categoria: content.categoria,
-      descricao: content.descricao,
-      data: content.data
-    }
-  });
-  
-  // Pegar emojis conforme categoria e tipo
-  const emojis = pickEmoji(content.categoria, content.tipo === "entrada" ? "entrada" : "saida");
-  
   // Formatar data
   let dataFormatada = "Hoje";
   if (content.data) {
@@ -198,28 +176,68 @@ export async function sendWhatsAppTransactionMessage(
     }
   }
   
-  // Construir headline final
-  const headline = `${headlineText} ${emojis}`;
+  // Formatar valor com vírgula
+  const valorFormatado = parseFloat(content.valor).toFixed(2).replace('.', ',');
   
-  // Montar mensagem final no padrão
-  const finalMessage = `${headline}
+  // Construir headline com nome do usuário
+  const userName = user?.firstName ? `${user.firstName}! ✨` : "✨";
+  
+  // Montar mensagem final no padrão completo conforme exemplo
+  const finalMessage = `${userName}
 
 🧾 *Descrição:* ${content.descricao}
-💰 *Valor:* R$ ${content.valor}
+💰 *Valor:* R$ ${valorFormatado}
 🏷️ *Categoria:* ${content.categoria}
 📅 *Data:* ${dataFormatada}
 
-${content.tipo === "entrada" ? "✅ Pago com sucesso!" : "📝 Registrado com sucesso!"}
-`;
+🟢 Registrado com sucesso!
 
-  return await sendWhatsAppInteractiveMessage(
+🔧 O que deseja fazer?
+• ✏️ Editar transação
+• 🗑️ Excluir transação`;
+
+  const responseQueuedAt = new Date();
+  
+  // Registrar responseQueuedAt ANTES de enviar (se temos latencyId)
+  if (latencyId) {
+    try {
+      await storage.updateWhatsAppLatency(latencyId, { responseQueuedAt });
+      
+      // Logar evento
+      const { logClientEvent, EventTypes } = await import("./clientLogger.js");
+      const latency = await storage.getWhatsAppLatencyById(latencyId);
+      if (latency?.userId) {
+        await logClientEvent(latency.userId, EventTypes.WHATSAPP_RESPONSE_SENT, `Resposta rica de transação enviada ao WhatsApp`, {
+          to,
+          latencyId,
+          transactionId: content.id,
+          responseQueuedAt: responseQueuedAt.toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error(`[WhatsApp] Erro ao atualizar responseQueuedAt para latency ${latencyId}:`, error);
+    }
+  }
+
+  const result = await sendWhatsAppInteractiveMessage(
     to,
     finalMessage,
     [
       { id: `edit_${content.id}`, title: "✏️ Editar transação" },
-      { id: `delete_${content.id}`, title: "🗑 Excluir transação" }
+      { id: `delete_${content.id}`, title: "🗑️ Excluir transação" }
     ]
   );
+
+  // Se temos latencyId e messageId da resposta, atualizar responseMessageId
+  if (latencyId && result.success && result.messageId) {
+    try {
+      await storage.updateWhatsAppLatency(latencyId, { responseMessageId: result.messageId });
+    } catch (error) {
+      console.error(`[WhatsApp] Erro ao atualizar responseMessageId:`, error);
+    }
+  }
+
+  return result;
 }
 
 /**
