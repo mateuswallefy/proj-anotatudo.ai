@@ -51,14 +51,20 @@ const tabs: Array<{ id: TabType; label: string; icon: any }> = [
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  mobileMenuOpen?: boolean;
+  setMobileMenuOpen?: (open: boolean) => void;
 }
 
-export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+export function Sidebar({ isOpen, setIsOpen, mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: externalSetMobileMenuOpen }: SidebarProps) {
   const { activeTab, setActiveTab } = useTab();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const isMobile = useIsMobile();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false);
+  
+  // Usar estado externo se fornecido, senão usar interno
+  const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen;
+  const setMobileMenuOpen = externalSetMobileMenuOpen || setInternalMobileMenuOpen;
 
   // Responsividade: definir estado inicial baseado no tamanho da tela
   useEffect(() => {
@@ -280,16 +286,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   if (isMobile) {
     return (
       <>
-        {/* Botão Hamburger */}
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="fixed top-20 left-4 z-50 h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-md hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md flex items-center justify-center"
-          data-testid="button-menu-hamburger"
-          aria-label="Abrir menu"
-        >
-          <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-        </button>
-
         {/* Overlay quando drawer está aberto */}
         {mobileMenuOpen && (
           <div

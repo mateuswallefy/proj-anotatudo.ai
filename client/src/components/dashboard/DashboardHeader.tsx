@@ -22,16 +22,34 @@ export function DashboardHeader() {
 
   return (
     <div className="space-y-4">
-      {/* Greeting - Desktop only (hidden on mobile where AppHeader shows it) */}
+      {/* Greeting - Desktop only */}
       <div className="hidden md:block">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
           {greeting}, {userName}! {emoji}
         </h1>
       </div>
 
-      {/* Calendar and Period Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* Mobile Layout: Greeting + Calendar (mesmo eixo vertical, alinhado à esquerda) */}
+      <div className="md:hidden">
+        {/* Greeting - Mobile only */}
+        <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mt-2 mb-2">
+          {greeting}, {userName}! {emoji}
+        </h1>
+        
+        {/* Calendar - abaixo da saudação, mesmo eixo vertical */}
+        <div>
+          <DashboardCalendar />
+        </div>
+      </div>
+
+      {/* Desktop: Calendar and Period Tabs */}
+      <div className="hidden md:flex md:flex-row md:items-center md:justify-between gap-3">
         <DashboardCalendar />
+        <DashboardPeriodTabs />
+      </div>
+
+      {/* Mobile: Period Tabs - abaixo do calendar */}
+      <div className="md:hidden">
         <DashboardPeriodTabs />
       </div>
 

@@ -54,7 +54,7 @@ function AuthenticatedShell() {
   // Calcular padding baseado no estado da sidebar e responsividade
   const getMainPadding = () => {
     if (isMobile) {
-      // Mobile: SEM padding lateral (drawer sobrepõe), apenas padding top para header
+      // Mobile: SEM padding lateral (drawer sobrepõe), padding top para header (64px = 16*4)
       return "pt-16";
     }
     // Desktop/Tablet: padding lateral baseado na sidebar, SEM padding top (não tem header)
@@ -62,10 +62,12 @@ function AuthenticatedShell() {
     return sidebarWidth;
   };
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-gray-950">
-      <AppHeader />
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <AppHeader onMenuClick={() => setMobileMenuOpen(true)} />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
       
       <main 
         className={cn(

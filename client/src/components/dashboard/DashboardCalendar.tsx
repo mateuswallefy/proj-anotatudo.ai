@@ -86,32 +86,34 @@ export function DashboardCalendar() {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="inline-flex items-center gap-1 md:gap-2">
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full hover:bg-white/10"
+          className="h-10 w-10 md:h-8 md:w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation flex-shrink-0"
           onClick={handlePrevMonth}
+          aria-label="Mês anterior"
         >
-          <ChevronLeft className="h-4 w-4 text-[#F39200]" />
+          <ChevronLeft className="h-5 w-5 md:h-4 md:w-4 text-[#3B82F6]" />
         </Button>
         
         <Button
           variant="ghost"
           onClick={handleOpenCalendar}
-          className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-white/10 text-sm font-medium"
+          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation"
         >
-          <CalendarIcon className="h-4 w-4 text-[#F39200]" />
-          <span className="text-foreground">{displayText}</span>
+          <CalendarIcon className="h-4 w-4 text-[#3B82F6] flex-shrink-0" />
+          <span className="text-base md:text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">{displayText}</span>
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full hover:bg-white/10"
+          className="h-10 w-10 md:h-8 md:w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation flex-shrink-0"
           onClick={handleNextMonth}
+          aria-label="Próximo mês"
         >
-          <ChevronRight className="h-4 w-4 text-[#F39200]" />
+          <ChevronRight className="h-5 w-5 md:h-4 md:w-4 text-[#3B82F6]" />
         </Button>
       </div>
 
