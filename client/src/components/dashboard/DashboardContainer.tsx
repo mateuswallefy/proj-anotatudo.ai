@@ -6,14 +6,13 @@ interface DashboardContainerProps {
 
 export function DashboardContainer({ children }: DashboardContainerProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-950">
       {/* Main Content */}
-      <main className="p-4 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      <section className="pt-4 pb-8">
+        <div className="max-w-7xl mx-auto space-y-6">
           {children}
         </div>
-      </main>
+      </section>
     </div>
   );
 }
-

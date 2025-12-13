@@ -3,13 +3,16 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/Sidebar";
+import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
+import { DashboardPeriodProvider } from "@/contexts/DashboardPeriodContext";
 import { TabProvider, useTab } from "@/contexts/TabContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useEffect, startTransition, useState } from "react";
 import { useLocation } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import Lancamentos from "@/pages/lancamentos";
@@ -48,19 +51,42 @@ function AuthenticatedShell() {
     });
   }, []);
 
-  // Ajustar padding baseado no estado da sidebar e responsividade
+  // Calcular padding baseado no estado da sidebar e responsividade
   const getMainPadding = () => {
     if (isMobile) {
-      return "pl-0 pt-16"; // Mobile: padding top para o botão hamburger
+      // Mobile: sem padding lateral (drawer sobrepõe), padding top para header
+      return "pt-24";
     }
-    return sidebarOpen ? "pl-60" : "pl-20"; // Desktop/Tablet: padding lateral (240px = 60*4, 80px = 20*4)
+    // Desktop/Tablet: padding lateral baseado na sidebar + padding top para header
+    const sidebarWidth = sidebarOpen ? "pl-60" : "pl-20";
+    return `${sidebarWidth} pt-20`;
   };
 
+  // Definir CSS variable para sidebar width (usado em DashboardContainer)
+  useEffect(() => {
+    if (!isMobile) {
+      const width = sidebarOpen ? "240px" : "80px";
+      document.documentElement.style.setProperty("--sidebar-width", width);
+    } else {
+      document.documentElement.style.setProperty("--sidebar-width", "0px");
+    }
+  }, [sidebarOpen, isMobile]);
+
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-gray-950">
+      <AppHeader />
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       
-      <main className={`flex-1 overflow-auto transition-all duration-300 ${getMainPadding()}`}>
+      <main 
+        className={cn(
+          "flex-1 overflow-auto transition-all duration-300 ease-in-out",
+          getMainPadding(),
+          "pr-4"
+        )}
+        style={{
+          paddingLeft: isMobile ? "1rem" : undefined,
+        }}
+      >
         <div className="w-full" style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
           <Dashboard />
         </div>
@@ -171,7 +197,9 @@ function AppContent() {
   return (
     <PeriodProvider>
       <TabProvider>
-        <AuthenticatedShell />
+        <DashboardPeriodProvider>
+          <AuthenticatedShell />
+        </DashboardPeriodProvider>
       </TabProvider>
     </PeriodProvider>
   );

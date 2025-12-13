@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  X,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,8 +33,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logout } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const tabs: Array<{ id: TabType; label: string; icon: any }> = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -60,19 +62,23 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Responsividade: mobile sempre fecha, tablet começa fechada, desktop começa aberta
+  // Responsividade: definir estado inicial baseado no tamanho da tela
   useEffect(() => {
     if (isMobile) {
-      // Mobile: sempre fechado (usa Sheet)
+      setIsOpen(false);
       return;
     }
 
     const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        // Tablet
+      const width = window.innerWidth;
+      if (width < 768) {
+        // Mobile
+        setIsOpen(false);
+      } else if (width < 1024) {
+        // Tablet: começa fechada
         setIsOpen(false);
       } else {
-        // Desktop
+        // Desktop: começa aberta
         setIsOpen(true);
       }
     };
@@ -81,6 +87,18 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [isMobile, setIsOpen]);
+
+  // Desabilitar scroll do body quando drawer mobile estiver aberto
+  useEffect(() => {
+    if (isMobile && mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobile, mobileMenuOpen]);
 
   const handleTabClick = (tabId: TabType) => {
     setActiveTab(tabId);
@@ -93,9 +111,13 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     const displayOpen = forceOpen || isOpen;
     
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-white dark:bg-gray-900">
         {/* Logo Section */}
-        <div className={`flex items-center ${displayOpen ? "justify-start px-6" : "justify-center px-2"} py-4 border-b border-gray-200 dark:border-gray-800`}>
+        <div className={cn(
+          "flex items-center border-b border-gray-200 dark:border-gray-800",
+          displayOpen ? "justify-start px-6" : "justify-center px-2",
+          "py-4"
+        )}>
           {displayOpen ? (
             <Logo className="h-10" />
           ) : (
@@ -105,155 +127,181 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           )}
         </div>
 
-      {/* Navigation Items */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2">
-        <ul className="space-y-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+        {/* Navigation Items */}
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          <ul className="space-y-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
 
-            return (
-              <li key={tab.id}>
-                <button
-                  onClick={() => handleTabClick(tab.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? "bg-[#005CA9] text-white shadow-sm"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  } ${displayOpen ? "justify-start" : "justify-center"}`}
-                  data-testid={`sidebar-tab-${tab.id}`}
-                  title={!displayOpen ? tab.label : undefined}
-                >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {displayOpen && (
-                    <span className="text-sm font-medium whitespace-nowrap">
-                      {tab.label}
-                    </span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+              return (
+                <li key={tab.id}>
+                  <button
+                    onClick={() => handleTabClick(tab.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                      isActive
+                        ? "bg-[#3B82F6] text-white shadow-sm hover:bg-[#1E40AF]"
+                        : "text-[#334155] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+                      displayOpen ? "justify-start" : "justify-center"
+                    )}
+                    data-testid={`sidebar-tab-${tab.id}`}
+                    title={!displayOpen ? tab.label : undefined}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {displayOpen && (
+                      <span className="text-sm font-medium whitespace-nowrap">
+                        {tab.label}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      {/* Bottom Section */}
-      <div className="border-t border-gray-200 dark:border-gray-800 p-2 space-y-1">
-        {/* Admin Button */}
-        {user?.role === "admin" && (
-          <button
-            onClick={() => setLocation("/admin")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 ${
-              displayOpen ? "justify-start" : "justify-center"
-            }`}
-            title={!displayOpen ? "Painel Admin" : undefined}
-          >
-            <Shield className="h-5 w-5 flex-shrink-0" />
-            {displayOpen && (
-              <span className="text-sm font-medium whitespace-nowrap">
-                Painel Admin
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* Theme Toggle */}
-        <div
-          className={`flex items-center ${displayOpen ? "justify-start px-3" : "justify-center"}`}
-        >
-          <ThemeToggle />
-        </div>
-
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {/* Bottom Section */}
+        <div className="border-t border-gray-200 dark:border-gray-800 p-2 space-y-1">
+          {/* Admin Button */}
+          {user?.role === "admin" && (
             <button
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 ${
+              onClick={() => setLocation("/admin")}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
                 displayOpen ? "justify-start" : "justify-center"
-              }`}
-              title={!displayOpen ? "Menu do usuário" : undefined}
+              )}
+              title={!displayOpen ? "Painel Admin" : undefined}
             >
-              <Avatar className="h-8 w-8 border-2 border-[#F39200] flex-shrink-0">
-                <AvatarImage
-                  src={user?.profileImageUrl || undefined}
-                  alt={user?.firstName || "User"}
-                />
-                <AvatarFallback className="bg-[#F39200] text-white text-xs font-semibold">
-                  {user?.firstName?.[0]?.toUpperCase() ||
-                    user?.email?.[0]?.toUpperCase() ||
-                    "U"}
-                </AvatarFallback>
-              </Avatar>
+              <Shield className="h-5 w-5 flex-shrink-0" />
               {displayOpen && (
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {user?.firstName && user?.lastName
-                      ? `${user.firstName} ${user.lastName}`
-                      : user?.email || "Usuário"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.email || ""}
-                  </p>
-                </div>
+                <span className="text-sm font-medium whitespace-nowrap">
+                  Painel Admin
+                </span>
               )}
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <div className="px-2 py-1.5">
-              <p className="text-sm font-semibold">
-                {user?.firstName && user?.lastName
-                  ? `${user.firstName} ${user.lastName}`
-                  : user?.email || "Usuário"}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user?.email || ""}
-              </p>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveTab("configuracoes");
-                if (isMobile) setMobileMenuOpen(false);
-              }}
-              data-testid="menu-item-profile"
-            >
-              <User className="h-4 w-4 mr-2" />
-              Meu Perfil
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => logout()}
-              data-testid="menu-item-logout"
-              className="text-destructive focus:text-destructive"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+
+          {/* Theme Toggle */}
+          <div
+            className={cn(
+              "flex items-center",
+              displayOpen ? "justify-start px-3" : "justify-center"
+            )}
+          >
+            <ThemeToggle />
+          </div>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                  "hover:bg-gray-100 dark:hover:bg-gray-800",
+                  displayOpen ? "justify-start" : "justify-center"
+                )}
+                title={!displayOpen ? "Menu do usuário" : undefined}
+              >
+                <Avatar className="h-8 w-8 border-2 border-[#FACC15] flex-shrink-0">
+                  <AvatarImage
+                    src={user?.profileImageUrl || undefined}
+                    alt={user?.firstName || "User"}
+                  />
+                  <AvatarFallback className="bg-[#FACC15] text-gray-900 text-xs font-semibold">
+                    {user?.firstName?.[0]?.toUpperCase() ||
+                      user?.email?.[0]?.toUpperCase() ||
+                      "U"}
+                  </AvatarFallback>
+                </Avatar>
+                {displayOpen && (
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-semibold truncate">
+                      {user?.firstName && user?.lastName
+                        ? `${user.firstName} ${user.lastName}`
+                        : user?.email || "Usuário"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {user?.email || ""}
+                    </p>
+                  </div>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-semibold">
+                  {user?.firstName && user?.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user?.email || "Usuário"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email || ""}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveTab("configuracoes");
+                  if (isMobile) setMobileMenuOpen(false);
+                }}
+                data-testid="menu-item-profile"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Meu Perfil
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => logout()}
+                data-testid="menu-item-logout"
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-    </div>
     );
   };
 
-  // Mobile: usar Sheet (drawer)
+  // Mobile: usar Sheet (drawer) sobrepondo o conteúdo
   if (isMobile) {
     return (
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed top-4 left-4 z-50 h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-md hover:bg-gray-50 dark:hover:bg-gray-800"
-            data-testid="button-menu-hamburger"
+      <>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed top-24 left-4 z-40 h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-md hover:bg-gray-50 dark:hover:bg-gray-800"
+              data-testid="button-menu-hamburger"
+            >
+              <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent 
+            side="left" 
+            className="w-[280px] sm:w-[320px] p-0 border-0 [&>button]:hidden"
+            onInteractOutside={(e) => {
+              // Prevent closing when clicking outside on mobile
+              e.preventDefault();
+            }}
           >
-            <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 border-0 [&>button]:hidden">
-          <SidebarContent forceOpen={true} />
-        </SheetContent>
-      </Sheet>
+            <SidebarContent forceOpen={true} />
+          </SheetContent>
+        </Sheet>
+        
+        {/* Overlay quando drawer está aberto */}
+        {mobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+      </>
     );
   }
 
@@ -261,9 +309,12 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   return (
     <>
       <aside
-        className={`h-screen fixed left-0 top-0 z-40 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ${
+        className={cn(
+          "h-screen fixed left-0 top-16 z-30 bg-white dark:bg-gray-900",
+          "border-r border-gray-200 dark:border-gray-800",
+          "transition-all duration-300 ease-in-out",
           isOpen ? "w-60" : "w-20"
-        }`}
+        )}
       >
         <SidebarContent />
       </aside>
@@ -271,9 +322,13 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed top-6 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full p-1.5 shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 ${
+        className={cn(
+          "fixed top-24 z-40 bg-white dark:bg-gray-900",
+          "border border-gray-200 dark:border-gray-800 rounded-full p-1.5",
+          "shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-gray-800",
+          "transition-all duration-200",
           isOpen ? "left-[228px]" : "left-[68px]"
-        }`}
+        )}
         aria-label={isOpen ? "Fechar sidebar" : "Abrir sidebar"}
       >
         {isOpen ? (
@@ -285,4 +340,3 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     </>
   );
 }
-

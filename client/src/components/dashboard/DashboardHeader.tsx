@@ -35,17 +35,7 @@ export function DashboardHeader() {
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-foreground">
-          {(() => {
-            const { greeting, emoji } = getGreetingWithEmoji();
-            return `${greeting}, ${user?.firstName || "Usuário"}! ${emoji}`;
-          })()}
-        </h1>
-      </div>
-
+    <div className="space-y-4">
       {/* Calendar and Period Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <DashboardCalendar />
