@@ -2,13 +2,14 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { NavBar } from "@/components/NavBar";
+import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { TabProvider, useTab } from "@/contexts/TabContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { useEffect, startTransition } from "react";
+import { useEffect, startTransition, useState } from "react";
 import { useLocation } from "wouter";
+import { useIsMobile } from "@/hooks/use-mobile";
 import Auth from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import Lancamentos from "@/pages/lancamentos";
@@ -30,6 +31,8 @@ import AdminTestes from "@/pages/admin/testes";
 
 function AuthenticatedShell() {
   const { activeTab } = useTab();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Prefetch non-period-specific data on mount
   useEffect(() => {
@@ -45,12 +48,19 @@ function AuthenticatedShell() {
     });
   }, []);
 
+  // Ajustar padding baseado no estado da sidebar e responsividade
+  const getMainPadding = () => {
+    if (isMobile) {
+      return "pl-0 pt-16"; // Mobile: padding top para o botão hamburger
+    }
+    return sidebarOpen ? "pl-60" : "pl-20"; // Desktop/Tablet: padding lateral (240px = 60*4, 80px = 20*4)
+  };
+
   return (
-    <div className="flex flex-col h-screen w-full">
-      <NavBar />
+    <div className="flex h-screen w-full overflow-hidden">
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       
-      
-      <main className="flex-1 overflow-auto w-full">
+      <main className={`flex-1 overflow-auto transition-all duration-300 ${getMainPadding()}`}>
         <div className="w-full" style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
           <Dashboard />
         </div>

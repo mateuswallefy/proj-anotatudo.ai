@@ -14,14 +14,14 @@ export function Logo({ className = "h-8", white = false, iconOnly = false }: Log
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
       >
-        {/* Ícone do caderno/notepad - branco */}
+        {/* Ícone do caderno/notepad - adapta ao tema */}
         <rect 
           x="10" 
           y="20" 
           width="80" 
           height="80" 
           rx="16" 
-          fill="#FFFFFF"
+          className="fill-white dark:fill-gray-800"
         />
         
         {/* Linhas do notepad - azul escuro para contraste */}
