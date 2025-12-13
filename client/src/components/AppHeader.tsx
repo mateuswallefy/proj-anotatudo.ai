@@ -5,7 +5,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export function AppHeader() {
   const { user } = useAuth();
-  const isMobile = useIsMobile();
 
   const getGreetingWithEmoji = () => {
     const hour = new Date().getHours();
@@ -24,45 +23,28 @@ export function AppHeader() {
   const { greeting, emoji } = getGreetingWithEmoji();
   const userName = user?.firstName || "Usuário";
 
-  if (isMobile) {
-    return (
-      <header className="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex flex-col items-center justify-center px-4 py-3 space-y-2">
-          {/* Logo */}
-          <Logo className="h-10" />
-          
-          {/* Greeting */}
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-            {greeting}, {userName}! {emoji}
-          </h1>
-        </div>
-      </header>
-    );
-  }
-
+  // Header aparece APENAS no mobile (< 768px), escondido no tablet/desktop usando md:hidden
   return (
-    <header className="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 h-16">
-      <div className="flex items-center justify-between px-6 h-full">
-        {/* Logo */}
-        <div className="flex items-center">
-          <Logo className="h-10" />
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 md:hidden">
+      <div className="flex items-center gap-3 px-4 py-3 h-16">
+        {/* Logo centralizado */}
+        <div className="flex items-center justify-center flex-1">
+          <Logo className="h-8" />
         </div>
-
+        
         {/* Greeting */}
-        <div className="flex-1 flex items-center justify-center">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            {greeting}, {userName}! {emoji}
-          </h1>
-        </div>
+        <h1 className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-1 text-center">
+          {greeting}, {userName}! {emoji}
+        </h1>
 
-        {/* Profile Avatar */}
-        <div className="flex items-center">
-          <Avatar className="h-10 w-10 border-2 border-[#FACC15]">
+        {/* Avatar no canto direito */}
+        <div className="flex items-center justify-end flex-1">
+          <Avatar className="h-9 w-9 border-2 border-[#FACC15]">
             <AvatarImage
               src={user?.profileImageUrl || undefined}
               alt={userName}
             />
-            <AvatarFallback className="bg-[#FACC15] text-gray-900 text-sm font-semibold">
+            <AvatarFallback className="bg-[#FACC15] text-gray-900 text-xs font-semibold">
               {user?.firstName?.[0]?.toUpperCase() ||
                 user?.email?.[0]?.toUpperCase() ||
                 "U"}

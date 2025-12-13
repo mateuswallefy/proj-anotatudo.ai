@@ -33,8 +33,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logout } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const tabs: Array<{ id: TabType; label: string; icon: any }> = [
@@ -115,11 +113,22 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         {/* Logo Section */}
         <div className={cn(
           "flex items-center border-b border-gray-200 dark:border-gray-800",
-          displayOpen ? "justify-start px-6" : "justify-center px-2",
+          displayOpen ? "justify-between px-6" : "justify-center px-2",
           "py-4"
         )}>
           {displayOpen ? (
-            <Logo className="h-10" />
+            <>
+              <Logo className="h-10" />
+              {isMobile && (
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="Fechar menu"
+                >
+                  <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                </button>
+              )}
+            </>
           ) : (
             <div className="flex items-center justify-center w-10 h-10">
               <Logo className="h-8 w-8" iconOnly />
@@ -267,50 +276,57 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     );
   };
 
-  // Mobile: usar Sheet (drawer) sobrepondo o conteúdo
+  // Mobile: drawer usando transform translate-x (sem Sheet)
   if (isMobile) {
     return (
       <>
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="fixed top-24 left-4 z-40 h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-md hover:bg-gray-50 dark:hover:bg-gray-800"
-              data-testid="button-menu-hamburger"
-            >
-              <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent 
-            side="left" 
-            className="w-[280px] sm:w-[320px] p-0 border-0 [&>button]:hidden"
-            onInteractOutside={(e) => {
-              // Prevent closing when clicking outside on mobile
-              e.preventDefault();
-            }}
-          >
-            <SidebarContent forceOpen={true} />
-          </SheetContent>
-        </Sheet>
-        
+        {/* Botão Hamburger */}
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="fixed top-20 left-4 z-50 h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-md hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md flex items-center justify-center"
+          data-testid="button-menu-hamburger"
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+        </button>
+
         {/* Overlay quando drawer está aberto */}
         {mobileMenuOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
             onClick={() => setMobileMenuOpen(false)}
+            style={{
+              opacity: mobileMenuOpen ? 1 : 0,
+              pointerEvents: mobileMenuOpen ? "auto" : "none",
+            }}
           />
         )}
+
+        {/* Drawer Sidebar */}
+        <aside
+          className={cn(
+            "fixed top-0 left-0 h-screen w-[280px] sm:w-[320px] z-50",
+            "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800",
+            "transform transition-transform duration-300 ease-in-out",
+            "shadow-xl"
+          )}
+          style={{
+            transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+          }}
+        >
+          {/* Conteúdo da Sidebar */}
+          <SidebarContent forceOpen={true} />
+        </aside>
       </>
     );
   }
 
-  // Desktop/Tablet: sidebar fixa
+  // Desktop/Tablet: sidebar fixa (sem header acima, começa no topo)
   return (
     <>
       <aside
         className={cn(
-          "h-screen fixed left-0 top-16 z-30 bg-white dark:bg-gray-900",
+          "h-screen fixed left-0 top-0 z-40 bg-white dark:bg-gray-900",
           "border-r border-gray-200 dark:border-gray-800",
           "transition-all duration-300 ease-in-out",
           isOpen ? "w-60" : "w-20"
@@ -323,7 +339,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed top-24 z-40 bg-white dark:bg-gray-900",
+          "fixed top-6 z-50 bg-white dark:bg-gray-900",
           "border border-gray-200 dark:border-gray-800 rounded-full p-1.5",
           "shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-gray-800",
           "transition-all duration-200",

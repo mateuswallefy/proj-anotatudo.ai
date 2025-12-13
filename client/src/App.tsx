@@ -54,23 +54,13 @@ function AuthenticatedShell() {
   // Calcular padding baseado no estado da sidebar e responsividade
   const getMainPadding = () => {
     if (isMobile) {
-      // Mobile: sem padding lateral (drawer sobrepõe), padding top para header
-      return "pt-24";
+      // Mobile: SEM padding lateral (drawer sobrepõe), apenas padding top para header
+      return "pt-16";
     }
-    // Desktop/Tablet: padding lateral baseado na sidebar + padding top para header
+    // Desktop/Tablet: padding lateral baseado na sidebar, SEM padding top (não tem header)
     const sidebarWidth = sidebarOpen ? "pl-60" : "pl-20";
-    return `${sidebarWidth} pt-20`;
+    return sidebarWidth;
   };
-
-  // Definir CSS variable para sidebar width (usado em DashboardContainer)
-  useEffect(() => {
-    if (!isMobile) {
-      const width = sidebarOpen ? "240px" : "80px";
-      document.documentElement.style.setProperty("--sidebar-width", width);
-    } else {
-      document.documentElement.style.setProperty("--sidebar-width", "0px");
-    }
-  }, [sidebarOpen, isMobile]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-gray-950">
@@ -79,13 +69,10 @@ function AuthenticatedShell() {
       
       <main 
         className={cn(
-          "flex-1 overflow-auto transition-all duration-300 ease-in-out",
+          "flex-1 overflow-y-auto transition-all duration-300 ease-in-out",
           getMainPadding(),
-          "pr-4"
+          isMobile ? "px-4" : "pr-4"
         )}
-        style={{
-          paddingLeft: isMobile ? "1rem" : undefined,
-        }}
       >
         <div className="w-full" style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
           <Dashboard />
