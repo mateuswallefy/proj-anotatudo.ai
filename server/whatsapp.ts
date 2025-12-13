@@ -179,22 +179,42 @@ export async function sendWhatsAppTransactionMessage(
   // Formatar valor com vírgula
   const valorFormatado = parseFloat(content.valor).toFixed(2).replace('.', ',');
   
-  // Construir headline com nome do usuário
-  const userName = user?.firstName ? `${user.firstName}! ✨` : "✨";
+  // Gerar mensagem humanizada (usando IA se necessário, ou mensagem padrão)
+  let mensagemHumanizada = "";
+  try {
+    const { generateAIResponse } = await import("./ai.js");
+    mensagemHumanizada = await generateAIResponse("transacao_registrada", {
+      user: user ? {
+        id: user.id,
+        firstName: user.firstName,
+        email: user.email
+      } : undefined,
+      transaction: {
+        id: content.id,
+        tipo: content.tipo,
+        valor: content.valor,
+        categoria: content.categoria,
+        descricao: content.descricao,
+        data: content.data
+      }
+    });
+  } catch (error) {
+    // Fallback para mensagem padrão se IA falhar
+    const nomeUsuario = user?.firstName || "";
+    mensagemHumanizada = nomeUsuario ? `${nomeUsuario}! ✨` : "✨ Transação registrada!";
+  }
   
-  // Montar mensagem final no padrão completo conforme exemplo
-  const finalMessage = `${userName}
+  // Montar mensagem final no formato exato especificado
+  const finalMessage = `${mensagemHumanizada}
 
-🧾 *Descrição:* ${content.descricao}
-💰 *Valor:* R$ ${valorFormatado}
-🏷️ *Categoria:* ${content.categoria}
-📅 *Data:* ${dataFormatada}
+🧾 Descrição: ${content.descricao}
+💰 Valor: R$ ${valorFormatado}
+🏷️ Categoria: ${content.categoria}
+📅 Data: ${dataFormatada}
 
 🟢 Registrado com sucesso!
 
-🔧 O que deseja fazer?
-• ✏️ Editar transação
-• 🗑️ Excluir transação`;
+🔧 O que deseja fazer?`;
 
   const responseQueuedAt = new Date();
   
