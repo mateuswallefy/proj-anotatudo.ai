@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DashboardPeriodTabs } from "./DashboardPeriodTabs";
 import { DashboardCalendar } from "./DashboardCalendar";
+import { getGreetingMessage } from "@/lib/greeting";
 
 export function DashboardHeader() {
   const { user } = useAuth();
@@ -11,23 +12,8 @@ export function DashboardHeader() {
     localStorage.getItem("dashboard-tip-dismissed") === "true"
   );
 
-  const getGreetingWithEmoji = () => {
-    const hour = new Date().getHours();
-    
-    if (hour >= 5 && hour < 12) {
-      return { greeting: "Bom dia", emoji: "☀️" };
-    }
-    
-    if (hour >= 12 && hour < 18) {
-      return { greeting: "Boa tarde", emoji: "🌤️" };
-    }
-    
-    return { greeting: "Boa noite", emoji: "🌙" };
-  };
-
-  const formatDate = () => {
-    return format(new Date(), "EEEE, d 'de' MMM. yyyy", { locale: ptBR });
-  };
+  const { greeting, emoji } = getGreetingMessage();
+  const userName = user?.firstName || "Usuário";
 
   const handleDismissTip = () => {
     setDismissedTip(true);
@@ -36,6 +22,13 @@ export function DashboardHeader() {
 
   return (
     <div className="space-y-4">
+      {/* Greeting - Desktop only (hidden on mobile where AppHeader shows it) */}
+      <div className="hidden md:block">
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+          {greeting}, {userName}! {emoji}
+        </h1>
+      </div>
+
       {/* Calendar and Period Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <DashboardCalendar />
