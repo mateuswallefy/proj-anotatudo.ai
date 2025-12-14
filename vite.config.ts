@@ -32,9 +32,18 @@ export default defineConfig({
 
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target: "http://localhost:5050", // Backend DEV na porta 5050
         changeOrigin: true,
         secure: false,
+        // Garantir que cookies sejam preservados
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            // Preservar cookies na requisição
+            if (req.headers.cookie) {
+              proxyReq.setHeader('Cookie', req.headers.cookie);
+            }
+          });
+        },
       },
     },
   },

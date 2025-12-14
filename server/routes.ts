@@ -360,18 +360,18 @@ export async function registerRoutes(app: Express): Promise<void> {
       // O express-session automaticamente adiciona o Set-Cookie header
       // quando a sessão é salva (já foi salva acima)
       
-      // Logar headers antes de enviar resposta
+      // Logar antes de enviar resposta
       console.log('[LOGIN] ✅ Sending response');
       console.log('[LOGIN] Response status:', res.statusCode);
+      console.log('[LOGIN] Session ID que será enviado no cookie:', req.sessionID);
       
       // Enviar resposta
       res.json(userResponse);
       
-      // Logar após enviar (o cookie já deve estar no header)
-      // Nota: res.getHeader pode não funcionar após res.json, mas tentamos
-      setTimeout(() => {
-        console.log('[LOGIN] Response sent - cookie should be in Set-Cookie header');
-      }, 0);
+      // Logar após enviar
+      console.log('[LOGIN] ✅ Response sent successfully');
+      console.log('[LOGIN] Cookie connect.sid deve estar no header Set-Cookie');
+      console.log('[LOGIN] Frontend deve receber e salvar o cookie automaticamente');
     } catch (error: any) {
       console.error("[LOGIN ERROR]", error);
       console.error("LOGIN ERROR - Message:", error.message);

@@ -43,9 +43,12 @@ const isProd = process.env.NODE_ENV === 'production';
 app.get("/health", (req, res) => res.status(200).send("OK"));
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// Get PORT from environment or default to 3000
-// Fly.io sets process.env.PORT automatically
-const PORT = Number(process.env.PORT) || 3000;
+// Get PORT from environment
+// - Em produção: Fly.io define process.env.PORT automaticamente
+// - Em desenvolvimento: usa porta 5050 (evita conflito com ControlCe na 5000)
+const PORT = isProd 
+  ? Number(process.env.PORT) || 3000
+  : Number(process.env.PORT) || 5050;
 
 // Create HTTP server
 const httpServer = http.createServer(app);
@@ -153,8 +156,15 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     // Start HTTP server
     // Fly.io requires binding to 0.0.0.0 (all interfaces) and using process.env.PORT
     httpServer.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ Servidor rodando na porta ${PORT} (bind: 0.0.0.0)`);
-      console.log(`✅ Ambiente: ${isProd ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+      if (isProd) {
+        console.log(`✅ Servidor rodando na porta ${PORT} (bind: 0.0.0.0)`);
+        console.log(`✅ Ambiente: PRODUÇÃO`);
+      } else {
+        console.log(`🚀 Backend DEV rodando em http://localhost:${PORT}`);
+        console.log(`✅ Ambiente: DESENVOLVIMENTO`);
+        console.log(`✅ Frontend: http://localhost:5173`);
+        console.log(`✅ Proxy configurado: /api → http://localhost:${PORT}`);
+      }
       console.log(`ready`);
       
       // Run seeds and database setup AFTER server is listening (non-blocking)
@@ -178,11 +188,17 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
 
     httpServer.on("error", (error: NodeJS.ErrnoException) => {
       if (error.code === "EADDRINUSE") {
-        console.error(`❌ Port ${PORT} is already in use.`);
-        console.error(`💡 Soluções:`);
-        console.error(`   1. Execute: pkill -f "tsx server/index.ts"`);
-        console.error(`   2. Ou reinicie o Replit`);
-        console.error(`   3. Ou aguarde alguns segundos e tente novamente`);
+        console.error(`❌ Porta ${PORT} já está em uso.`);
+        if (!isProd) {
+          console.error(`💡 Soluções para DEV:`);
+          console.error(`   1. Execute: lsof -ti:${PORT} | xargs kill -9`);
+          console.error(`   2. Ou execute: pkill -f "tsx server/index.ts"`);
+          console.error(`   3. Ou altere a porta no .env.local: PORT=5051`);
+        } else {
+          console.error(`💡 Soluções para PROD:`);
+          console.error(`   1. Verifique se há outro processo usando a porta`);
+          console.error(`   2. Aguarde alguns segundos e tente novamente`);
+        }
         process.exit(1);
       } else {
         console.error("❌ Server error:", error);
