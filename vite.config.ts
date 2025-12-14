@@ -17,6 +17,18 @@ export default defineConfig({
       },
     },
     react(),
+    {
+      name: "log-proxy",
+      configureServer(server) {
+        console.log("✅ [Vite] Proxy configurado: /api → http://localhost:5050");
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.startsWith('/api')) {
+            console.log(`[Vite Proxy] ${req.method} ${req.url} → http://localhost:5050${req.url}`);
+          }
+          next();
+        });
+      },
+    },
   ],
 
   root: path.resolve(import.meta.dirname, "client"),
@@ -32,7 +44,7 @@ export default defineConfig({
 
     proxy: {
       "/api": {
-        target: "http://localhost:5050", // Backend DEV na porta 5050
+        target: "http://localhost:5050", // Backend DEV na porta 5050 (fixa)
         changeOrigin: true,
         secure: false,
         // Garantir que cookies sejam preservados
@@ -42,6 +54,10 @@ export default defineConfig({
             if (req.headers.cookie) {
               proxyReq.setHeader('Cookie', req.headers.cookie);
             }
+          });
+          proxy.on('error', (err, _req, _res) => {
+            console.error('[Vite Proxy] Erro ao conectar com backend:', err.message);
+            console.error('[Vite Proxy] Certifique-se de que o backend está rodando em http://localhost:5050');
           });
         },
       },

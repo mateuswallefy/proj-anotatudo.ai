@@ -45,10 +45,11 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // Get PORT from environment
 // - Em produção: Fly.io define process.env.PORT automaticamente
-// - Em desenvolvimento: usa porta 5050 (evita conflito com ControlCe na 5000)
+// - Em desenvolvimento: SEMPRE usa porta 5050 fixa (ignora PORT do .env.local)
+//   Isso evita conflito com ControlCe do macOS na porta 5000
 const PORT = isProd 
   ? Number(process.env.PORT) || 3000
-  : Number(process.env.PORT) || 5050;
+  : 5050; // Porta fixa em DEV - NUNCA usar 5000 (ocupada pelo ControlCe do macOS)
 
 // Create HTTP server
 const httpServer = http.createServer(app);
@@ -160,10 +161,17 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
         console.log(`✅ Servidor rodando na porta ${PORT} (bind: 0.0.0.0)`);
         console.log(`✅ Ambiente: PRODUÇÃO`);
       } else {
-        console.log(`🚀 Backend DEV rodando em http://localhost:${PORT}`);
+        // Validação: garantir que está usando porta 5050 em DEV
+        if (PORT !== 5050) {
+          console.error(`❌ ERRO: Backend DEV deve usar porta 5050, mas está tentando usar ${PORT}`);
+          console.error(`❌ Isso causará conflito com ControlCe do macOS na porta 5000`);
+          process.exit(1);
+        }
+        console.log(`🚀 Backend DEV rodando em http://localhost:5050`);
         console.log(`✅ Ambiente: DESENVOLVIMENTO`);
         console.log(`✅ Frontend: http://localhost:5173`);
-        console.log(`✅ Proxy configurado: /api → http://localhost:${PORT}`);
+        console.log(`✅ Proxy configurado: /api → http://localhost:5050`);
+        console.log(`✅ Porta 5050 evita conflito com ControlCe do macOS na porta 5000`);
       }
       console.log(`ready`);
       
