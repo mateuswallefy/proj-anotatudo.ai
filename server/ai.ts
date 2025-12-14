@@ -2,11 +2,33 @@ import OpenAI from "openai";
 import fs from "fs";
 import { storage } from "./storage.js";
 
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY,
-  timeout: 30000, // 30 segundos timeout global
-  maxRetries: 2, // Retry automático
-});
+// Lazy initialization - só cria o cliente quando realmente for usado
+let openaiClient: OpenAI | null = null;
+
+/**
+ * Obtém o cliente OpenAI (lazy initialization)
+ * Só valida e cria o cliente quando a IA for realmente usada
+ * Em DEV sem chave, lança erro amigável apenas quando chamar IA
+ */
+export function getOpenAIClient(): OpenAI {
+  if (!process.env.OPENAI_API_KEY) {
+    const isDev = process.env.NODE_ENV !== "production";
+    const errorMessage = isDev
+      ? "OPENAI_API_KEY não configurada. Configure no arquivo .env.local para usar funcionalidades de IA."
+      : "OPENAI_API_KEY não configurada. Configure a variável de ambiente no Fly.io.";
+    throw new Error(errorMessage);
+  }
+
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ 
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 30000, // 30 segundos timeout global
+      maxRetries: 2, // Retry automático
+    });
+  }
+
+  return openaiClient;
+}
 
 export interface TransacaoExtractedData {
   tipo: 'entrada' | 'saida';
@@ -86,6 +108,7 @@ Responda APENAS com JSON válido:
 
   try {
     // Usar gpt-4o-mini para respostas mais rápidas com timeout reduzido
+    const openai = getOpenAIClient();
     const response = await Promise.race([
       openai.chat.completions.create({
         model: "gpt-4o-mini", // Modelo mais rápido
@@ -160,6 +183,7 @@ Responda APENAS com JSON válido:
 export async function transcribeAndClassifyAudio(audioFilePath: string, userId: string): Promise<TransacaoExtractedData> {
   try {
     // Transcrever áudio usando Whisper
+    const openai = getOpenAIClient();
     const audioReadStream = fs.createReadStream(audioFilePath);
     
     const transcription = await openai.audio.transcriptions.create({
@@ -190,6 +214,7 @@ export async function analyzeImageForFinancialData(imageBase64: string): Promise
       setTimeout(() => reject(new Error("Timeout ao processar imagem")), 30000)
     );
 
+    const openai = getOpenAIClient();
     const apiPromise = openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -448,6 +473,7 @@ JSON esperado:
 }`;
 
   try {
+    const openai = getOpenAIClient();
     const response = await Promise.race([
       openai.chat.completions.create({
         model: "gpt-4o-mini", // Usar modelo mais rápido
@@ -1205,6 +1231,7 @@ Responda APENAS com a headline, sem aspas, emojis ou formatação extra.`;
 
   try {
     // Usar modelo mais rápido para geração de resposta com timeout curto
+    const openai = getOpenAIClient();
     const response = await Promise.race([
       openai.chat.completions.create({
         model: "gpt-4o-mini",
