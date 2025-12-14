@@ -35,6 +35,12 @@ export function getSession() {
   const isReplit = process.env.REPL_SLUG !== undefined;
   const isProd = process.env.NODE_ENV === "production";
 
+  // Validate SESSION_SECRET
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret) {
+    throw new Error("SESSION_SECRET is required. Set it in your environment variables.");
+  }
+
   // Secure apenas em PRODUÇÃO REAL, nunca no autoscale (replit)
   const isSecure = isProd && !isReplit;
 
@@ -66,7 +72,7 @@ export function getSession() {
   }
 
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     store,
     resave: false,
     saveUninitialized: false,

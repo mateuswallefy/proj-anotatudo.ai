@@ -54,6 +54,11 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
 // Main startup function
 (async () => {
   try {
+    // Validate required environment variables
+    if (isProd && !process.env.SESSION_SECRET) {
+      throw new Error("SESSION_SECRET is required in production. Set it in your environment variables.");
+    }
+    
     // Initialize database connection FIRST (before routes that might use it)
     await initializeDatabaseAsync();
 
