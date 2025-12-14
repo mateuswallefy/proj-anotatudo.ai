@@ -24,8 +24,9 @@ const isProd = process.env.NODE_ENV === 'production';
 app.get("/health", (req, res) => res.status(200).send("OK"));
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// Get PORT from environment or default to 5000
-const PORT = Number(process.env.PORT) || 5000;
+// Get PORT from environment or default to 3000
+// Fly.io sets process.env.PORT automatically
+const PORT = Number(process.env.PORT) || 3000;
 
 // Create HTTP server
 const httpServer = http.createServer(app);
@@ -105,8 +106,10 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
     await registerRoutes(app);
     
     // Start HTTP server
+    // Fly.io requires binding to 0.0.0.0 (all interfaces) and using process.env.PORT
     httpServer.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ Servidor rodando na porta ${PORT}`);
+      console.log(`✅ Servidor rodando na porta ${PORT} (bind: 0.0.0.0)`);
+      console.log(`✅ Ambiente: ${isProd ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
       console.log(`ready`);
       
       // Run seeds and database setup AFTER server is listening (non-blocking)
