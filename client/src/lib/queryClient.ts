@@ -67,6 +67,17 @@ export async function apiRequest(
   console.log("🔥 [FRONTEND] Response ok:", res.ok);
   console.log("🔥 [FRONTEND] Response URL:", res.url);
   console.log("🔥 [FRONTEND] Response headers:", Object.fromEntries(res.headers.entries()));
+  
+  // CRÍTICO: Verificar se a resposta veio do backend Express ou de outro servidor
+  const serverHeader = res.headers.get('server') || '';
+  if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
+    console.error("🔥🔥🔥 [FRONTEND] ⚠️ ERRO CRÍTICO: Request não passou pelo backend!");
+    console.error("🔥 [FRONTEND] Server header:", serverHeader);
+    console.error("🔥 [FRONTEND] Proxy não aplicado corretamente!");
+    console.error("🔥 [FRONTEND] A requisição foi resolvida localmente (AirTunes?)");
+    console.error("🔥 [FRONTEND] URL da requisição:", url);
+    throw new Error(`Request não passou pelo backend. Server: ${serverHeader}. Proxy não aplicado.`);
+  }
 
   await throwIfResNotOk(res);
   return res;
