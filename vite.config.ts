@@ -7,7 +7,13 @@ export default defineConfig({
     {
       name: "replit-iframe",
       configureServer(server) {
+        // CRÍTICO: Middleware deve ser executado APÓS o proxy
+        // Por isso, não interceptamos /api aqui
         server.middlewares.use((req, res, next) => {
+          // Não interferir com requisições /api - deixar o proxy lidar
+          if (req.url?.startsWith('/api')) {
+            return next();
+          }
           res.removeHeader?.("X-Frame-Options");
           res.setHeader("X-Frame-Options", "ALLOWALL");
           // NÃO definir CORS aqui - o backend já configura CORS corretamente
@@ -21,9 +27,11 @@ export default defineConfig({
       name: "log-proxy",
       configureServer(server) {
         console.log("✅ [Vite] Proxy configurado: /api → http://localhost:5050");
+        // CRÍTICO: Este middleware apenas loga, não interfere
+        // O proxy do Vite é aplicado automaticamente antes dos middlewares
         server.middlewares.use((req, res, next) => {
           if (req.url?.startsWith('/api')) {
-            console.log(`[Vite Proxy] ${req.method} ${req.url} → http://localhost:5050${req.url}`);
+            console.log(`[Vite Middleware] ${req.method} ${req.url} (proxy será aplicado)`);
           }
           next();
         });
