@@ -24,14 +24,20 @@ export default defineConfig({
     },
     react(),
     {
-      name: "log-proxy",
+      name: "proxy-protection",
       configureServer(server) {
-        console.log("✅ [Vite] Proxy configurado: /api → http://localhost:5050");
-        // CRÍTICO: Este middleware apenas loga, não interfere
-        // O proxy do Vite é aplicado automaticamente antes dos middlewares
+        console.log("✅ [Vite] Proxy configurado: ^/api/.* → http://localhost:5050");
+        // CRÍTICO: Middleware de proteção - bloqueia se /api não foi proxyada
+        // Este middleware é executado APÓS o proxy, então se chegou aqui sem ser proxyada, há problema
         server.middlewares.use((req, res, next) => {
+          // Se a requisição começa com /api e chegou neste middleware, algo está errado
+          // O proxy deveria ter interceptado antes
           if (req.url?.startsWith('/api')) {
-            console.log(`[Vite Middleware] ${req.method} ${req.url} (proxy será aplicado)`);
+            console.error("🔥🔥🔥 [VITE PROTECTION] ⚠️ ERRO: Requisição /api chegou no middleware sem ser proxyada!");
+            console.error("🔥 [VITE PROTECTION] URL:", req.url);
+            console.error("🔥 [VITE PROTECTION] Isso NÃO deveria acontecer - proxy deveria ter interceptado");
+            // Não bloquear, mas logar o erro crítico
+            // O proxy do Vite deve interceptar antes, mas se não interceptou, há problema de configuração
           }
           next();
         });
@@ -51,45 +57,25 @@ export default defineConfig({
     },
 
     proxy: {
-      "/api": {
-        target: "http://localhost:5050",
+      // CRÍTICO: Usar regex explícita para garantir interceptação
+      '^/api/.*': {
+        target: 'http://localhost:5050',
         changeOrigin: true,
         secure: false,
-        // CRÍTICO: rewrite explícito para garantir que o path seja preservado
-        rewrite: (path) => {
-          // Não modificar o path - apenas retornar como está
-          // Isso garante que /api/auth/login vira http://localhost:5050/api/auth/login
-          return path;
-        },
+        ws: true, // Suporte a WebSocket
+        // CRÍTICO: rewrite explícito - não modificar path
+        rewrite: (path) => path,
         // CRÍTICO: Configuração do proxy com logs detalhados
         configure: (proxy, _options) => {
           // Log de TODA requisição sendo proxyada
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log("🔥🔥🔥 [VITE PROXY] →", req.method, req.url);
-            console.log("🔥 [VITE PROXY] Target:", "http://localhost:5050");
-            console.log("🔥 [VITE PROXY] Full URL:", `http://localhost:5050${req.url}`);
-            console.log("🔥 [VITE PROXY] Headers:", {
-              'content-type': req.headers['content-type'] || 'none',
-              'origin': req.headers.origin || 'none',
-              'cookie': req.headers.cookie ? 'present' : 'none'
-            });
-            
-            // Preservar cookies na requisição
-            if (req.headers.cookie) {
-              proxyReq.setHeader('Cookie', req.headers.cookie);
-            }
-            
-            // Preservar outros headers importantes
-            if (req.headers['content-type']) {
-              proxyReq.setHeader('Content-Type', req.headers['content-type']);
-            }
+            console.log('[VITE PROXY] →', req.method, req.url);
           });
           
           // Log da resposta do backend
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             const serverHeader = proxyRes.headers['server'] || '';
-            console.log("🔥🔥🔥 [VITE PROXY] ←", proxyRes.statusCode, req.url);
-            console.log("🔥 [VITE PROXY] Server header:", serverHeader);
+            console.log('[VITE PROXY] ←', proxyRes.statusCode, req.url);
             
             // CRÍTICO: Verificar se a resposta veio do Express ou de outro servidor
             if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
@@ -97,17 +83,6 @@ export default defineConfig({
               console.error("🔥 [VITE PROXY] Server header:", serverHeader);
               console.error("🔥 [VITE PROXY] Proxy não aplicado corretamente!");
               console.error("🔥 [VITE PROXY] A requisição foi resolvida localmente (AirTunes?)");
-            }
-            
-            // Log de Set-Cookie se presente
-            if (proxyRes.headers['set-cookie']) {
-              console.log("🔥 [VITE PROXY] Set-Cookie:", proxyRes.headers['set-cookie']);
-            }
-            
-            // Alerta se backend retornou 403
-            if (proxyRes.statusCode === 403) {
-              console.error("🔥🔥🔥 [VITE PROXY] ⚠️ ATENÇÃO: Backend retornou 403!");
-              console.error("🔥 [VITE PROXY] Isso NÃO deveria acontecer - backend nunca retorna 403 no login");
             }
           });
           

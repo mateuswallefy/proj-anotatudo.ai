@@ -70,12 +70,42 @@ export async function apiRequest(
   
   // CRÍTICO: Verificar se a resposta veio do backend Express ou de outro servidor
   const serverHeader = res.headers.get('server') || '';
+  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+  
   if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
     console.error("🔥🔥🔥 [FRONTEND] ⚠️ ERRO CRÍTICO: Request não passou pelo backend!");
     console.error("🔥 [FRONTEND] Server header:", serverHeader);
     console.error("🔥 [FRONTEND] Proxy não aplicado corretamente!");
     console.error("🔥 [FRONTEND] A requisição foi resolvida localmente (AirTunes?)");
     console.error("🔥 [FRONTEND] URL da requisição:", url);
+    
+    // FALLBACK DEV: Se estiver em desenvolvimento, reenviar diretamente para o backend
+    if (isDev && url.startsWith('/api')) {
+      console.log("🔥🔥🔥 [FRONTEND] FALLBACK DEV: Reenviando diretamente para http://localhost:5050");
+      const backendUrl = `http://localhost:5050${url}`;
+      console.log("🔥 [FRONTEND] Backend URL:", backendUrl);
+      
+      // Reenviar a requisição diretamente para o backend
+      const fallbackRes = await fetch(backendUrl, {
+        method,
+        headers: data ? { "Content-Type": "application/json" } : {},
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: "include",
+      });
+      
+      console.log("🔥🔥🔥 [FRONTEND] Fallback response:", fallbackRes.status);
+      const fallbackServerHeader = fallbackRes.headers.get('server') || '';
+      console.log("🔥 [FRONTEND] Fallback Server header:", fallbackServerHeader);
+      
+      if (fallbackServerHeader && (fallbackServerHeader.toLowerCase().includes('express') || fallbackServerHeader.toLowerCase().includes('node'))) {
+        console.log("✅ [FRONTEND] Fallback funcionou! Resposta veio do backend Express");
+        await throwIfResNotOk(fallbackRes);
+        return fallbackRes;
+      } else {
+        throw new Error(`Fallback também falhou. Server: ${fallbackServerHeader}. Backend pode estar offline.`);
+      }
+    }
+    
     throw new Error(`Request não passou pelo backend. Server: ${serverHeader}. Proxy não aplicado.`);
   }
 
@@ -116,6 +146,47 @@ export const getQueryFn: <T>(options: {
     const res = await fetch(url, {
       credentials: "include",
     });
+
+    // CRÍTICO: Verificar se a resposta veio do backend Express (fallback DEV)
+    const serverHeader = res.headers.get('server') || '';
+    const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
+    
+    if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
+      console.error("🔥🔥🔥 [getQueryFn] ⚠️ ERRO: Request não passou pelo backend!");
+      console.error("🔥 [getQueryFn] Server header:", serverHeader);
+      
+      // FALLBACK DEV: Reenviar diretamente para o backend
+      if (isDev && url.startsWith('/api')) {
+        console.log("🔥🔥🔥 [getQueryFn] FALLBACK DEV: Reenviando para http://localhost:5050");
+        const backendUrl = `http://localhost:5050${url}`;
+        const fallbackRes = await fetch(backendUrl, {
+          credentials: "include",
+        });
+        
+        const fallbackServerHeader = fallbackRes.headers.get('server') || '';
+        if (fallbackServerHeader && (fallbackServerHeader.toLowerCase().includes('express') || fallbackServerHeader.toLowerCase().includes('node'))) {
+          console.log("✅ [getQueryFn] Fallback funcionou!");
+          // Continuar com o processamento normal usando fallbackRes
+          if (isAuthUserEndpoint) {
+            if (fallbackRes.status === 401 || fallbackRes.status === 403) {
+              return null as T;
+            }
+            if (!fallbackRes.ok) {
+              const text = await fallbackRes.text();
+              throw new Error(`${fallbackRes.status}: ${text}`);
+            }
+            return await fallbackRes.json();
+          }
+          if (unauthorizedBehavior === "returnNull" && fallbackRes.status === 401) {
+            return null as T;
+          }
+          await throwIfResNotOk(fallbackRes);
+          return await fallbackRes.json();
+        }
+      }
+      
+      throw new Error(`Request não passou pelo backend. Server: ${serverHeader}`);
+    }
 
     // Special handling for auth user endpoint - don't redirect on 401/403
     // This is expected when user is not authenticated
