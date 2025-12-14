@@ -57,14 +57,12 @@ export default defineConfig({
     },
 
     proxy: {
-      // CRÍTICO: Usar regex explícita para garantir interceptação
-      '^/api/.*': {
-        target: 'http://localhost:5050',
+      // CRÍTICO: Proxy simples sem regex para evitar problemas
+      '/api': {
+        target: 'http://127.0.0.1:5050', // Usar IPv4 explícito para evitar problemas de conectividade
         changeOrigin: true,
         secure: false,
         ws: true, // Suporte a WebSocket
-        // CRÍTICO: rewrite explícito - não modificar path
-        rewrite: (path) => path,
         // CRÍTICO: Configuração do proxy com logs detalhados
         configure: (proxy, _options) => {
           // Log de TODA requisição sendo proxyada
