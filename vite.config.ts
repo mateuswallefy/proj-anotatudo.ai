@@ -49,14 +49,44 @@ export default defineConfig({
         secure: false,
         // Garantir que cookies sejam preservados
         configure: (proxy, _options) => {
+          // 🔥 AUDITORIA: Log de TODA requisição /api
           proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log("🔥🔥🔥 [VITE PROXY] Requisição sendo proxyada 🔥🔥🔥");
+            console.log("🔥 [VITE PROXY] Method:", req.method);
+            console.log("🔥 [VITE PROXY] URL original:", req.url);
+            console.log("🔥 [VITE PROXY] Target:", "http://localhost:5050");
+            console.log("🔥 [VITE PROXY] URL completa:", `http://localhost:5050${req.url}`);
+            console.log("🔥 [VITE PROXY] Headers:", {
+              'content-type': req.headers['content-type'],
+              'origin': req.headers.origin,
+              'cookie': req.headers.cookie || 'none'
+            });
+            
             // Preservar cookies na requisição
             if (req.headers.cookie) {
               proxyReq.setHeader('Cookie', req.headers.cookie);
+              console.log("🔥 [VITE PROXY] Cookies preservados:", req.headers.cookie);
             }
           });
-          proxy.on('error', (err, _req, _res) => {
+          
+          // 🔥 AUDITORIA: Log da resposta do backend
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log("🔥🔥🔥 [VITE PROXY] Resposta recebida do backend 🔥🔥🔥");
+            console.log("🔥 [VITE PROXY] Status code do backend:", proxyRes.statusCode);
+            console.log("🔥 [VITE PROXY] Headers da resposta:", proxyRes.headers);
+            console.log("🔥 [VITE PROXY] Set-Cookie header:", proxyRes.headers['set-cookie'] || 'none');
+            
+            // CRÍTICO: Se backend retornou 200/401 mas proxy está retornando 403, há problema aqui
+            if (proxyRes.statusCode === 403) {
+              console.error("🔥🔥🔥 [VITE PROXY] ⚠️ ATENÇÃO: Backend retornou 403!");
+              console.error("🔥 [VITE PROXY] Isso NÃO deveria acontecer - backend nunca retorna 403 no login");
+            }
+          });
+          
+          proxy.on('error', (err, req, _res) => {
+            console.error("🔥🔥🔥 [VITE PROXY] ERRO no proxy 🔥🔥🔥");
             console.error('[Vite Proxy] Erro ao conectar com backend:', err.message);
+            console.error('[Vite Proxy] URL:', req.url);
             console.error('[Vite Proxy] Certifique-se de que o backend está rodando em http://localhost:5050');
           });
         },

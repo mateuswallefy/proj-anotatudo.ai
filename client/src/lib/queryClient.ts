@@ -4,11 +4,28 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    console.error(`[API ERROR] ${res.status}: ${text}`);
-    console.error(`[API ERROR] URL: ${res.url}`);
+    // 🔥 AUDITORIA: Log detalhado do erro
+    console.error("🔥🔥🔥 [FRONTEND API ERROR] 🔥🔥🔥");
+    console.error(`🔥 [FRONTEND] Status code BRUTO da response:`, res.status);
+    console.error(`🔥 [FRONTEND] Status text:`, res.statusText);
+    console.error(`🔥 [FRONTEND] URL:`, res.url);
+    console.error(`🔥 [FRONTEND] Response text:`, text);
+    console.error(`🔥 [FRONTEND] Response headers:`, Object.fromEntries(res.headers.entries()));
+    console.error(`🔥 [FRONTEND] Response ok:`, res.ok);
+    console.error(`🔥 [FRONTEND] Response type:`, res.type);
+    console.error(`🔥 [FRONTEND] Response redirected:`, res.redirected);
     
+    // CRÍTICO: Verificar se status é realmente 403 ou se foi convertido
+    if (res.status === 403) {
+      console.error("🔥🔥🔥 [FRONTEND] ⚠️ ATENÇÃO: Status 403 detectado!");
+      console.error("🔥 [FRONTEND] Se o backend não retornou 403, o problema está no proxy ou browser");
+    }
+    
+    // TEMPORARIAMENTE DESABILITADO: Redirecionamento automático
+    // Isso permite ver o erro real sem redirecionar
     // Se for erro 401 (Unauthorized) ou 403 (Forbidden), redirecionar para /auth
     // Mas NÃO redirecionar se já estiver na página de login/auth para evitar loop
+    /*
     if ((res.status === 401 || res.status === 403)) {
       const currentPath = window.location.pathname;
       const isAuthPage = currentPath.startsWith('/login') || currentPath.startsWith('/auth');
@@ -18,6 +35,7 @@ async function throwIfResNotOk(res: Response) {
         window.location.href = '/auth';
       }
     }
+    */
     
     throw new Error(`${res.status}: ${text}`);
   }
@@ -28,12 +46,27 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // 🔥 AUDITORIA: Log antes de fazer fetch
+  console.log("🔥🔥🔥 [FRONTEND] apiRequest chamado 🔥🔥🔥");
+  console.log("🔥 [FRONTEND] Method:", method);
+  console.log("🔥 [FRONTEND] URL:", url);
+  console.log("🔥 [FRONTEND] Has data:", !!data);
+  console.log("🔥 [FRONTEND] Credentials: include");
+  
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // 🔥 AUDITORIA: Log imediatamente após fetch (antes de processar)
+  console.log("🔥🔥🔥 [FRONTEND] Fetch retornou 🔥🔥🔥");
+  console.log("🔥 [FRONTEND] Status code BRUTO:", res.status);
+  console.log("🔥 [FRONTEND] Status text:", res.statusText);
+  console.log("🔥 [FRONTEND] Response ok:", res.ok);
+  console.log("🔥 [FRONTEND] Response URL:", res.url);
+  console.log("🔥 [FRONTEND] Response headers:", Object.fromEntries(res.headers.entries()));
 
   await throwIfResNotOk(res);
   return res;

@@ -283,6 +283,19 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.post('/api/auth/login', async (req, res) => {
     // AUDITORIA: Esta rota NÃO deve ter middleware isAuthenticated
     // Ela é pública e permite login sem autenticação prévia
+    
+    // 🔥 LOG CRÍTICO: Confirmar se a requisição chega no backend
+    console.log("🔥🔥🔥 LOGIN ROUTE HIT - REQUISIÇÃO CHEGOU NO BACKEND 🔥🔥🔥");
+    console.log("🔥 [LOGIN] Timestamp:", new Date().toISOString());
+    console.log("🔥 [LOGIN] Method:", req.method);
+    console.log("🔥 [LOGIN] Path:", req.path);
+    console.log("🔥 [LOGIN] URL:", req.url);
+    console.log("🔥 [LOGIN] Origin:", req.headers.origin || 'none');
+    console.log("🔥 [LOGIN] Cookies:", req.headers.cookie || 'none');
+    console.log("🔥 [LOGIN] Content-Type:", req.headers['content-type'] || 'none');
+    console.log("🔥 [LOGIN] Body exists:", !!req.body);
+    console.log("🔥🔥🔥 =============================================");
+    
     try {
       console.log("============================================");
       console.log("[LOGIN] ===== AUDITORIA DE LOGIN =====");
@@ -315,8 +328,10 @@ export async function registerRoutes(app: Express): Promise<void> {
         console.log("[LOGIN] Password recebido:", password ? '***' : 'undefined');
       } catch (schemaError: any) {
         console.log("[LOGIN] ❌ Erro de validação do schema:", schemaError.message);
-        console.log("[LOGIN] Retornando 400 (Bad Request)");
-        return res.status(400).json({ 
+        const statusCode = 400;
+        console.log("[LOGIN] 🔥 LOGIN RETURN: 400 (Bad Request) - erro de validação");
+        console.log("[LOGIN] 🔥 Status code antes de return:", statusCode);
+        return res.status(statusCode).json({ 
           message: "Dados inválidos", 
           errors: schemaError.errors || schemaError.message 
         });
@@ -340,9 +355,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Verificar se usuário existe e tem senha
       if (!user || !user.passwordHash) {
         console.log("[LOGIN] ❌ CONDIÇÃO: Usuário não encontrado ou sem senha");
-        console.log("[LOGIN] Retornando 401 (Unauthorized) - credenciais inválidas");
+        const statusCode = 401;
+        console.log("[LOGIN] 🔥 LOGIN RETURN: 401 (Unauthorized) - credenciais inválidas");
+        console.log("[LOGIN] 🔥 Status code antes de return:", statusCode);
         console.log("[LOGIN] NUNCA retornar 403 nesta rota");
-        return res.status(401).json({ message: "Email ou senha incorretos" });
+        return res.status(statusCode).json({ message: "Email ou senha incorretos" });
       }
 
       // Verify password
@@ -354,9 +371,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       if (!isValid) {
         console.log("[LOGIN] ❌ CONDIÇÃO: Senha inválida");
-        console.log("[LOGIN] Retornando 401 (Unauthorized) - credenciais inválidas");
+        console.log("[LOGIN] 🔥 LOGIN RETURN: 401 (Unauthorized) - credenciais inválidas");
         console.log("[LOGIN] NUNCA retornar 403 nesta rota");
-        return res.status(401).json({ message: "Email ou senha incorretos" });
+        const statusCode = 401;
+        console.log("[LOGIN] 🔥 Status code antes de return:", statusCode);
+        return res.status(statusCode).json({ message: "Email ou senha incorretos" });
       }
       
       console.log("[LOGIN] ✅ Credenciais válidas - prosseguindo com criação de sessão");
@@ -415,7 +434,9 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       // Enviar resposta
       console.log("[LOGIN] ===== ENVIANDO RESPOSTA =====");
-      console.log("[LOGIN] Status code: 200 (OK)");
+      const successStatusCode = 200;
+      console.log("[LOGIN] 🔥 LOGIN RETURN: 200 (OK) - login bem-sucedido");
+      console.log("[LOGIN] 🔥 Status code antes de return:", successStatusCode);
       console.log("[LOGIN] Response body:", {
         id: userResponse.id,
         email: userResponse.email,
@@ -425,7 +446,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log("[LOGIN] Cookie connect.sid será enviado automaticamente pelo express-session");
       console.log("[LOGIN] ================================");
       
-      res.status(200).json(userResponse);
+      res.status(successStatusCode).json(userResponse);
       
       // Logar após enviar
       console.log('[LOGIN] ✅ Response 200 enviada com sucesso');
