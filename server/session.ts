@@ -87,8 +87,9 @@ export function getSession() {
     console.log("[SESSION] Using in-memory session store (development)");
   }
 
-  return session({
+  const sessionConfig: session.SessionOptions = {
     secret: sessionSecret,
+    name: 'connect.sid', // Nome explícito do cookie
     store,
     resave: false,
     saveUninitialized: false,
@@ -97,6 +98,18 @@ export function getSession() {
       secure: isSecure,
       sameSite: sameSite,
       maxAge: sessionTtl,
+      // Em dev, não definir domain (permite localhost)
+      // Em prod, deixar undefined para usar o domínio da requisição
     },
+  };
+
+  console.log("[SESSION] Cookie configuration:", {
+    name: sessionConfig.name,
+    secure: sessionConfig.cookie?.secure,
+    sameSite: sessionConfig.cookie?.sameSite,
+    httpOnly: sessionConfig.cookie?.httpOnly,
+    maxAge: sessionConfig.cookie?.maxAge,
   });
+
+  return session(sessionConfig);
 }

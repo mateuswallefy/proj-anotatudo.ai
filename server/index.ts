@@ -1,7 +1,26 @@
+// ============================================
+// CARREGAR VARIÁVEIS DE AMBIENTE PRIMEIRO
+// ============================================
+// IMPORTANTE: Isso DEVE ser o primeiro import/execução
+// para garantir que .env.local seja carregado antes de
+// qualquer módulo que use process.env
+import dotenv from "dotenv";
+
+// Carrega variáveis locais SOMENTE em desenvolvimento
+// Em produção, as variáveis vêm do ambiente (Fly.io, etc)
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: ".env.local" });
+  console.log("✅ [ENV] Carregado .env.local para desenvolvimento");
+}
+
+// ============================================
+// IMPORTS APÓS CARREGAR ENV
+// ============================================
 import express from "express";
 import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import cors from "cors";
 import { registerRoutes } from "./routes.js";
 import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
@@ -77,9 +96,26 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
       console.log("✅ DEV mode: Backend serves only /api routes - Vite runs separately on port 5173");
     }
     
-    // Apply middleware
-    // Trust proxy ONLY in production (Fly.io uses a reverse proxy)
-    // In development (localhost), we don't need it and it can cause issues
+    // ============================================
+    // MIDDLEWARES - ORDEM CRÍTICA
+    // ============================================
+    // 1. CORS PRIMEIRO - permite requisições do frontend
+    const corsOptions = {
+      origin: isProd 
+        ? ["https://anotatudo.com", "https://www.anotatudo.com"]
+        : ["http://localhost:5173", "http://localhost:3000"],
+      credentials: true, // CRÍTICO: permite cookies
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    };
+    app.use(cors(corsOptions));
+    console.log("✅ CORS configured:", {
+      origin: corsOptions.origin,
+      credentials: corsOptions.credentials,
+      environment: isProd ? "PRODUCTION" : "DEVELOPMENT"
+    });
+    
+    // 2. Trust proxy APENAS em produção
     if (isProd) {
       app.set("trust proxy", 1);
       console.log("✅ Trust proxy enabled (production)");
@@ -87,35 +123,15 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
       console.log("✅ Trust proxy disabled (development)");
     }
     
+    // 3. Body parsers
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
-
-// Diagnostic endpoint (no DB connection required)
-app.get("/_db-check", (req, res) => {
-  const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
-  const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
-  const isNeon = dbUrl.includes("neon");
-  const isBrazil = dbUrl.includes("sa-east-1");
-  
-  res.json({
-    status: "ok",
-    database: isNeon ? "NEON" : "UNKNOWN",
-    url: maskedUrl,
-    region: isBrazil ? "sa-east-1 (Brazil)" : "other",
-    source: process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL (secure)" : "DATABASE_URL",
-    env: process.env.NODE_ENV || "development",
-    timestamp: new Date().toISOString(),
-    correct: isNeon ? "YES - Using Neon via secure env var" : "NO - Check configuration"
-  });
-});
-
-app.get("/_health", (req, res) => res.status(200).send("OK"));
-
-    // Session middleware - ONLY for /api and /admin routes
+    
+    // 4. Session middleware - DEVE vir ANTES das rotas
     app.use("/api", getSession());
     app.use("/admin", getSession());
     
-    // Register routes AFTER database is initialized
+    // 5. Register routes AFTER middlewares (CORS, body parsers, session)
     await registerRoutes(app);
     
     // Start HTTP server

@@ -10,7 +10,8 @@ export default defineConfig({
         server.middlewares.use((req, res, next) => {
           res.removeHeader?.("X-Frame-Options");
           res.setHeader("X-Frame-Options", "ALLOWALL");
-          res.setHeader("Access-Control-Allow-Origin", "*");
+          // NÃO definir CORS aqui - o backend já configura CORS corretamente
+          // Definir aqui pode causar conflito com o CORS do backend
           next();
         });
       },

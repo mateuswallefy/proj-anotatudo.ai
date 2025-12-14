@@ -100,6 +100,27 @@ export function extractTextFromMessage(message: any): string {
 }
 
 export async function registerRoutes(app: Express): Promise<void> {
+  // Diagnostic endpoints (no session required, for debugging)
+  app.get("/_db-check", (req, res) => {
+    const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
+    const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@");
+    const isNeon = dbUrl.includes("neon");
+    const isBrazil = dbUrl.includes("sa-east-1");
+    
+    res.json({
+      status: "ok",
+      database: isNeon ? "NEON" : "UNKNOWN",
+      url: maskedUrl,
+      region: isBrazil ? "sa-east-1 (Brazil)" : "other",
+      source: process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL (secure)" : "DATABASE_URL",
+      env: process.env.NODE_ENV || "development",
+      timestamp: new Date().toISOString(),
+      correct: isNeon ? "YES - Using Neon via secure env var" : "NO - Check configuration"
+    });
+  });
+
+  app.get("/_health", (req, res) => res.status(200).send("OK"));
+
   // Serve static files from server/uploads
   app.use('/uploads/avatars', express.static(pathModule.join(process.cwd(), 'server', 'uploads', 'avatars')));
 
@@ -248,7 +269,15 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post('/api/auth/login', async (req, res) => {
     try {
-      console.log("[LOGIN] Request received:", req.body);
+      console.log("============================================");
+      console.log("LOGIN REQ", {
+        body: req.body,
+        cookies: req.headers.cookie || 'none',
+        sessionId: req.sessionID,
+        hasSession: !!req.session
+      });
+      console.log("============================================");
+      
       const { email, password } = loginSchema.parse(req.body);
 
       // Find user by email
@@ -296,8 +325,15 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       console.log('[LOGIN] ✅ Login successful, session saved for user:', user.id);
-      console.log("[LOGIN] Response being sent...");
+      console.log("============================================");
+      console.log("SESSION AFTER LOGIN", {
+        sessionId: req.sessionID,
+        userId: req.session.userId,
+        cookie: req.session.cookie
+      });
+      console.log("============================================");
 
+      // Enviar resposta com cookie de sessão
       res.json({
         id: user.id,
         email: user.email,
@@ -306,6 +342,9 @@ export async function registerRoutes(app: Express): Promise<void> {
         telefone: user.telefone,
         plano: user.plano,
       });
+      
+      // Log após enviar resposta para verificar se cookie foi enviado
+      console.log('[LOGIN] ✅ Response sent, cookie should be in Set-Cookie header');
     } catch (error: any) {
       console.error("[LOGIN ERROR]", error);
       console.error("LOGIN ERROR - Message:", error.message);
@@ -343,17 +382,26 @@ export async function registerRoutes(app: Express): Promise<void> {
   // TODO: Implement secure password reset with email verification
   // For now, users can use "Criar Conta" with their purchase email to set a new password
 
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // IMPORTANTE: Esta rota NÃO pode ter isAuthenticated
+  // Ela é usada para VERIFICAR se o usuário está autenticado
+  // Se tiver middleware de auth, causa 403 antes mesmo de verificar a sessão
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      console.log('[API /auth/user] Request received');
-      console.log('[API /auth/user] Session userId:', req.session?.userId);
+      console.log("============================================");
+      console.log("[API /auth/user] Request received");
+      console.log("[API /auth/user] Cookies:", req.headers.cookie || 'none');
+      console.log("[API /auth/user] Session ID:", req.sessionID);
+      console.log("[API /auth/user] Session exists:", !!req.session);
+      console.log("[API /auth/user] Session userId:", req.session?.userId || 'undefined');
+      console.log("============================================");
       
-      const userId = req.session.userId;
-      
-      if (!userId) {
-        console.log('[API /auth/user] ❌ No userId in session');
+      // Verificar se há sessão e userId
+      if (!req.session || !req.session.userId) {
+        console.log('[API /auth/user] ❌ No session or userId - returning 401');
         return res.status(401).json({ message: "Unauthorized - no session" });
       }
+      
+      const userId = req.session.userId;
       
       console.log('[API /auth/user] Fetching user from database:', userId);
       const user = await storage.getUser(userId);

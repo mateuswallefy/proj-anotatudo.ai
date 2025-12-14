@@ -4,11 +4,18 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    // Se for erro 401 (Unauthorized), redirecionar para /login
-    if (res.status === 401) {
-      // Evitar redirecionamento em loop se já estiver na página de login/auth
-      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/auth')) {
-        window.location.href = '/login';
+    console.error(`[API ERROR] ${res.status}: ${text}`);
+    console.error(`[API ERROR] URL: ${res.url}`);
+    
+    // Se for erro 401 (Unauthorized) ou 403 (Forbidden), redirecionar para /auth
+    // Mas NÃO redirecionar se já estiver na página de login/auth para evitar loop
+    if ((res.status === 401 || res.status === 403)) {
+      const currentPath = window.location.pathname;
+      const isAuthPage = currentPath.startsWith('/login') || currentPath.startsWith('/auth');
+      
+      if (!isAuthPage) {
+        console.log(`[API ERROR] Redirecting to /auth due to ${res.status}`);
+        window.location.href = '/auth';
       }
     }
     
@@ -41,6 +48,9 @@ export const getQueryFn: <T>(options: {
     // First element is the URL, second might be query params object
     let url = queryKey[0] as string;
     
+    // Check if this is the auth user endpoint - special handling
+    const isAuthUserEndpoint = url === "/api/auth/user";
+    
     // If there's a second element and it's an object with query params
     if (queryKey.length > 1 && typeof queryKey[1] === 'object' && queryKey[1] !== null) {
       const params = queryKey[1] as Record<string, any>;
@@ -63,8 +73,23 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
+    // Special handling for auth user endpoint - don't redirect on 401/403
+    // This is expected when user is not authenticated
+    if (isAuthUserEndpoint) {
+      if (res.status === 401 || res.status === 403) {
+        console.log('[getQueryFn] Auth user endpoint returned', res.status, '- user not authenticated (expected)');
+        return null as T;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      return await res.json();
+    }
+
+    // For other endpoints, use standard error handling
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+      return null as T;
     }
 
     await throwIfResNotOk(res);
