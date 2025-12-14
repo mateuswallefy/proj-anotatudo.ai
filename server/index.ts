@@ -2,7 +2,6 @@ import express from "express";
 import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import { serveStatic, log } from "./vite.js"; // only for PROD
 import { registerRoutes } from "./routes.js";
 import { getSession } from "./session.js";
 import { seedAdmin } from "./seedAdmin.js";
@@ -11,6 +10,8 @@ import { ensureWebhookEventsTable } from "./ensureWebhookEventsTable.js";
 import { ensureEventosTable } from "./ensureEventosTable.js";
 import { initializeDatabaseAsync } from "./db.js";
 import { processarLembretes } from "./lembretes.js";
+// Import static file serving (NO Vite dependency - safe for production)
+import { serveStatic, log } from "./static.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -30,7 +31,7 @@ const PORT = Number(process.env.PORT) || 5000;
 const httpServer = http.createServer(app);
 
 // Database setup - seeds, tables, etc (runs after DB is initialized)
-async function runDatabaseSetup() {
+async function runDatabaseSetup(logFn?: (message: string, source?: string) => void) {
   try {
     await Promise.allSettled([
       seedAdmin(),
@@ -39,7 +40,11 @@ async function runDatabaseSetup() {
       ensureEventosTable(),
     ]);
     
-    log("✅ Database setup complete", "SERVER");
+    if (logFn) {
+      logFn("✅ Database setup complete", "SERVER");
+    } else {
+      console.log("✅ Database setup complete");
+    }
   } catch (error) {
     console.error("Database setup error:", error);
   }
@@ -53,6 +58,7 @@ async function runDatabaseSetup() {
 
     // Setup static files in production ONLY
     // In development, Vite runs separately on port 5173
+    // Note: serveStatic is imported from static.js which has NO Vite dependency
     if (isProd) {
       try {
         serveStatic(app);
@@ -104,7 +110,7 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
       console.log(`ready`);
       
       // Run seeds and database setup AFTER server is listening (non-blocking)
-      runDatabaseSetup().catch((error) => {
+      runDatabaseSetup(isProd ? log : undefined).catch((error) => {
         console.error("Database setup error:", error);
       });
       
