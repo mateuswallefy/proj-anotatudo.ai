@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for anotatudo-dev on 2025-12-14T01:33:15Z
+# fly.toml app configuration file generated for anotatudo-prod on 2025-12-14T05:50:47Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'anotatudo-dev'
+app = 'anotatudo-prod'
 primary_region = 'gru'
 
 [build]
