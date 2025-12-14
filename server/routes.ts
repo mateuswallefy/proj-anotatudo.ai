@@ -281,37 +281,85 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   app.post('/api/auth/login', async (req, res) => {
+    // AUDITORIA: Esta rota NÃO deve ter middleware isAuthenticated
+    // Ela é pública e permite login sem autenticação prévia
     try {
       console.log("============================================");
-      console.log("LOGIN REQ", {
-        body: req.body,
-        cookies: req.headers.cookie || 'none',
-        sessionId: req.sessionID,
-        hasSession: !!req.session
+      console.log("[LOGIN] ===== AUDITORIA DE LOGIN =====");
+      console.log("[LOGIN] Request recebido");
+      console.log("[LOGIN] Method:", req.method);
+      console.log("[LOGIN] Path:", req.path);
+      console.log("[LOGIN] URL:", req.url);
+      console.log("[LOGIN] Headers:", {
+        'content-type': req.headers['content-type'],
+        'origin': req.headers.origin,
+        'cookie': req.headers.cookie || 'none'
       });
+      console.log("[LOGIN] Body recebido:", {
+        email: req.body?.email ? `${req.body.email.substring(0, 3)}***` : 'undefined',
+        hasPassword: !!req.body?.password
+      });
+      console.log("[LOGIN] Session ID:", req.sessionID || 'undefined');
+      console.log("[LOGIN] Has session:", !!req.session);
       console.log("============================================");
       
-      const { email, password } = loginSchema.parse(req.body);
+      // Validar e extrair dados
+      let email: string;
+      let password: string;
+      try {
+        const parsed = loginSchema.parse(req.body);
+        email = parsed.email;
+        password = parsed.password;
+        console.log("[LOGIN] ✅ Dados validados pelo schema");
+        console.log("[LOGIN] Email recebido:", email);
+        console.log("[LOGIN] Password recebido:", password ? '***' : 'undefined');
+      } catch (schemaError: any) {
+        console.log("[LOGIN] ❌ Erro de validação do schema:", schemaError.message);
+        console.log("[LOGIN] Retornando 400 (Bad Request)");
+        return res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: schemaError.errors || schemaError.message 
+        });
+      }
 
       // Find user by email
-      console.log("[LOGIN] Searching user...");
+      console.log("[LOGIN] Buscando usuário no banco de dados...");
+      console.log("[LOGIN] Email para busca:", email);
       const user = await storage.getUserByEmail(email);
-      console.log('[LOGIN] User found:', !!user, user ? { email: user.email, hasHash: !!user.passwordHash } : 'no user');
+      console.log("[LOGIN] ===== RESULTADO DA BUSCA =====");
+      console.log("[LOGIN] Usuário encontrado:", !!user);
+      if (user) {
+        console.log("[LOGIN] User ID:", user.id);
+        console.log("[LOGIN] User email:", user.email);
+        console.log("[LOGIN] Tem passwordHash:", !!user.passwordHash);
+      } else {
+        console.log("[LOGIN] ❌ Usuário NÃO encontrado no banco de dados");
+      }
+      console.log("[LOGIN] ================================");
       
+      // Verificar se usuário existe e tem senha
       if (!user || !user.passwordHash) {
-        console.log('[LOGIN] ❌ User not found or no password hash');
+        console.log("[LOGIN] ❌ CONDIÇÃO: Usuário não encontrado ou sem senha");
+        console.log("[LOGIN] Retornando 401 (Unauthorized) - credenciais inválidas");
+        console.log("[LOGIN] NUNCA retornar 403 nesta rota");
         return res.status(401).json({ message: "Email ou senha incorretos" });
       }
 
       // Verify password
-      console.log("[LOGIN] Checking password...");
+      console.log("[LOGIN] ===== VERIFICAÇÃO DE SENHA =====");
+      console.log("[LOGIN] Comparando senha fornecida com hash do banco...");
       const isValid = await comparePassword(password, user.passwordHash);
-      console.log('[LOGIN] Password valid:', isValid);
+      console.log("[LOGIN] Resultado da comparação:", isValid);
+      console.log("[LOGIN] ================================");
       
       if (!isValid) {
-        console.log('[LOGIN] ❌ Invalid password');
+        console.log("[LOGIN] ❌ CONDIÇÃO: Senha inválida");
+        console.log("[LOGIN] Retornando 401 (Unauthorized) - credenciais inválidas");
+        console.log("[LOGIN] NUNCA retornar 403 nesta rota");
         return res.status(401).json({ message: "Email ou senha incorretos" });
       }
+      
+      console.log("[LOGIN] ✅ Credenciais válidas - prosseguindo com criação de sessão");
 
       // Create session
       console.log("[LOGIN] Creating session...");
@@ -366,21 +414,46 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log('[LOGIN] Session ID que será enviado no cookie:', req.sessionID);
       
       // Enviar resposta
-      res.json(userResponse);
+      console.log("[LOGIN] ===== ENVIANDO RESPOSTA =====");
+      console.log("[LOGIN] Status code: 200 (OK)");
+      console.log("[LOGIN] Response body:", {
+        id: userResponse.id,
+        email: userResponse.email,
+        firstName: userResponse.firstName,
+        lastName: userResponse.lastName
+      });
+      console.log("[LOGIN] Cookie connect.sid será enviado automaticamente pelo express-session");
+      console.log("[LOGIN] ================================");
+      
+      res.status(200).json(userResponse);
       
       // Logar após enviar
-      console.log('[LOGIN] ✅ Response sent successfully');
+      console.log('[LOGIN] ✅ Response 200 enviada com sucesso');
       console.log('[LOGIN] Cookie connect.sid deve estar no header Set-Cookie');
       console.log('[LOGIN] Frontend deve receber e salvar o cookie automaticamente');
+      console.log("============================================");
     } catch (error: any) {
-      console.error("[LOGIN ERROR]", error);
-      console.error("LOGIN ERROR - Message:", error.message);
-      console.error("LOGIN ERROR - Stack:", error.stack);
-      console.error("LOGIN ERROR - Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      console.error("============================================");
+      console.error("[LOGIN] ===== ERRO CAPTURADO =====");
+      console.error("[LOGIN ERROR] Tipo:", error.name || 'Unknown');
+      console.error("[LOGIN ERROR] Message:", error.message);
+      console.error("[LOGIN ERROR] Stack:", error.stack);
+      console.error("[LOGIN ERROR] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      console.error("============================================");
+      
+      // IMPORTANTE: NUNCA retornar 403 nesta rota
+      // 403 = Forbidden (não autorizado para acessar o recurso)
+      // 401 = Unauthorized (credenciais inválidas)
+      // 400 = Bad Request (dados inválidos)
+      // 500 = Internal Server Error (erro do servidor)
+      
       if (error.name === 'ZodError') {
-        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+        console.log("[LOGIN] Retornando 400 (Bad Request) - erro de validação");
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       } else {
-        res.status(500).json({ message: error.message || "Erro ao fazer login" });
+        console.log("[LOGIN] Retornando 500 (Internal Server Error) - erro inesperado");
+        console.log("[LOGIN] NUNCA retornar 403 nesta rota");
+        return res.status(500).json({ message: error.message || "Erro ao fazer login" });
       }
     }
   });
