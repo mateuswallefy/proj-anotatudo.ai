@@ -121,6 +121,19 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.get("/_health", (req, res) => res.status(200).send("OK"));
 
+  // Debug endpoint para testar sessão (apenas em DEV)
+  if (process.env.NODE_ENV !== "production") {
+    app.get("/api/debug-session", (req: any, res) => {
+      res.json({
+        sessionId: req.sessionID,
+        hasSession: !!req.session,
+        sessionData: req.session || null,
+        cookies: req.headers.cookie || 'none',
+        userId: req.session?.userId || 'undefined',
+      });
+    });
+  }
+
   // Serve static files from server/uploads
   app.use('/uploads/avatars', express.static(pathModule.join(process.cwd(), 'server', 'uploads', 'avatars')));
 
@@ -333,18 +346,32 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
       console.log("============================================");
 
-      // Enviar resposta com cookie de sessão
-      res.json({
+      // Preparar resposta do usuário
+      const userResponse = {
         id: user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         telefone: user.telefone,
         plano: user.plano,
-      });
+      };
+
+      // Enviar resposta com cookie de sessão
+      // O express-session automaticamente adiciona o Set-Cookie header
+      // quando a sessão é salva (já foi salva acima)
       
-      // Log após enviar resposta para verificar se cookie foi enviado
-      console.log('[LOGIN] ✅ Response sent, cookie should be in Set-Cookie header');
+      // Logar headers antes de enviar resposta
+      console.log('[LOGIN] ✅ Sending response');
+      console.log('[LOGIN] Response status:', res.statusCode);
+      
+      // Enviar resposta
+      res.json(userResponse);
+      
+      // Logar após enviar (o cookie já deve estar no header)
+      // Nota: res.getHeader pode não funcionar após res.json, mas tentamos
+      setTimeout(() => {
+        console.log('[LOGIN] Response sent - cookie should be in Set-Cookie header');
+      }, 0);
     } catch (error: any) {
       console.error("[LOGIN ERROR]", error);
       console.error("LOGIN ERROR - Message:", error.message);
@@ -389,15 +416,19 @@ export async function registerRoutes(app: Express): Promise<void> {
     try {
       console.log("============================================");
       console.log("[API /auth/user] Request received");
+      console.log("[API /auth/user] Method:", req.method);
+      console.log("[API /auth/user] Path:", req.path);
       console.log("[API /auth/user] Cookies:", req.headers.cookie || 'none');
-      console.log("[API /auth/user] Session ID:", req.sessionID);
+      console.log("[API /auth/user] Session ID:", req.sessionID || 'undefined');
       console.log("[API /auth/user] Session exists:", !!req.session);
       console.log("[API /auth/user] Session userId:", req.session?.userId || 'undefined');
+      console.log("[API /auth/user] Full session:", req.session ? JSON.stringify(req.session, null, 2) : 'no session');
       console.log("============================================");
       
       // Verificar se há sessão e userId
+      // IMPORTANTE: Retornar 401 (não 403) se não houver sessão
       if (!req.session || !req.session.userId) {
-        console.log('[API /auth/user] ❌ No session or userId - returning 401');
+        console.log('[API /auth/user] ❌ No session or userId - returning 401 (not 403)');
         return res.status(401).json({ message: "Unauthorized - no session" });
       }
       

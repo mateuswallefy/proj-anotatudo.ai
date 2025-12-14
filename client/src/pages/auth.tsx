@@ -65,9 +65,20 @@ export default function Auth() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
+      console.log('[Frontend] ============================================');
       console.log('[Frontend] Sending login request:', { email: data.email });
+      console.log('[Frontend] URL:', '/api/auth/login');
+      console.log('[Frontend] Credentials:', 'include');
+      
       const response = await apiRequest("POST", "/api/auth/login", data);
+      
       console.log('[Frontend] Login response received');
+      console.log('[Frontend] Response status:', response.status);
+      console.log('[Frontend] Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('[Frontend] Set-Cookie header:', response.headers.get('Set-Cookie') || 'not present');
+      console.log('[Frontend] Cookies after login:', document.cookie || 'no cookies');
+      console.log('[Frontend] ============================================');
+      
       return response;
     },
     onSuccess: () => {

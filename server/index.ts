@@ -131,6 +131,22 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     app.use("/api", getSession());
     app.use("/admin", getSession());
     
+    // Debug middleware para logar todas as requisições /api em DEV
+    if (!isProd) {
+      app.use("/api", (req, res, next) => {
+        console.log("[API REQUEST]", {
+          method: req.method,
+          path: req.path,
+          url: req.url,
+          origin: req.headers.origin,
+          cookies: req.headers.cookie || 'none',
+          hasSession: !!req.session,
+          sessionId: req.sessionID || 'undefined',
+        });
+        next();
+      });
+    }
+    
     // 5. Register routes AFTER middlewares (CORS, body parsers, session)
     await registerRoutes(app);
     

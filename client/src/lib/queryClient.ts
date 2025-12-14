@@ -76,15 +76,22 @@ export const getQueryFn: <T>(options: {
     // Special handling for auth user endpoint - don't redirect on 401/403
     // This is expected when user is not authenticated
     if (isAuthUserEndpoint) {
+      console.log('[getQueryFn] /api/auth/user endpoint called');
+      console.log('[getQueryFn] Response status:', res.status);
+      console.log('[getQueryFn] Cookies:', document.cookie || 'no cookies');
+      
       if (res.status === 401 || res.status === 403) {
         console.log('[getQueryFn] Auth user endpoint returned', res.status, '- user not authenticated (expected)');
         return null as T;
       }
       if (!res.ok) {
         const text = await res.text();
+        console.error('[getQueryFn] Error from /api/auth/user:', text);
         throw new Error(`${res.status}: ${text}`);
       }
-      return await res.json();
+      const userData = await res.json();
+      console.log('[getQueryFn] User data received:', userData);
+      return userData;
     }
 
     // For other endpoints, use standard error handling
