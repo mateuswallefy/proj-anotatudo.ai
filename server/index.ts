@@ -78,9 +78,17 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     }
     
     // Apply middleware
-app.set("trust proxy", 1);
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+    // Trust proxy ONLY in production (Fly.io uses a reverse proxy)
+    // In development (localhost), we don't need it and it can cause issues
+    if (isProd) {
+      app.set("trust proxy", 1);
+      console.log("✅ Trust proxy enabled (production)");
+    } else {
+      console.log("✅ Trust proxy disabled (development)");
+    }
+    
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: false }));
 
 // Diagnostic endpoint (no DB connection required)
 app.get("/_db-check", (req, res) => {

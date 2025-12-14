@@ -32,8 +32,21 @@ function getSessionPool() {
 
 export function getSession() {
   const sessionTtl = 30 * 24 * 60 * 60 * 1000; // 30 days
+  
+  // Detect environment
   const isReplit = process.env.REPL_SLUG !== undefined;
   const isProd = process.env.NODE_ENV === "production";
+  const isDev = !isProd;
+  
+  // In production (Fly.io), we use HTTPS, so secure cookies are required
+  // In development (localhost), we use HTTP, so secure must be false
+  const isSecure = isProd && !isReplit;
+  
+  // sameSite configuration:
+  // - "lax" for development (localhost HTTP)
+  // - "none" for production with HTTPS and proxy (Fly.io)
+  // - "lax" for Replit (if needed)
+  const sameSite: "lax" | "strict" | "none" = isProd && !isReplit ? "none" : "lax";
 
   // Validate SESSION_SECRET
   const sessionSecret = process.env.SESSION_SECRET;
@@ -41,11 +54,14 @@ export function getSession() {
     throw new Error("SESSION_SECRET is required. Set it in your environment variables.");
   }
 
-  // Secure apenas em PRODUÇÃO REAL, nunca no autoscale (replit)
-  const isSecure = isProd && !isReplit;
-
-  console.log("[SESSION] Secure:", isSecure);
+  // Log configuration for debugging
+  console.log("[SESSION] ===== Session Configuration =====");
   console.log("[SESSION] Environment:", isProd ? "PRODUCTION" : "DEVELOPMENT");
+  console.log("[SESSION] NODE_ENV:", process.env.NODE_ENV || "undefined");
+  console.log("[SESSION] Is Replit:", isReplit);
+  console.log("[SESSION] Cookie secure:", isSecure);
+  console.log("[SESSION] Cookie sameSite:", sameSite);
+  console.log("[SESSION] ==================================");
 
   let store: session.Store;
 
@@ -79,7 +95,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: isSecure,
-      sameSite: "lax",
+      sameSite: sameSite,
       maxAge: sessionTtl,
     },
   });
