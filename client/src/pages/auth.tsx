@@ -66,32 +66,70 @@ export default function Auth() {
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
       console.log('[Frontend] ============================================');
-      console.log('[Frontend] Sending login request:', { email: data.email });
+      console.log('[Frontend] 🔥 Iniciando login...');
+      console.log('[Frontend] Email:', data.email);
       console.log('[Frontend] URL:', '/api/auth/login');
       console.log('[Frontend] Credentials:', 'include');
+      console.log('[Frontend] Cookies ANTES do login:', document.cookie || 'nenhum cookie');
       
+      // CRÍTICO: Aguardar resposta completa antes de processar
       const response = await apiRequest("POST", "/api/auth/login", data);
       
-      console.log('[Frontend] Login response received');
+      console.log('[Frontend] ===== RESPOSTA DO LOGIN =====');
       console.log('[Frontend] Response status:', response.status);
+      console.log('[Frontend] Response ok:', response.ok);
       console.log('[Frontend] Response headers:', Object.fromEntries(response.headers.entries()));
-      console.log('[Frontend] Set-Cookie header:', response.headers.get('Set-Cookie') || 'not present');
-      console.log('[Frontend] Cookies after login:', document.cookie || 'no cookies');
+      
+      // Verificar Set-Cookie header
+      const setCookieHeader = response.headers.get('Set-Cookie');
+      console.log('[Frontend] 🔥 Set-Cookie header recebido:', setCookieHeader || 'NÃO PRESENTE');
+      
+      // Aguardar um pouco para o browser processar o cookie
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verificar cookies após login
+      const cookiesAfterLogin = document.cookie;
+      console.log('[Frontend] 🔥 Cookies APÓS login:', cookiesAfterLogin || 'nenhum cookie');
+      console.log('[Frontend] 🔥 Cookie connect.sid presente:', cookiesAfterLogin.includes('connect.sid'));
+      
+      if (!cookiesAfterLogin.includes('connect.sid')) {
+        console.error('[Frontend] ⚠️ ATENÇÃO: Cookie connect.sid NÃO foi salvo pelo navegador!');
+        console.error('[Frontend] Possíveis causas:');
+        console.error('[Frontend] 1. Set-Cookie header não foi enviado pelo backend');
+        console.error('[Frontend] 2. Browser bloqueou o cookie (SameSite, Secure, etc)');
+        console.error('[Frontend] 3. Domain/path do cookie não corresponde');
+      } else {
+        console.log('[Frontend] ✅ Cookie connect.sid salvo com sucesso!');
+      }
+      
       console.log('[Frontend] ============================================');
       
-      return response;
+      // Parsear resposta JSON
+      const userData = await response.json();
+      return userData;
     },
-    onSuccess: () => {
-      console.log('[Frontend] Login success, invalidating queries');
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Login realizado!",
-        description: "Redirecionando para o dashboard...",
-      });
+    onSuccess: (userData) => {
+      console.log('[Frontend] ===== onSuccess do login =====');
+      console.log('[Frontend] User data recebido:', userData);
+      console.log('[Frontend] Cookies antes de invalidar queries:', document.cookie);
+      
+      // CRÍTICO: Aguardar um pouco antes de invalidar queries
+      // Isso garante que o cookie já foi processado pelo browser
       setTimeout(() => {
-        console.log('[Frontend] Redirecting to dashboard');
-        setLocation("/");
-      }, 100);
+        console.log('[Frontend] Invalidando queries para buscar usuário autenticado...');
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        
+        toast({
+          title: "Login realizado!",
+          description: "Redirecionando para o dashboard...",
+        });
+        
+        // Aguardar mais um pouco antes de redirecionar
+        setTimeout(() => {
+          console.log('[Frontend] Redirecionando para dashboard...');
+          setLocation("/");
+        }, 200);
+      }, 300);
     },
     onError: (error: any) => {
       console.error('[Frontend] Login error:', error);

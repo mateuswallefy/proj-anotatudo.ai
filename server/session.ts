@@ -93,11 +93,14 @@ export function getSession() {
     store,
     resave: false,
     saveUninitialized: false,
+    // CRÍTICO: proxy deve ser false em DEV para cookies funcionarem corretamente
+    proxy: isProd, // true apenas em produção (Fly.io usa proxy reverso)
     cookie: {
       httpOnly: true,
-      secure: isSecure,
-      sameSite: sameSite,
+      secure: isSecure, // false em DEV, true em PROD
+      sameSite: sameSite, // 'lax' em DEV, 'none' em PROD
       maxAge: sessionTtl,
+      path: '/', // CRÍTICO: path explícito para garantir que cookie seja enviado
       // Em dev, não definir domain (permite localhost)
       // Em prod, deixar undefined para usar o domínio da requisição
     },
@@ -108,7 +111,9 @@ export function getSession() {
     secure: sessionConfig.cookie?.secure,
     sameSite: sessionConfig.cookie?.sameSite,
     httpOnly: sessionConfig.cookie?.httpOnly,
+    path: sessionConfig.cookie?.path,
     maxAge: sessionConfig.cookie?.maxAge,
+    proxy: sessionConfig.proxy,
   });
 
   return session(sessionConfig);

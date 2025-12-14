@@ -386,7 +386,9 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log('[LOGIN] 🔧 Session userId set to:', user.id);
       console.log('[LOGIN] 🔧 Session object before save:', JSON.stringify(req.session));
       
-      // Save session before responding
+      // CRÍTICO: Salvar sessão ANTES de enviar resposta
+      // O express-session só adiciona Set-Cookie header após save() completar
+      console.log("[LOGIN] Salvando sessão...");
       try {
         await new Promise<void>((resolve, reject) => {
           req.session.save((err) => {
@@ -395,6 +397,7 @@ export async function registerRoutes(app: Express): Promise<void> {
               reject(err);
             } else {
               console.log('[LOGIN] ✅ Session saved successfully');
+              console.log('[LOGIN] Session ID salvo:', req.sessionID);
               resolve();
             }
           });
@@ -403,6 +406,16 @@ export async function registerRoutes(app: Express): Promise<void> {
         console.error('[LOGIN] ❌ Failed to save session:', saveError);
         throw saveError;
       }
+      
+      // CRÍTICO: Verificar se o Set-Cookie header foi adicionado
+      // O express-session adiciona automaticamente após save()
+      const setCookieHeader = res.getHeader('Set-Cookie');
+      console.log('[LOGIN] ===== VERIFICAÇÃO DE COOKIE =====');
+      console.log('[LOGIN] Set-Cookie header:', setCookieHeader || 'Ainda não definido (será adicionado ao enviar resposta)');
+      console.log('[LOGIN] Session ID:', req.sessionID);
+      console.log('[LOGIN] User ID na sessão:', req.session.userId);
+      console.log('[LOGIN] Cookie config:', req.session.cookie);
+      console.log('[LOGIN] ==================================');
       
       console.log('[LOGIN] ✅ Login successful, session saved for user:', user.id);
       console.log("============================================");
@@ -424,15 +437,8 @@ export async function registerRoutes(app: Express): Promise<void> {
       };
 
       // Enviar resposta com cookie de sessão
-      // O express-session automaticamente adiciona o Set-Cookie header
-      // quando a sessão é salva (já foi salva acima)
-      
-      // Logar antes de enviar resposta
-      console.log('[LOGIN] ✅ Sending response');
-      console.log('[LOGIN] Response status:', res.statusCode);
-      console.log('[LOGIN] Session ID que será enviado no cookie:', req.sessionID);
-      
-      // Enviar resposta
+      // CRÍTICO: A resposta só é enviada APÓS session.save() completar
+      // O express-session adiciona o Set-Cookie header automaticamente quando save() completa
       console.log("[LOGIN] ===== ENVIANDO RESPOSTA =====");
       const successStatusCode = 200;
       console.log("[LOGIN] 🔥 LOGIN RETURN: 200 (OK) - login bem-sucedido");
@@ -443,12 +449,13 @@ export async function registerRoutes(app: Express): Promise<void> {
         firstName: userResponse.firstName,
         lastName: userResponse.lastName
       });
-      console.log("[LOGIN] Cookie connect.sid será enviado automaticamente pelo express-session");
-      console.log("[LOGIN] ================================");
+      console.log("[LOGIN] Session ID que será enviado no cookie:", req.sessionID);
       
+      // O express-session adiciona Set-Cookie automaticamente após save()
+      // O header será adicionado quando res.json() for chamado
       res.status(successStatusCode).json(userResponse);
       
-      // Logar após enviar
+      // Logar após enviar (o Set-Cookie já foi adicionado pelo express-session)
       console.log('[LOGIN] ✅ Response 200 enviada com sucesso');
       console.log('[LOGIN] Cookie connect.sid deve estar no header Set-Cookie');
       console.log('[LOGIN] Frontend deve receber e salvar o cookie automaticamente');
