@@ -427,48 +427,105 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log("[LOGIN] ✅ Credenciais válidas - prosseguindo com criação de sessão");
 
       // Create session
-      console.log("[LOGIN] Creating session...");
+      console.log("[LOGIN] ===== CRIAÇÃO DE SESSÃO =====");
+      console.log("[LOGIN] Antes de setar session.userId");
+      console.log("[LOGIN] req.session existe:", !!req.session);
+      console.log("[LOGIN] req.sessionID:", req.sessionID || 'undefined');
       
       // CRÍTICO: Validar que user.id existe antes de usar
       if (!user.id || typeof user.id !== 'string' || user.id.length === 0) {
         console.error("[LOGIN] ❌ ERRO: User ID inválido");
-        return res.status(500).json({ message: "Erro interno: ID do usuário inválido" });
+        return res.status(500).json({ 
+          message: "Erro interno: ID do usuário inválido",
+          code: "INVALID_USER_ID"
+        });
       }
       
+      // CRÍTICO: Verificar se req.session ainda existe antes de setar
+      if (!req.session) {
+        console.error("[LOGIN] ❌ ERRO: req.session não existe antes de setar userId");
+        return res.status(500).json({ 
+          message: "Erro interno: sessão não disponível",
+          code: "SESSION_UNAVAILABLE"
+        });
+      }
+      
+      // Setar userId na sessão
       req.session.userId = user.id;
-      console.log('[LOGIN] 🔧 Session userId set to:', user.id);
-      console.log('[LOGIN] 🔧 Session object before save:', JSON.stringify(req.session));
+      console.log('[LOGIN] ✅ Session userId setado para:', user.id);
+      console.log('[LOGIN] Session ID atual:', req.sessionID);
+      console.log('[LOGIN] Session cookie config:', {
+        secure: req.session.cookie.secure,
+        sameSite: req.session.cookie.sameSite,
+        httpOnly: req.session.cookie.httpOnly,
+        path: req.session.cookie.path
+      });
       
       // CRÍTICO: Salvar sessão ANTES de enviar resposta
       // O express-session só adiciona Set-Cookie header após save() completar
-      console.log("[LOGIN] Salvando sessão...");
+      console.log("[LOGIN] Iniciando salvamento da sessão...");
       try {
         await new Promise<void>((resolve, reject) => {
+          // Verificar novamente se session existe
           if (!req.session) {
-            const error = new Error("Sessão não disponível");
-            console.error('[LOGIN] ❌ Session não disponível');
+            const error = new Error("Sessão não disponível durante save");
+            console.error('[LOGIN] ❌ Session não disponível durante save');
             reject(error);
             return;
           }
           
+          console.log("[LOGIN] Chamando req.session.save()...");
           req.session.save((err) => {
             if (err) {
-              console.error('[LOGIN] ❌ Session save error:', err);
-              console.error('[LOGIN] Session save error message:', err.message);
-              console.error('[LOGIN] Session save error stack:', err.stack);
+              console.error('[LOGIN] ❌ Session save error (callback)');
+              console.error('[LOGIN] Error type:', err?.constructor?.name || 'Unknown');
+              console.error('[LOGIN] Error message:', err?.message || 'No message');
+              console.error('[LOGIN] Error stack:', err?.stack || 'No stack');
               reject(err);
             } else {
-              console.log('[LOGIN] ✅ Session saved successfully');
-              console.log('[LOGIN] Session ID salvo:', req.sessionID);
+              console.log('[LOGIN] ✅ Session saved successfully (callback)');
+              console.log('[LOGIN] Session ID após save:', req.sessionID);
+              console.log('[LOGIN] Session userId após save:', req.session?.userId);
               resolve();
             }
           });
         });
+        console.log("[LOGIN] ✅ Promise de save resolvida com sucesso");
       } catch (saveError: any) {
-        console.error('[LOGIN] ❌ Failed to save session');
-        console.error('[LOGIN] Save error:', saveError.message);
-        console.error('[LOGIN] Save error stack:', saveError.stack);
-        throw new Error(`Erro ao salvar sessão: ${saveError.message}`);
+        console.error('[LOGIN] ❌ Failed to save session (catch)');
+        console.error('[LOGIN] Save error type:', saveError?.constructor?.name || 'Unknown');
+        console.error('[LOGIN] Save error message:', saveError?.message || 'No message');
+        console.error('[LOGIN] Save error stack:', saveError?.stack || 'No stack');
+        
+        // CRÍTICO: Verificar se resposta já foi enviada antes de retornar erro
+        if (res.headersSent) {
+          console.error("[LOGIN] ⚠️ Resposta já foi enviada, não é possível enviar erro de sessão");
+          return;
+        }
+        
+        return res.status(500).json({ 
+          message: "Erro ao salvar sessão",
+          code: "SESSION_SAVE_ERROR",
+          ...(process.env.NODE_ENV !== 'production' && {
+            details: saveError.message
+          })
+        });
+      }
+      console.log("[LOGIN] ================================");
+      
+      // CRÍTICO: Verificar se resposta já foi enviada antes de continuar
+      if (res.headersSent) {
+        console.error("[LOGIN] ⚠️ Resposta já foi enviada, não é possível continuar");
+        return;
+      }
+      
+      // Verificar se sessão ainda existe após save
+      if (!req.session) {
+        console.error("[LOGIN] ❌ ERRO: req.session não existe após save");
+        return res.status(500).json({ 
+          message: "Erro interno: sessão perdida após salvamento",
+          code: "SESSION_LOST"
+        });
       }
       
       // CRÍTICO: Verificar se o Set-Cookie header foi adicionado
@@ -478,26 +535,25 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log('[LOGIN] Set-Cookie header:', setCookieHeader || 'Ainda não definido (será adicionado ao enviar resposta)');
       console.log('[LOGIN] Session ID:', req.sessionID);
       console.log('[LOGIN] User ID na sessão:', req.session.userId);
-      console.log('[LOGIN] Cookie config:', req.session.cookie);
-      console.log('[LOGIN] ==================================');
-      
-      console.log('[LOGIN] ✅ Login successful, session saved for user:', user.id);
-      console.log("============================================");
-      console.log("SESSION AFTER LOGIN", {
-        sessionId: req.sessionID,
-        userId: req.session.userId,
-        cookie: req.session.cookie
+      console.log('[LOGIN] Cookie config:', {
+        secure: req.session.cookie.secure,
+        sameSite: req.session.cookie.sameSite,
+        httpOnly: req.session.cookie.httpOnly,
+        path: req.session.cookie.path,
+        maxAge: req.session.cookie.maxAge
       });
-      console.log("============================================");
+      console.log('[LOGIN] ==================================');
 
       // Preparar resposta do usuário
       const userResponse = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        telefone: user.telefone,
-        plano: user.plano,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          telefone: user.telefone,
+          plano: user.plano,
+        }
       };
 
       // Enviar resposta com cookie de sessão
@@ -507,16 +563,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       const successStatusCode = 200;
       console.log("[LOGIN] 🔥 LOGIN RETURN: 200 (OK) - login bem-sucedido");
       console.log("[LOGIN] 🔥 Status code antes de return:", successStatusCode);
-      console.log("[LOGIN] Response body:", {
-        id: userResponse.id,
-        email: userResponse.email,
-        firstName: userResponse.firstName,
-        lastName: userResponse.lastName
-      });
+      console.log("[LOGIN] Response body:", userResponse);
       console.log("[LOGIN] Session ID que será enviado no cookie:", req.sessionID);
       
-      // O express-session adiciona Set-Cookie automaticamente após save()
-      // O header será adicionado quando res.json() for chamado
+      // CRÍTICO: Garantir Content-Type JSON
+      res.setHeader('Content-Type', 'application/json');
       
       // CRÍTICO: Verificar se resposta já foi enviada antes de enviar
       if (res.headersSent) {
@@ -525,6 +576,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       res.status(successStatusCode).json(userResponse);
+      
+      console.log('[LOGIN] ✅ Response 200 enviada com sucesso');
+      console.log('[LOGIN] Cookie anotatudo.sid deve estar no header Set-Cookie');
+      console.log('[LOGIN] Frontend deve receber e salvar o cookie automaticamente');
+      console.log("============================================");
       
       // CRÍTICO: Return explícito após enviar resposta
       // Isso garante que nenhum código após este ponto seja executado

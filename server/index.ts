@@ -103,11 +103,17 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     // ============================================
     // MIDDLEWARES - ORDEM CRÍTICA
     // ============================================
-    // 1. CORS PRIMEIRO - permite requisições do frontend
+    // 1. Trust proxy - CRÍTICO para cookies funcionarem corretamente
+    // Necessário em PROD (Fly.io) e pode ajudar em DEV com proxy do Vite
+    app.set("trust proxy", 1);
+    console.log("✅ Trust proxy enabled (required for cookies)");
+    
+    // 2. CORS PRIMEIRO - permite requisições do frontend
+    // CRÍTICO: Origin explícito em DEV para garantir cookies funcionem
     const corsOptions = {
       origin: isProd
         ? ["https://anotatudo.com", "https://www.anotatudo.com"]
-        : true, // Em DEV: aceita QUALQUER origin (incluindo proxy do Vite)
+        : ["http://localhost:5173", "http://127.0.0.1:5173"], // Origin explícito em DEV
       credentials: true, // CRÍTICO: permite cookies
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
@@ -118,14 +124,6 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
       credentials: corsOptions.credentials,
       environment: isProd ? "PRODUCTION" : "DEVELOPMENT"
     });
-    
-    // 2. Trust proxy APENAS em produção
-    if (isProd) {
-      app.set("trust proxy", 1);
-      console.log("✅ Trust proxy enabled (production)");
-    } else {
-      console.log("✅ Trust proxy disabled (development)");
-    }
     
     // 3. Body parsers
     app.use(express.json());

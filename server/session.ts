@@ -87,13 +87,14 @@ export function getSession() {
 
   const sessionConfig: session.SessionOptions = {
     secret: sessionSecret,
-    name: 'connect.sid', // Nome explícito do cookie
+    name: 'anotatudo.sid', // Nome do cookie (mudado de connect.sid)
     store,
     resave: false,
     saveUninitialized: false,
-    // CRÍTICO: proxy deve ser false em DEV para cookies funcionarem corretamente
-    // Em PROD (Fly.io), proxy deve ser true porque há proxy reverso
-    proxy: isProd, // true apenas em produção (Fly.io usa proxy reverso)
+    // CRÍTICO: proxy deve ser true quando há proxy reverso (Fly.io) ou Vite proxy
+    // Em DEV, pode ser true se o Vite proxy estiver configurado corretamente
+    // Em PROD, deve ser true porque Fly.io usa proxy reverso
+    proxy: true, // true para funcionar com proxy reverso (Vite em DEV, Fly.io em PROD)
     cookie: {
       httpOnly: true,
       secure: isSecure, // false em DEV, true em PROD
