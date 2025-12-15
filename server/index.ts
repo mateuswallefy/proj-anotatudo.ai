@@ -105,9 +105,9 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     // ============================================
     // 1. CORS PRIMEIRO - permite requisições do frontend
     const corsOptions = {
-      origin: isProd 
+      origin: isProd
         ? ["https://anotatudo.com", "https://www.anotatudo.com"]
-        : ["http://localhost:5173", "http://localhost:3000"],
+        : true, // Em DEV: aceita QUALQUER origin (incluindo proxy do Vite)
       credentials: true, // CRÍTICO: permite cookies
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],

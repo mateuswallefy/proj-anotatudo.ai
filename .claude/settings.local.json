@@ -5,7 +5,17 @@
       "Bash(grep:*)",
       "Bash(npm run build:client:*)",
       "Bash(npx tsc:*)",
-      "Bash(timeout 10 npm run dev:*)"
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(scutil:*)",
+      "Bash(sudo /usr/libexec/ApplicationFirewall/socketfilterfw:*)",
+      "Bash(sudo killall:*)",
+      "Bash(killall:*)",
+      "Bash(pkill:*)",
+      "Bash(git add vite.config.ts)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix(vite): corrige proxy para usar IPv4 explícito e evitar conflito com AirPlay do macOS\n\nPROBLEMA IDENTIFICADO:\n- AirPlay Receiver do macOS interceptava requisições /api/* retornando 403 Forbidden\n- Header \"server: AirTunes/870.14.1\" confirmava interceptação pelo sistema\n- Backend funcionava perfeitamente, mas proxy do Vite não conseguia conectar\n\nCORREÇÕES:\n- Mudou proxy target de localhost:5050 para 127.0.0.1:5050 (IPv4 explícito)\n- Simplificou configuração de ''/api/.*'' regex para ''/api'' simples\n- Removeu rewrite desnecessário que não modificava path\n\nSOLUÇÃO ADICIONAL NECESSÁRIA:\n- Reiniciar macOS para limpar processos AirPlay em estado inconsistente\n- Após reiniciar, proxy deve funcionar corretamente com IPv4 explícito\n\nIMPACTO:\n- ✅ Não afeta produção (usa domínio próprio, não localhost)\n- ✅ .env.local atualizado para documentar PORT=5050\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)"
     ]
   }
 }
