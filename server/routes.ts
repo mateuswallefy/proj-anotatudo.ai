@@ -284,19 +284,31 @@ export async function registerRoutes(app: Express): Promise<void> {
     // AUDITORIA: Esta rota NÃO deve ter middleware isAuthenticated
     // Ela é pública e permite login sem autenticação prévia
     
-    // 🔥 LOG CRÍTICO: Confirmar se a requisição chega no backend
-    console.log("🔥🔥🔥 LOGIN ROUTE HIT - REQUISIÇÃO CHEGOU NO BACKEND 🔥🔥🔥");
-    console.log("🔥 [LOGIN] Timestamp:", new Date().toISOString());
-    console.log("🔥 [LOGIN] Method:", req.method);
-    console.log("🔥 [LOGIN] Path:", req.path);
-    console.log("🔥 [LOGIN] URL:", req.url);
-    console.log("🔥 [LOGIN] Origin:", req.headers.origin || 'none');
-    console.log("🔥 [LOGIN] Cookies:", req.headers.cookie || 'none');
-    console.log("🔥 [LOGIN] Content-Type:", req.headers['content-type'] || 'none');
-    console.log("🔥 [LOGIN] Body exists:", !!req.body);
-    console.log("🔥🔥🔥 =============================================");
-    
+    // CRÍTICO: Wrapper único envolvendo TODO o fluxo
+    // Garante que qualquer erro é capturado e retorna JSON
     try {
+      // 🔥 LOG CRÍTICO: Confirmar se a requisição chega no backend
+      console.log("🔥🔥🔥 LOGIN ROUTE HIT - REQUISIÇÃO CHEGOU NO BACKEND 🔥🔥🔥");
+      console.log("🔥 [LOGIN] Timestamp:", new Date().toISOString());
+      console.log("🔥 [LOGIN] Method:", req.method);
+      console.log("🔥 [LOGIN] Path:", req.path);
+      console.log("🔥 [LOGIN] URL:", req.url);
+      console.log("🔥 [LOGIN] Origin:", req.headers.origin || 'none');
+      console.log("🔥 [LOGIN] Cookies:", req.headers.cookie || 'none');
+      console.log("🔥 [LOGIN] Content-Type:", req.headers['content-type'] || 'none');
+      console.log("🔥 [LOGIN] Body exists:", !!req.body);
+      console.log("🔥🔥🔥 =============================================");
+      
+      // CRÍTICO: Verificar se sessão está disponível
+      if (!req.session) {
+        console.error("[LOGIN] ❌ ERRO: req.session não está disponível");
+        return res.status(500).json({ 
+          message: "Erro interno: sessão não disponível",
+          code: "SESSION_UNAVAILABLE"
+        });
+      }
+      
+      try {
       console.log("============================================");
       console.log("[LOGIN] ===== AUDITORIA DE LOGIN =====");
       console.log("[LOGIN] Request recebido");
@@ -505,13 +517,27 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       // O express-session adiciona Set-Cookie automaticamente após save()
       // O header será adicionado quando res.json() for chamado
+      
+      // CRÍTICO: Verificar se resposta já foi enviada antes de enviar
+      if (res.headersSent) {
+        console.error("[LOGIN] ⚠️ Resposta já foi enviada, não é possível enviar resposta de sucesso");
+        return;
+      }
+      
       res.status(successStatusCode).json(userResponse);
       
-      // Logar após enviar (o Set-Cookie já foi adicionado pelo express-session)
-      console.log('[LOGIN] ✅ Response 200 enviada com sucesso');
-      console.log('[LOGIN] Cookie connect.sid deve estar no header Set-Cookie');
-      console.log('[LOGIN] Frontend deve receber e salvar o cookie automaticamente');
-      console.log("============================================");
+      // CRÍTICO: Return explícito após enviar resposta
+      // Isso garante que nenhum código após este ponto seja executado
+      return;
+      
+    } catch (innerError: any) {
+      // Erro interno do fluxo de login (validação, busca, comparação, sessão)
+      // Este erro será relançado para ser capturado pelo catch externo
+      console.error("[LOGIN] ❌ Erro interno no fluxo de login");
+      console.error("[LOGIN] Erro:", innerError.message);
+      console.error("[LOGIN] Stack:", innerError.stack);
+      throw innerError;
+    }
     } catch (error: any) {
       console.error("============================================");
       console.error("[LOGIN] ===== ERRO CAPTURADO =====");
@@ -538,8 +564,13 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Verificar se a resposta já foi enviada
       if (res.headersSent) {
         console.error("[LOGIN] ⚠️ Resposta já foi enviada, não é possível enviar erro");
+        // Se a resposta já foi enviada, não podemos fazer nada
+        // Apenas logar o erro para debug
         return;
       }
+      
+      // CRÍTICO: Garantir que sempre retorna JSON com Content-Type correto
+      res.setHeader('Content-Type', 'application/json');
       
       let statusCode: number;
       let errorMessage: string;
@@ -550,33 +581,44 @@ export async function registerRoutes(app: Express): Promise<void> {
         errorMessage = "Dados inválidos";
         errorResponse = { 
           message: errorMessage, 
-          errors: error.errors || error.message 
+          errors: error.errors || error.message,
+          code: "VALIDATION_ERROR"
         };
         console.log("[LOGIN] 🔥 LOGIN RETURN: 400 (Bad Request) - erro de validação");
-      } else if (error.message && error.message.includes('credenciais')) {
+      } else if (error.message && (error.message.includes('credenciais') || error.message.includes('Email ou senha'))) {
         // Erros relacionados a credenciais devem retornar 401, não 500
         statusCode = 401;
         errorMessage = "Email ou senha incorretos";
-        errorResponse = { message: errorMessage };
+        errorResponse = { 
+          message: errorMessage,
+          code: "INVALID_CREDENTIALS"
+        };
         console.log("[LOGIN] 🔥 LOGIN RETURN: 401 (Unauthorized) - erro de credenciais");
       } else {
         statusCode = 500;
-        errorMessage = error.message || "Erro ao fazer login";
+        errorMessage = "Erro interno no login";
         errorResponse = { 
           message: errorMessage,
-          // Em produção, não expor detalhes do erro
-          ...(process.env.NODE_ENV !== 'production' && { 
-            error: error.name,
-            stack: error.stack 
-          })
+          code: "INTERNAL_ERROR"
         };
+        
+        // Em desenvolvimento, incluir detalhes do erro
+        if (process.env.NODE_ENV !== 'production') {
+          errorResponse.error = error.name || 'Unknown';
+          errorResponse.details = error.message;
+          if (error.stack) {
+            errorResponse.stack = error.stack;
+          }
+        }
+        
         console.log("[LOGIN] 🔥 LOGIN RETURN: 500 (Internal Server Error) - erro inesperado");
+        console.log("[LOGIN] Erro completo:", error);
       }
       
       console.log("[LOGIN] 🔥 Status code antes de return:", statusCode);
       console.log("[LOGIN] NUNCA retornar 403 nesta rota");
       
-      // CRÍTICO: Sempre retornar JSON
+      // CRÍTICO: Sempre retornar JSON com return explícito
       return res.status(statusCode).json(errorResponse);
     }
   });

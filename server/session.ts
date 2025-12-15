@@ -34,19 +34,18 @@ export function getSession() {
   const sessionTtl = 30 * 24 * 60 * 60 * 1000; // 30 days
   
   // Detect environment
-  const isReplit = process.env.REPL_SLUG !== undefined;
   const isProd = process.env.NODE_ENV === "production";
   const isDev = !isProd;
   
-  // In production (Fly.io), we use HTTPS, so secure cookies are required
-  // In development (localhost), we use HTTP, so secure must be false
-  const isSecure = isProd && !isReplit;
-  
-  // sameSite configuration:
-  // - "lax" for development (localhost HTTP)
-  // - "none" for production with HTTPS and proxy (Fly.io)
-  // - "lax" for Replit (if needed)
-  const sameSite: "lax" | "strict" | "none" = isProd && !isReplit ? "none" : "lax";
+  // CRÍTICO: Configuração de cookie por ambiente
+  // DEV (localhost):
+  //   - secure: false (HTTP localhost)
+  //   - sameSite: 'lax' (permite cookies em requisições cross-site do mesmo site)
+  // PROD (Fly.io):
+  //   - secure: true (HTTPS obrigatório)
+  //   - sameSite: 'none' (necessário para cross-site com HTTPS)
+  const isSecure = isProd;
+  const sameSite: "lax" | "strict" | "none" = isProd ? "none" : "lax";
 
   // Validate SESSION_SECRET
   const sessionSecret = process.env.SESSION_SECRET;
@@ -58,9 +57,8 @@ export function getSession() {
   console.log("[SESSION] ===== Session Configuration =====");
   console.log("[SESSION] Environment:", isProd ? "PRODUCTION" : "DEVELOPMENT");
   console.log("[SESSION] NODE_ENV:", process.env.NODE_ENV || "undefined");
-  console.log("[SESSION] Is Replit:", isReplit);
-  console.log("[SESSION] Cookie secure:", isSecure);
-  console.log("[SESSION] Cookie sameSite:", sameSite);
+  console.log("[SESSION] Cookie secure:", isSecure, isProd ? "(HTTPS required)" : "(HTTP localhost)");
+  console.log("[SESSION] Cookie sameSite:", sameSite, isProd ? "(cross-site with HTTPS)" : "(same-site HTTP)");
   console.log("[SESSION] ==================================");
 
   let store: session.Store;
@@ -94,6 +92,7 @@ export function getSession() {
     resave: false,
     saveUninitialized: false,
     // CRÍTICO: proxy deve ser false em DEV para cookies funcionarem corretamente
+    // Em PROD (Fly.io), proxy deve ser true porque há proxy reverso
     proxy: isProd, // true apenas em produção (Fly.io usa proxy reverso)
     cookie: {
       httpOnly: true,
