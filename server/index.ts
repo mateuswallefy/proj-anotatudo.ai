@@ -155,8 +155,12 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     await registerRoutes(app);
     
     // Start HTTP server
-    // Fly.io requires binding to 0.0.0.0 (all interfaces) and using process.env.PORT
-    httpServer.listen(PORT, "0.0.0.0", () => {
+    // CRÍTICO: Bind diferente por ambiente
+    // - DEV: 127.0.0.1 (IPv4 apenas) - evita problemas IPv4/IPv6 no macOS
+    // - PROD: 0.0.0.0 (todas interfaces) - necessário para Fly.io
+    const bindAddress = isProd ? "0.0.0.0" : "127.0.0.1";
+    
+    httpServer.listen(PORT, bindAddress, () => {
       if (isProd) {
         console.log(`✅ Servidor rodando na porta ${PORT} (bind: 0.0.0.0)`);
         console.log(`✅ Ambiente: PRODUÇÃO`);
@@ -167,10 +171,11 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
           console.error(`❌ Isso causará conflito com ControlCe do macOS na porta 5000`);
           process.exit(1);
         }
-        console.log(`🚀 Backend DEV rodando em http://localhost:5050`);
+        console.log(`🚀 Backend DEV rodando em http://127.0.0.1:5050 (bind: 127.0.0.1)`);
         console.log(`✅ Ambiente: DESENVOLVIMENTO`);
-        console.log(`✅ Frontend: http://localhost:5173`);
-        console.log(`✅ Proxy configurado: /api → http://localhost:5050`);
+        console.log(`✅ Frontend: http://127.0.0.1:5173`);
+        console.log(`✅ Proxy configurado: /api → http://127.0.0.1:5050`);
+        console.log(`✅ IPv4 explícito (127.0.0.1) evita problemas IPv4/IPv6 no macOS`);
         console.log(`✅ Porta 5050 evita conflito com ControlCe do macOS na porta 5000`);
       }
       console.log(`ready`);
