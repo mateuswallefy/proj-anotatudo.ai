@@ -340,17 +340,28 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Find user by email
       console.log("[LOGIN] Buscando usuário no banco de dados...");
       console.log("[LOGIN] Email para busca:", email);
-      const user = await storage.getUserByEmail(email);
-      console.log("[LOGIN] ===== RESULTADO DA BUSCA =====");
-      console.log("[LOGIN] Usuário encontrado:", !!user);
-      if (user) {
-        console.log("[LOGIN] User ID:", user.id);
-        console.log("[LOGIN] User email:", user.email);
-        console.log("[LOGIN] Tem passwordHash:", !!user.passwordHash);
-      } else {
-        console.log("[LOGIN] ❌ Usuário NÃO encontrado no banco de dados");
+      
+      let user;
+      try {
+        user = await storage.getUserByEmail(email);
+        console.log("[LOGIN] ===== RESULTADO DA BUSCA =====");
+        console.log("[LOGIN] Usuário encontrado:", !!user);
+        if (user) {
+          console.log("[LOGIN] User ID:", user.id);
+          console.log("[LOGIN] User email:", user.email);
+          console.log("[LOGIN] Tem passwordHash:", !!user.passwordHash);
+          console.log("[LOGIN] passwordHash type:", typeof user.passwordHash);
+          console.log("[LOGIN] passwordHash length:", user.passwordHash?.length || 0);
+        } else {
+          console.log("[LOGIN] ❌ Usuário NÃO encontrado no banco de dados");
+        }
+        console.log("[LOGIN] ================================");
+      } catch (dbError: any) {
+        console.error("[LOGIN] ❌ ERRO ao buscar usuário no banco de dados");
+        console.error("[LOGIN] Erro:", dbError.message);
+        console.error("[LOGIN] Stack:", dbError.stack);
+        throw new Error(`Erro ao buscar usuário: ${dbError.message}`);
       }
-      console.log("[LOGIN] ================================");
       
       // Verificar se usuário existe e tem senha
       if (!user || !user.passwordHash) {
@@ -362,12 +373,35 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(statusCode).json({ message: "Email ou senha incorretos" });
       }
 
+      // CRÍTICO: Validar que password e passwordHash não são undefined/null antes de comparar
+      if (!password || typeof password !== 'string' || password.length === 0) {
+        console.error("[LOGIN] ❌ ERRO: Password inválido ou vazio");
+        return res.status(400).json({ message: "Senha inválida" });
+      }
+      
+      if (!user.passwordHash || typeof user.passwordHash !== 'string' || user.passwordHash.length === 0) {
+        console.error("[LOGIN] ❌ ERRO: passwordHash inválido ou vazio no banco");
+        return res.status(500).json({ message: "Erro interno: senha do usuário inválida" });
+      }
+
       // Verify password
       console.log("[LOGIN] ===== VERIFICAÇÃO DE SENHA =====");
       console.log("[LOGIN] Comparando senha fornecida com hash do banco...");
-      const isValid = await comparePassword(password, user.passwordHash);
-      console.log("[LOGIN] Resultado da comparação:", isValid);
-      console.log("[LOGIN] ================================");
+      console.log("[LOGIN] Password length:", password.length);
+      console.log("[LOGIN] PasswordHash length:", user.passwordHash.length);
+      console.log("[LOGIN] PasswordHash prefix:", user.passwordHash.substring(0, 10) + '...');
+      
+      let isValid: boolean;
+      try {
+        isValid = await comparePassword(password, user.passwordHash);
+        console.log("[LOGIN] Resultado da comparação:", isValid);
+        console.log("[LOGIN] ================================");
+      } catch (compareError: any) {
+        console.error("[LOGIN] ❌ ERRO ao comparar senha");
+        console.error("[LOGIN] Erro:", compareError.message);
+        console.error("[LOGIN] Stack:", compareError.stack);
+        throw new Error(`Erro ao verificar senha: ${compareError.message}`);
+      }
       
       if (!isValid) {
         console.log("[LOGIN] ❌ CONDIÇÃO: Senha inválida");
@@ -382,6 +416,13 @@ export async function registerRoutes(app: Express): Promise<void> {
 
       // Create session
       console.log("[LOGIN] Creating session...");
+      
+      // CRÍTICO: Validar que user.id existe antes de usar
+      if (!user.id || typeof user.id !== 'string' || user.id.length === 0) {
+        console.error("[LOGIN] ❌ ERRO: User ID inválido");
+        return res.status(500).json({ message: "Erro interno: ID do usuário inválido" });
+      }
+      
       req.session.userId = user.id;
       console.log('[LOGIN] 🔧 Session userId set to:', user.id);
       console.log('[LOGIN] 🔧 Session object before save:', JSON.stringify(req.session));
@@ -391,9 +432,18 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log("[LOGIN] Salvando sessão...");
       try {
         await new Promise<void>((resolve, reject) => {
+          if (!req.session) {
+            const error = new Error("Sessão não disponível");
+            console.error('[LOGIN] ❌ Session não disponível');
+            reject(error);
+            return;
+          }
+          
           req.session.save((err) => {
             if (err) {
               console.error('[LOGIN] ❌ Session save error:', err);
+              console.error('[LOGIN] Session save error message:', err.message);
+              console.error('[LOGIN] Session save error stack:', err.stack);
               reject(err);
             } else {
               console.log('[LOGIN] ✅ Session saved successfully');
@@ -402,9 +452,11 @@ export async function registerRoutes(app: Express): Promise<void> {
             }
           });
         });
-      } catch (saveError) {
-        console.error('[LOGIN] ❌ Failed to save session:', saveError);
-        throw saveError;
+      } catch (saveError: any) {
+        console.error('[LOGIN] ❌ Failed to save session');
+        console.error('[LOGIN] Save error:', saveError.message);
+        console.error('[LOGIN] Save error stack:', saveError.stack);
+        throw new Error(`Erro ao salvar sessão: ${saveError.message}`);
       }
       
       // CRÍTICO: Verificar se o Set-Cookie header foi adicionado
@@ -466,7 +518,14 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.error("[LOGIN ERROR] Tipo:", error.name || 'Unknown');
       console.error("[LOGIN ERROR] Message:", error.message);
       console.error("[LOGIN ERROR] Stack:", error.stack);
-      console.error("[LOGIN ERROR] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      
+      // Tentar serializar o erro completo
+      try {
+        console.error("[LOGIN ERROR] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      } catch (serializeError) {
+        console.error("[LOGIN ERROR] Não foi possível serializar o erro completo");
+      }
+      
       console.error("============================================");
       
       // IMPORTANTE: NUNCA retornar 403 nesta rota
@@ -475,14 +534,50 @@ export async function registerRoutes(app: Express): Promise<void> {
       // 400 = Bad Request (dados inválidos)
       // 500 = Internal Server Error (erro do servidor)
       
-      if (error.name === 'ZodError') {
-        console.log("[LOGIN] Retornando 400 (Bad Request) - erro de validação");
-        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
-      } else {
-        console.log("[LOGIN] Retornando 500 (Internal Server Error) - erro inesperado");
-        console.log("[LOGIN] NUNCA retornar 403 nesta rota");
-        return res.status(500).json({ message: error.message || "Erro ao fazer login" });
+      // CRÍTICO: Garantir que sempre retorna JSON, nunca texto puro
+      // Verificar se a resposta já foi enviada
+      if (res.headersSent) {
+        console.error("[LOGIN] ⚠️ Resposta já foi enviada, não é possível enviar erro");
+        return;
       }
+      
+      let statusCode: number;
+      let errorMessage: string;
+      let errorResponse: any;
+      
+      if (error.name === 'ZodError') {
+        statusCode = 400;
+        errorMessage = "Dados inválidos";
+        errorResponse = { 
+          message: errorMessage, 
+          errors: error.errors || error.message 
+        };
+        console.log("[LOGIN] 🔥 LOGIN RETURN: 400 (Bad Request) - erro de validação");
+      } else if (error.message && error.message.includes('credenciais')) {
+        // Erros relacionados a credenciais devem retornar 401, não 500
+        statusCode = 401;
+        errorMessage = "Email ou senha incorretos";
+        errorResponse = { message: errorMessage };
+        console.log("[LOGIN] 🔥 LOGIN RETURN: 401 (Unauthorized) - erro de credenciais");
+      } else {
+        statusCode = 500;
+        errorMessage = error.message || "Erro ao fazer login";
+        errorResponse = { 
+          message: errorMessage,
+          // Em produção, não expor detalhes do erro
+          ...(process.env.NODE_ENV !== 'production' && { 
+            error: error.name,
+            stack: error.stack 
+          })
+        };
+        console.log("[LOGIN] 🔥 LOGIN RETURN: 500 (Internal Server Error) - erro inesperado");
+      }
+      
+      console.log("[LOGIN] 🔥 Status code antes de return:", statusCode);
+      console.log("[LOGIN] NUNCA retornar 403 nesta rota");
+      
+      // CRÍTICO: Sempre retornar JSON
+      return res.status(statusCode).json(errorResponse);
     }
   });
 

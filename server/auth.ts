@@ -6,7 +6,26 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+  // CRÍTICO: Validar parâmetros antes de usar bcrypt
+  if (!password || typeof password !== 'string' || password.length === 0) {
+    throw new Error("Password inválido ou vazio");
+  }
+  
+  if (!hash || typeof hash !== 'string' || hash.length === 0) {
+    throw new Error("Hash inválido ou vazio");
+  }
+  
+  // Validar formato do hash (bcrypt hash começa com $2a$, $2b$ ou $2y$)
+  if (!hash.startsWith('$2')) {
+    throw new Error("Hash não está no formato bcrypt válido");
+  }
+  
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch (error: any) {
+    console.error("[comparePassword] Erro ao comparar senha:", error.message);
+    throw new Error(`Erro ao verificar senha: ${error.message}`);
+  }
 }
 
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
