@@ -18,10 +18,15 @@ FROM base AS build
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy package files
+COPY package-lock.json package.json ./
 
 # Install node modules
-COPY package-lock.json package.json ./
+# npm ci falha se package-lock.json não estiver sincronizado com package.json
+# Dependências opcionais (como bufferutil) são instaladas mas falhas não quebram o build
 RUN npm ci --include=dev
 
 # Copy application code
@@ -37,8 +42,11 @@ RUN npm prune --omit=dev
 # Final stage for app image
 FROM base
 
-# Copy built application
-COPY --from=build /app /app
+# Copy built application and production dependencies only
+COPY --from=build /app/dist /app/dist
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/package.json /app/package.json
+COPY --from=build /app/package-lock.json /app/package-lock.json
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000

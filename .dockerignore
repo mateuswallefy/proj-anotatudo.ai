@@ -80,7 +80,8 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# dist - NÃO ignorar, é necessário copiar para o container durante o build
+# (mas não copiaremos do host, será gerado dentro do container)
 
 # Gatsby files
 .cache/
