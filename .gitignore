@@ -2,8 +2,13 @@
 # 🔒 SEGURANÇA - Variáveis de Ambiente
 # ============================================
 # Ignorar TODOS os arquivos de ambiente
+# IMPORTANTE: NUNCA commitar arquivos .env - contêm secrets!
 .env
 .env.*
+.env.local
+.env.development
+.env.production
+.env.test
 !.env.example
 
 # ============================================
