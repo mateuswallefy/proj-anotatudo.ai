@@ -7,11 +7,12 @@ import ws from "ws";
 // Configure Neon for Node.js environment
 neonConfig.webSocketConstructor = ws;
 
-// Use NEON_DATABASE_URL (custom name that Replit won't override)
+// Use NEON_DATABASE_URL (preferred)
+// Fallback to DATABASE_URL for compatibility
 const getDatabaseUrl = () => {
   const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) {
-    throw new Error("[SESSION] NEON_DATABASE_URL must be set. Add it in Replit Secrets.");
+    throw new Error("[SESSION] NEON_DATABASE_URL or DATABASE_URL must be set. Check your .env.local file in development.");
   }
   return url;
 };

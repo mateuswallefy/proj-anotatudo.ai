@@ -5,12 +5,55 @@
 // para garantir que .env.local seja carregado antes de
 // qualquer módulo que use process.env
 import dotenv from "dotenv";
+import * as fs from "fs";
+import * as path from "path";
+
+const isDev = process.env.NODE_ENV !== "production";
 
 // Carrega variáveis locais SOMENTE em desenvolvimento
 // Em produção, as variáveis vêm do ambiente (Fly.io, etc)
-if (process.env.NODE_ENV !== "production") {
-  dotenv.config({ path: ".env.local" });
-  console.log("✅ [ENV] Carregado .env.local para desenvolvimento");
+if (isDev) {
+  const envPath = path.resolve(process.cwd(), ".env.local");
+  const envExists = fs.existsSync(envPath);
+  
+  if (envExists) {
+    const result = dotenv.config({ path: envPath });
+    if (result.error) {
+      console.error("❌ [ENV] Erro ao carregar .env.local:", result.error.message);
+    } else {
+      console.log("✅ [ENV] .env.local carregado com sucesso");
+      
+      // Validar variáveis críticas
+      const hasNeonUrl = !!(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL);
+      const hasSessionSecret = !!process.env.SESSION_SECRET;
+      
+      console.log("✅ [ENV] Variáveis carregadas:");
+      console.log(`   - NEON_DATABASE_URL: ${hasNeonUrl ? '✅ definida' : '❌ NÃO definida'}`);
+      console.log(`   - SESSION_SECRET: ${hasSessionSecret ? '✅ definida' : '❌ NÃO definida'}`);
+      console.log(`   - NODE_ENV: ${process.env.NODE_ENV || 'undefined'}`);
+      
+      if (!hasNeonUrl) {
+        console.warn("⚠️  [ENV] AVISO: NEON_DATABASE_URL ou DATABASE_URL não encontrada!");
+        console.warn("⚠️  [ENV] Certifique-se de que .env.local contém NEON_DATABASE_URL");
+      }
+      
+      if (!hasSessionSecret) {
+        console.warn("⚠️  [ENV] AVISO: SESSION_SECRET não encontrada!");
+        console.warn("⚠️  [ENV] Certifique-se de que .env.local contém SESSION_SECRET");
+      }
+    }
+  } else {
+    console.warn("⚠️  [ENV] Arquivo .env.local não encontrado em:", envPath);
+    console.warn("⚠️  [ENV] O servidor pode falhar se as variáveis não estiverem definidas");
+  }
+  
+  // Log adicional para debug (sem vazar secrets)
+  const envCount = Object.keys(process.env).filter(k => 
+    k.includes('DATABASE') || k.includes('SESSION') || k.includes('NODE_ENV')
+  ).length;
+  console.log(`✅ [ENV] Total de variáveis de ambiente relacionadas: ${envCount}`);
+} else {
+  console.log("✅ [ENV] Ambiente de produção - variáveis vêm do ambiente do sistema");
 }
 
 // ============================================
@@ -41,7 +84,7 @@ const isProd = process.env.NODE_ENV === 'production';
 // Em produção, "/health" é usado pelo Replit para healthcheck
 // A rota "/" será servida pelo serveStatic (index.html da aplicação)
 app.get("/health", (req, res) => res.status(200).send("OK"));
-app.get("/api/health", (req, res) => res.json({ ok: true }));
+// /api/health detalhado será registrado em routes.ts após middlewares
 
 // Get PORT from environment
 // - Em produção: Fly.io define process.env.PORT automaticamente
@@ -153,10 +196,11 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
     await registerRoutes(app);
     
     // Start HTTP server
-    // CRÍTICO: Bind diferente por ambiente
-    // - DEV: 127.0.0.1 (IPv4 apenas) - evita problemas IPv4/IPv6 no macOS
-    // - PROD: 0.0.0.0 (todas interfaces) - necessário para Fly.io
-    const bindAddress = isProd ? "0.0.0.0" : "127.0.0.1";
+    // CRÍTICO: Bind para 0.0.0.0 em DEV e PROD
+    // - DEV: 0.0.0.0 permite que o Vite proxy (que roda em processo separado) se conecte
+    // - PROD: 0.0.0.0 necessário para Fly.io aceitar conexões externas
+    // O CORS ainda protege permitindo apenas origens específicas
+    const bindAddress = "0.0.0.0";
     
     httpServer.listen(PORT, bindAddress, () => {
       if (isProd) {
@@ -169,11 +213,12 @@ async function runDatabaseSetup(logFn?: (message: string, source?: string) => vo
           console.error(`❌ Isso causará conflito com ControlCe do macOS na porta 5000`);
           process.exit(1);
         }
-        console.log(`🚀 Backend DEV rodando em http://127.0.0.1:5050 (bind: 127.0.0.1)`);
+        console.log(`🚀 Backend DEV rodando em http://0.0.0.0:5050 (bind: 0.0.0.0)`);
+        console.log(`✅ Acessível via: http://127.0.0.1:5050 ou http://localhost:5050`);
         console.log(`✅ Ambiente: DESENVOLVIMENTO`);
         console.log(`✅ Frontend: http://127.0.0.1:5173`);
         console.log(`✅ Proxy configurado: /api → http://127.0.0.1:5050`);
-        console.log(`✅ IPv4 explícito (127.0.0.1) evita problemas IPv4/IPv6 no macOS`);
+        console.log(`✅ CORS permite: http://localhost:5173 e http://127.0.0.1:5173`);
         console.log(`✅ Porta 5050 evita conflito com ControlCe do macOS na porta 5000`);
       }
       console.log(`ready`);

@@ -5,7 +5,7 @@ import * as fs from "fs";
 import multer from "multer";
 import { storage } from "./storage.js";
 import { isAuthenticated, hashPassword, comparePassword, requireAdmin } from "./auth.js";
-import { db } from "./db.js";
+import { db, pingDatabase, getDatabaseHostname } from "./db.js";
 import { 
   users, 
   transacoes, 
@@ -100,6 +100,76 @@ export function extractTextFromMessage(message: any): string {
 }
 
 export async function registerRoutes(app: Express): Promise<void> {
+  // ============================================
+  // ENDPOINT /api/health DETALHADO
+  // ============================================
+  app.get("/api/health", async (req, res) => {
+    try {
+      const isDev = process.env.NODE_ENV === 'development';
+      
+      // Verificar env vars
+      const envLoaded = !!(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL);
+      const hasNeonUrl = !!process.env.NEON_DATABASE_URL;
+      const hasSessionSecret = !!process.env.SESSION_SECRET;
+      
+      // Extrair hostname do DB (sem credentials)
+      const neonHost = getDatabaseHostname();
+      
+      // Verificar conexão com DB
+      const dbCheck = await pingDatabase();
+      
+      // Informações de session (usando session middleware se disponível)
+      const sessionStore = (req as any).sessionStore;
+      let sessionInfo: {
+        store: 'memory' | 'redis' | 'postgres' | 'other';
+        cookieName?: string;
+        sameSite?: string;
+        secure?: boolean;
+        proxy?: boolean;
+      } = {
+        store: 'other'
+      };
+      
+      if (req.session) {
+        sessionInfo = {
+          store: isDev ? 'memory' : (sessionStore?.name || 'postgres'),
+          cookieName: (req.session as any).cookie?.name || 'anotatudo.sid',
+          sameSite: (req.session as any).cookie?.sameSite || 'lax',
+          secure: (req.session as any).cookie?.secure || false,
+          proxy: (req.session as any).cookie?.proxy || true,
+        };
+      } else if (isDev) {
+        // Em DEV, session store é memory
+        sessionInfo.store = 'memory';
+        sessionInfo.cookieName = 'anotatudo.sid';
+        sessionInfo.sameSite = 'lax';
+        sessionInfo.secure = false;
+        sessionInfo.proxy = true;
+      }
+      
+      const health = {
+        status: dbCheck.ok ? 'healthy' : 'degraded',
+        envLoaded,
+        hasNeonUrl,
+        neonHost,
+        hasSessionSecret,
+        db: dbCheck,
+        session: sessionInfo,
+        timestamp: new Date().toISOString(),
+        nodeEnv: process.env.NODE_ENV || 'development',
+      };
+      
+      const statusCode = dbCheck.ok ? 200 : 503;
+      res.status(statusCode).json(health);
+    } catch (error: any) {
+      res.status(503).json({
+        status: 'error',
+        error: error.message || 'Health check failed',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Diagnostic endpoints (no session required, for debugging)
   app.get("/_db-check", (req, res) => {
     const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "NOT_SET";
@@ -284,6 +354,14 @@ export async function registerRoutes(app: Express): Promise<void> {
     // AUDITORIA: Esta rota NÃO deve ter middleware isAuthenticated
     // Ela é pública e permite login sem autenticação prévia
     
+    const isDev = process.env.NODE_ENV === 'development';
+    
+    // CRÍTICO: Garantir Content-Type JSON em TODAS as respostas
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Helper para gerar errorId curto
+    const generateErrorId = () => uuidv4().split('-')[0].toUpperCase();
+    
     // CRÍTICO: Wrapper único envolvendo TODO o fluxo
     // Garante que qualquer erro é capturado e retorna JSON
     try {
@@ -301,10 +379,12 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       // CRÍTICO: Verificar se sessão está disponível
       if (!req.session) {
-        console.error("[LOGIN] ❌ ERRO: req.session não está disponível");
+        const errorId = generateErrorId();
+        console.error(`[LOGIN] ❌ ERRO [${errorId}]: req.session não está disponível`);
         return res.status(500).json({ 
           message: "Erro interno: sessão não disponível",
-          code: "SESSION_UNAVAILABLE"
+          code: "SESSION_UNAVAILABLE",
+          errorId
         });
       }
       
@@ -353,6 +433,52 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log("[LOGIN] Buscando usuário no banco de dados...");
       console.log("[LOGIN] Email para busca:", email);
       
+      // Validar conexão com DB antes de buscar usuário
+      let dbCheck;
+      try {
+        dbCheck = await pingDatabase();
+        if (!dbCheck.ok) {
+          const errorId = generateErrorId();
+          console.error(`[LOGIN] ❌ ERRO [${errorId}]: Falha na conexão com banco de dados`);
+          console.error(`[LOGIN] DB Error:`, dbCheck.error);
+          
+          if (res.headersSent) {
+            return;
+          }
+          
+          return res.status(503).json({
+            message: "Serviço temporariamente indisponível",
+            code: "DATABASE_UNAVAILABLE",
+            errorId,
+            ...(isDev && {
+              details: dbCheck.error,
+            }),
+          });
+        }
+        console.log(`[LOGIN] ✅ DB ping OK (latência: ${dbCheck.latencyMs}ms)`);
+      } catch (pingError: any) {
+        const errorId = generateErrorId();
+        console.error(`[LOGIN] ❌ ERRO [${errorId}]: Falha ao validar conexão com banco`);
+        console.error(`[LOGIN] Ping Error:`, pingError.message);
+        if (isDev && pingError.stack) {
+          console.error(`[LOGIN] Stack:`, pingError.stack);
+        }
+        
+        if (res.headersSent) {
+          return;
+        }
+        
+        return res.status(503).json({
+          message: "Serviço temporariamente indisponível",
+          code: "DATABASE_UNAVAILABLE",
+          errorId,
+          ...(isDev && {
+            details: pingError.message,
+            stack: pingError.stack,
+          }),
+        });
+      }
+      
       let user;
       try {
         user = await storage.getUserByEmail(email);
@@ -369,10 +495,40 @@ export async function registerRoutes(app: Express): Promise<void> {
         }
         console.log("[LOGIN] ================================");
       } catch (dbError: any) {
-        console.error("[LOGIN] ❌ ERRO ao buscar usuário no banco de dados");
-        console.error("[LOGIN] Erro:", dbError.message);
-        console.error("[LOGIN] Stack:", dbError.stack);
-        throw new Error(`Erro ao buscar usuário: ${dbError.message}`);
+        const errorId = generateErrorId();
+        console.error(`[LOGIN] ❌ ERRO [${errorId}] ao buscar usuário no banco de dados`);
+        console.error(`[LOGIN] Erro:`, dbError.message);
+        if (isDev && dbError.stack) {
+          console.error(`[LOGIN] Stack completo:`, dbError.stack);
+        }
+        
+        // Detectar se é erro de conexão/DB
+        const isDbError = 
+          dbError.message?.includes('connection') ||
+          dbError.message?.includes('ECONNREFUSED') ||
+          dbError.message?.includes('timeout') ||
+          dbError.message?.includes('pool') ||
+          dbError.code === 'ECONNREFUSED' ||
+          dbError.code === 'ETIMEDOUT';
+        
+        if (res.headersSent) {
+          return;
+        }
+        
+        // Retornar 503 para erros de DB, 500 para outros erros
+        const statusCode = isDbError ? 503 : 500;
+        return res.status(statusCode).json({
+          message: isDbError 
+            ? "Serviço temporariamente indisponível"
+            : "Erro interno ao buscar usuário",
+          code: isDbError ? "DATABASE_UNAVAILABLE" : "DATABASE_ERROR",
+          errorId,
+          ...(isDev && {
+            details: dbError.message,
+            stack: dbError.stack,
+            cause: "Falha na query getUserByEmail",
+          }),
+        });
       }
       
       // Verificar se usuário existe e tem senha
@@ -595,17 +751,29 @@ export async function registerRoutes(app: Express): Promise<void> {
       throw innerError;
     }
     } catch (error: any) {
-      console.error("============================================");
-      console.error("[LOGIN] ===== ERRO CAPTURADO =====");
-      console.error("[LOGIN ERROR] Tipo:", error.name || 'Unknown');
-      console.error("[LOGIN ERROR] Message:", error.message);
-      console.error("[LOGIN ERROR] Stack:", error.stack);
+      const errorId = generateErrorId();
+      const isDev = process.env.NODE_ENV === 'development';
       
-      // Tentar serializar o erro completo
-      try {
-        console.error("[LOGIN ERROR] Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
-      } catch (serializeError) {
-        console.error("[LOGIN ERROR] Não foi possível serializar o erro completo");
+      console.error("============================================");
+      console.error(`[LOGIN] ===== ERRO CAPTURADO [${errorId}] =====`);
+      console.error(`[LOGIN ERROR] Tipo:`, error.name || 'Unknown');
+      console.error(`[LOGIN ERROR] Message:`, error.message);
+      if (isDev && error.stack) {
+        console.error(`[LOGIN ERROR] Stack completo:`, error.stack);
+      }
+      
+      // Tentar serializar o erro completo (apenas em DEV)
+      if (isDev) {
+        try {
+          console.error(`[LOGIN ERROR] Full error:`, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        } catch (serializeError) {
+          console.error(`[LOGIN ERROR] Não foi possível serializar o erro completo`);
+        }
+      }
+      
+      // Logar causa raiz (DEV only)
+      if (isDev && error.cause) {
+        console.error(`[LOGIN ERROR] Causa raiz:`, error.cause);
       }
       
       console.error("============================================");
@@ -615,11 +783,12 @@ export async function registerRoutes(app: Express): Promise<void> {
       // 401 = Unauthorized (credenciais inválidas)
       // 400 = Bad Request (dados inválidos)
       // 500 = Internal Server Error (erro do servidor)
+      // 503 = Service Unavailable (DB indisponível)
       
       // CRÍTICO: Garantir que sempre retorna JSON, nunca texto puro
       // Verificar se a resposta já foi enviada
       if (res.headersSent) {
-        console.error("[LOGIN] ⚠️ Resposta já foi enviada, não é possível enviar erro");
+        console.error(`[LOGIN] ⚠️ [${errorId}] Resposta já foi enviada, não é possível enviar erro`);
         // Se a resposta já foi enviada, não podemos fazer nada
         // Apenas logar o erro para debug
         return;
@@ -632,46 +801,74 @@ export async function registerRoutes(app: Express): Promise<void> {
       let errorMessage: string;
       let errorResponse: any;
       
+      // Detectar erros de DB
+      const isDbError = 
+        error.message?.includes('connection') ||
+        error.message?.includes('ECONNREFUSED') ||
+        error.message?.includes('timeout') ||
+        error.message?.includes('pool') ||
+        error.message?.includes('database') ||
+        error.message?.includes('Erro ao buscar usuário') ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ETIMEDOUT';
+      
       if (error.name === 'ZodError') {
         statusCode = 400;
         errorMessage = "Dados inválidos";
         errorResponse = { 
           message: errorMessage, 
           errors: error.errors || error.message,
-          code: "VALIDATION_ERROR"
+          code: "VALIDATION_ERROR",
+          errorId
         };
-        console.log("[LOGIN] 🔥 LOGIN RETURN: 400 (Bad Request) - erro de validação");
+        console.log(`[LOGIN] 🔥 LOGIN RETURN: 400 (Bad Request) - erro de validação [${errorId}]`);
       } else if (error.message && (error.message.includes('credenciais') || error.message.includes('Email ou senha'))) {
         // Erros relacionados a credenciais devem retornar 401, não 500
         statusCode = 401;
         errorMessage = "Email ou senha incorretos";
         errorResponse = { 
           message: errorMessage,
-          code: "INVALID_CREDENTIALS"
+          code: "INVALID_CREDENTIALS",
+          errorId
         };
-        console.log("[LOGIN] 🔥 LOGIN RETURN: 401 (Unauthorized) - erro de credenciais");
+        console.log(`[LOGIN] 🔥 LOGIN RETURN: 401 (Unauthorized) - erro de credenciais [${errorId}]`);
+      } else if (isDbError) {
+        // Erros de DB retornam 503
+        statusCode = 503;
+        errorMessage = "Serviço temporariamente indisponível";
+        errorResponse = { 
+          message: errorMessage,
+          code: "DATABASE_UNAVAILABLE",
+          errorId,
+          ...(isDev && {
+            details: error.message,
+            stack: error.stack,
+            cause: "Falha na conexão ou query do banco de dados",
+          }),
+        };
+        console.log(`[LOGIN] 🔥 LOGIN RETURN: 503 (Service Unavailable) - erro de DB [${errorId}]`);
       } else {
         statusCode = 500;
         errorMessage = "Erro interno no login";
         errorResponse = { 
           message: errorMessage,
-          code: "INTERNAL_ERROR"
+          code: "INTERNAL_ERROR",
+          errorId,
+          ...(isDev && {
+            error: error.name || 'Unknown',
+            details: error.message,
+            stack: error.stack,
+            cause: error.cause || "Erro inesperado no processo de login",
+          }),
         };
         
-        // Em desenvolvimento, incluir detalhes do erro
-        if (process.env.NODE_ENV !== 'production') {
-          errorResponse.error = error.name || 'Unknown';
-          errorResponse.details = error.message;
-          if (error.stack) {
-            errorResponse.stack = error.stack;
-          }
+        console.log(`[LOGIN] 🔥 LOGIN RETURN: 500 (Internal Server Error) - erro inesperado [${errorId}]`);
+        if (isDev) {
+          console.log(`[LOGIN] Erro completo:`, error);
         }
-        
-        console.log("[LOGIN] 🔥 LOGIN RETURN: 500 (Internal Server Error) - erro inesperado");
-        console.log("[LOGIN] Erro completo:", error);
       }
       
-      console.log("[LOGIN] 🔥 Status code antes de return:", statusCode);
+      console.log(`[LOGIN] 🔥 Status code antes de return: ${statusCode} [${errorId}]`);
       console.log("[LOGIN] NUNCA retornar 403 nesta rota");
       
       // CRÍTICO: Sempre retornar JSON com return explícito

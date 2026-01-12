@@ -1,24 +1,50 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
+/**
+ * Detecta se um erro de resposta é típico de falha no proxy do Vite
+ */
+function isProxyError(res: Response, text: string): boolean {
+  // Verificar status codes típicos de erro de proxy
+  if (res.status === 500 || res.status === 502 || res.status === 504) {
+    const contentType = res.headers.get('content-type') || '';
+    
+    // Se for text/plain, provavelmente é erro do proxy
+    if (contentType.includes('text/plain')) {
+      return true;
+    }
+    
+    // Se a mensagem contém indicadores de erro de proxy
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('proxy error') || 
+        lowerText.includes('gateway timeout') ||
+        lowerText.includes('bad gateway') ||
+        lowerText.includes('econnrefused') ||
+        lowerText.includes('connection refused')) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+async function throwIfResNotOk(res: Response, text?: string) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
+    const errorText = text || (await res.text()) || res.statusText;
     
     // Logs detalhados apenas em desenvolvimento
     const isDev = import.meta.env.DEV;
     if (isDev) {
       console.error("🔥🔥🔥 [FRONTEND API ERROR] 🔥🔥🔥");
-      console.error(`🔥 [FRONTEND] Status code BRUTO da response:`, res.status);
+      console.error(`🔥 [FRONTEND] Status code:`, res.status);
       console.error(`🔥 [FRONTEND] Status text:`, res.statusText);
       console.error(`🔥 [FRONTEND] URL:`, res.url);
-      console.error(`🔥 [FRONTEND] Response text:`, text);
-      console.error(`🔥 [FRONTEND] Response headers:`, Object.fromEntries(res.headers.entries()));
+      console.error(`🔥 [FRONTEND] Content-Type:`, res.headers.get('content-type'));
+      console.error(`🔥 [FRONTEND] Response text:`, errorText.substring(0, 200)); // Limitar tamanho
       console.error(`🔥 [FRONTEND] Response ok:`, res.ok);
-      console.error(`🔥 [FRONTEND] Response type:`, res.type);
-      console.error(`🔥 [FRONTEND] Response redirected:`, res.redirected);
+      console.error(`🔥 [FRONTEND] É erro de proxy?`, isProxyError(res, errorText));
     }
     
-    throw new Error(`${res.status}: ${text}`);
+    throw new Error(`${res.status}: ${errorText}`);
   }
 }
 
@@ -27,58 +53,74 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Logs apenas em desenvolvimento
   const isDev = import.meta.env.DEV;
+  
+  // Em produção, sempre usar proxy (URL relativa)
+  // Em DEV, tentar proxy primeiro, com fallback automático se falhar
+  const apiBase = isDev ? '' : ''; // Sempre relativo (usa proxy ou mesma origem)
+  
   if (isDev) {
     console.log("🔥🔥🔥 [FRONTEND] apiRequest chamado 🔥🔥🔥");
     console.log("🔥 [FRONTEND] Method:", method);
     console.log("🔥 [FRONTEND] URL:", url);
     console.log("🔥 [FRONTEND] Has data:", !!data);
-    console.log("🔥 [FRONTEND] Credentials: include");
   }
   
-  const res = await fetch(url, {
+  // Primeira tentativa: via proxy (URL relativa)
+  const fullUrl = `${apiBase}${url}`;
+  let res = await fetch(fullUrl, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
-  // Logs de debug apenas em desenvolvimento
-  if (isDev) {
-    console.log("🔥🔥🔥 [FRONTEND] Fetch retornou 🔥🔥🔥");
-    console.log("🔥 [FRONTEND] Status code BRUTO:", res.status);
-    console.log("🔥 [FRONTEND] Status text:", res.statusText);
-    console.log("🔥 [FRONTEND] Response ok:", res.ok);
-    console.log("🔥 [FRONTEND] Response URL:", res.url);
-    console.log("🔥 [FRONTEND] Response headers:", Object.fromEntries(res.headers.entries()));
+  // Clonar response para ler o texto sem consumir o stream
+  const resClone = res.clone();
+  let responseText = '';
+  try {
+    responseText = await resClone.text();
+  } catch (e) {
+    // Ignorar erro ao ler texto
+  }
+
+  // FALLBACK DEV: Detectar erro de proxy e tentar direto no backend
+  if (isDev && !res.ok && url.startsWith('/api') && isProxyError(res, responseText)) {
+    console.warn("⚠️ [DEV] Erro de proxy detectado!");
+    console.warn(`⚠️ [DEV] Status: ${res.status}, Content-Type: ${res.headers.get('content-type')}`);
+    console.warn(`⚠️ [DEV] Tentando fallback direto para http://127.0.0.1:5050${url}...`);
     
-    // Validação de proxy APENAS em desenvolvimento
-    // Em produção, confiamos apenas em response.ok
-    const serverHeader = res.headers.get('server') || '';
-    if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
-      console.warn("⚠️ [DEV] Server header não é Express/Node:", serverHeader);
-      console.warn("⚠️ [DEV] Tentando fallback para localhost:5050...");
+    try {
+      const backendUrl = `http://127.0.0.1:5050${url}`;
+      const fallbackRes = await fetch(backendUrl, {
+        method,
+        headers: data ? { "Content-Type": "application/json" } : {},
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: "include",
+      });
       
-      // FALLBACK DEV: Se estiver em desenvolvimento, reenviar diretamente para o backend
-      if (url.startsWith('/api')) {
-        const backendUrl = `http://127.0.0.1:5050${url}`;
-        const fallbackRes = await fetch(backendUrl, {
-          method,
-          headers: data ? { "Content-Type": "application/json" } : {},
-          body: data ? JSON.stringify(data) : undefined,
-          credentials: "include",
-        });
-        
-        console.log("✅ [DEV] Fallback response:", fallbackRes.status);
-        await throwIfResNotOk(fallbackRes);
+      if (fallbackRes.ok) {
+        console.log(`✅ [DEV] Fallback funcionou! Status: ${fallbackRes.status}`);
         return fallbackRes;
+      } else {
+        console.warn(`⚠️ [DEV] Fallback também retornou erro: ${fallbackRes.status}`);
+        // Tentar ler o texto do fallback para diagnóstico
+        try {
+          const fallbackText = await fallbackRes.clone().text();
+          console.warn(`⚠️ [DEV] Fallback error text:`, fallbackText.substring(0, 200));
+        } catch (e) {
+          // Ignorar
+        }
+        // Continuar com a resposta original (será tratada pelo throwIfResNotOk)
       }
+    } catch (fallbackError) {
+      console.error("❌ [DEV] Erro no fallback:", fallbackError);
+      // Continuar com a resposta original
     }
   }
 
-  // Em produção: confiar apenas em response.ok
-  await throwIfResNotOk(res);
+  // Em produção ou se não for erro de proxy: tratar normalmente
+  await throwIfResNotOk(res, responseText);
   return res;
 }
 
@@ -112,27 +154,36 @@ export const getQueryFn: <T>(options: {
       }
     }
     
-    const res = await fetch(url, {
+    const isDev = import.meta.env.DEV;
+    
+    // Primeira tentativa: via proxy (URL relativa)
+    let res = await fetch(url, {
       credentials: "include",
     });
 
-    // Validação de proxy APENAS em desenvolvimento
-    // Em produção, confiamos apenas em response.ok
-    const isDev = import.meta.env.DEV;
-    if (isDev) {
-      const serverHeader = res.headers.get('server') || '';
-      if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
-        console.warn("⚠️ [DEV] Server header não é Express/Node:", serverHeader);
-        console.warn("⚠️ [DEV] Tentando fallback para localhost:5050...");
+    // Clonar response para ler o texto sem consumir o stream
+    const resClone = res.clone();
+    let responseText = '';
+    try {
+      responseText = await resClone.text();
+    } catch (e) {
+      // Ignorar erro ao ler texto
+    }
+
+    // FALLBACK DEV: Detectar erro de proxy e tentar direto no backend
+    if (isDev && !res.ok && url.startsWith('/api') && isProxyError(res, responseText)) {
+      console.warn("⚠️ [DEV] Erro de proxy detectado no getQueryFn!");
+      console.warn(`⚠️ [DEV] Status: ${res.status}, Content-Type: ${res.headers.get('content-type')}`);
+      console.warn(`⚠️ [DEV] Tentando fallback direto para http://127.0.0.1:5050${url}...`);
+      
+      try {
+        const backendUrl = `http://127.0.0.1:5050${url}`;
+        const fallbackRes = await fetch(backendUrl, {
+          credentials: "include",
+        });
         
-        // FALLBACK DEV: Reenviar diretamente para o backend
-        if (url.startsWith('/api')) {
-          const backendUrl = `http://127.0.0.1:5050${url}`;
-          const fallbackRes = await fetch(backendUrl, {
-            credentials: "include",
-          });
-          
-          console.log("✅ [DEV] Fallback funcionou!");
+        if (fallbackRes.ok) {
+          console.log(`✅ [DEV] Fallback funcionou! Status: ${fallbackRes.status}`);
           // Continuar com o processamento normal usando fallbackRes
           if (isAuthUserEndpoint) {
             if (fallbackRes.status === 401 || fallbackRes.status === 403) {
@@ -149,7 +200,14 @@ export const getQueryFn: <T>(options: {
           }
           await throwIfResNotOk(fallbackRes);
           return await fallbackRes.json();
+        } else {
+          console.warn(`⚠️ [DEV] Fallback também retornou erro: ${fallbackRes.status}`);
+          // Usar a resposta original do fallback para tratamento de erro
+          res = fallbackRes;
         }
+      } catch (fallbackError) {
+        console.error("❌ [DEV] Erro no fallback:", fallbackError);
+        // Continuar com a resposta original
       }
     }
 
@@ -187,7 +245,15 @@ export const getQueryFn: <T>(options: {
       return null as T;
     }
 
-    await throwIfResNotOk(res);
+    // Para ler o texto apenas se necessário (não consumir o stream prematuramente)
+    const finalResClone = res.clone();
+    let finalResponseText = '';
+    try {
+      finalResponseText = await finalResClone.text();
+    } catch (e) {
+      // Ignorar
+    }
+    await throwIfResNotOk(res, finalResponseText);
     return await res.json();
   };
 
