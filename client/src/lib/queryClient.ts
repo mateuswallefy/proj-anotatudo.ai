@@ -62,7 +62,7 @@ export async function apiRequest(
       
       // FALLBACK DEV: Se estiver em desenvolvimento, reenviar diretamente para o backend
       if (url.startsWith('/api')) {
-        const backendUrl = `http://localhost:5050${url}`;
+        const backendUrl = `http://127.0.0.1:5050${url}`;
         const fallbackRes = await fetch(backendUrl, {
           method,
           headers: data ? { "Content-Type": "application/json" } : {},
@@ -127,7 +127,7 @@ export const getQueryFn: <T>(options: {
         
         // FALLBACK DEV: Reenviar diretamente para o backend
         if (url.startsWith('/api')) {
-          const backendUrl = `http://localhost:5050${url}`;
+          const backendUrl = `http://127.0.0.1:5050${url}`;
           const fallbackRes = await fetch(backendUrl, {
             credentials: "include",
           });

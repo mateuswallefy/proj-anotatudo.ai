@@ -88,8 +88,8 @@ export default function Auth() {
       if (isDev) {
         const cookiesAfterLogin = document.cookie;
         console.log('[Frontend] 🔥 Cookies APÓS login:', cookiesAfterLogin || 'nenhum cookie');
-        if (!cookiesAfterLogin.includes('connect.sid')) {
-          console.warn('[Frontend] ⚠️ Cookie connect.sid não encontrado após login');
+        if (!cookiesAfterLogin.includes('anotatudo.sid')) {
+          console.warn('[Frontend] ⚠️ Cookie anotatudo.sid não encontrado após login');
         }
       }
       
