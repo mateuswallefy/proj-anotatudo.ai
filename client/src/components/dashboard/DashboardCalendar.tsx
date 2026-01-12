@@ -86,34 +86,34 @@ export function DashboardCalendar() {
 
   return (
     <>
-      <div className="inline-flex items-center gap-1 md:gap-2">
+      <div className="inline-flex items-center gap-1">
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 md:h-8 md:w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation flex-shrink-0"
+          className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation flex-shrink-0"
           onClick={handlePrevMonth}
           aria-label="Mês anterior"
         >
-          <ChevronLeft className="h-5 w-5 md:h-4 md:w-4 text-[#3B82F6]" />
+          <ChevronLeft className="h-4 w-4 text-[#3B82F6]" />
         </Button>
-        
+
         <Button
           variant="ghost"
           onClick={handleOpenCalendar}
-          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation"
         >
           <CalendarIcon className="h-4 w-4 text-[#3B82F6] flex-shrink-0" />
-          <span className="text-base md:text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">{displayText}</span>
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">{displayText}</span>
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 md:h-8 md:w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation flex-shrink-0"
+          className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation flex-shrink-0"
           onClick={handleNextMonth}
           aria-label="Próximo mês"
         >
-          <ChevronRight className="h-5 w-5 md:h-4 md:w-4 text-[#3B82F6]" />
+          <ChevronRight className="h-4 w-4 text-[#3B82F6]" />
         </Button>
       </div>
 

@@ -125,7 +125,7 @@ export function DashboardCategoryChart() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-[24px] border-0 shadow-xl bg-gradient-to-br from-card to-card/80">
+      <Card className="rounded-2xl border-0 shadow-lg bg-gradient-to-br from-card to-card/80">
         <CardHeader className="p-5 sm:p-6">
           <Skeleton className="h-7 w-48" />
         </CardHeader>
@@ -143,7 +143,7 @@ export function DashboardCategoryChart() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className="rounded-[24px] border-0 shadow-xl bg-gradient-to-br from-card via-card to-card/90 overflow-hidden relative">
+        <Card className="rounded-2xl border-0 shadow-lg bg-gradient-to-br from-card via-card to-card/90 overflow-hidden relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-rose-500/5 to-transparent rounded-full blur-3xl" />
 
           <CardHeader className="p-5 sm:p-6 relative">
@@ -160,7 +160,7 @@ export function DashboardCategoryChart() {
 
           <CardContent className="p-5 sm:p-6 pt-0 relative">
             <div className="flex flex-col items-center justify-center h-[280px] text-center">
-              <div className="p-4 rounded-full bg-muted/50 mb-4">
+              <div className="p-4 rounded-2xl bg-muted/30 mb-4">
                 <Wallet className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium text-muted-foreground">
@@ -182,7 +182,7 @@ export function DashboardCategoryChart() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
     >
-      <Card className="rounded-[24px] border-0 shadow-xl bg-gradient-to-br from-card via-card to-card/90 overflow-hidden relative">
+      <Card className="rounded-2xl border-0 shadow-lg bg-gradient-to-br from-card via-card to-card/90 overflow-hidden relative">
         {/* Decorative background elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-rose-500/5 to-transparent rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-500/5 to-transparent rounded-full blur-3xl" />

@@ -25,7 +25,7 @@ export default function Dashboard() {
         <DashboardHeader />
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
           <DashboardStatCard
             title="Receitas"
             value={stats.receitas}
@@ -65,14 +65,14 @@ export default function Dashboard() {
         </div>
 
         {/* Widgets Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
           <DashboardCardsWidget />
           <DashboardAgendaWidget />
           <DashboardLastMovements />
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
           <DashboardMonthlyBalance />
           <DashboardCategoryChart />
         </div>

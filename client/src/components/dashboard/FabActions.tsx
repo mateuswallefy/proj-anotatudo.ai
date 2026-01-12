@@ -36,7 +36,7 @@ export function FabActions() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3">
+      <div className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 lg:bottom-8 lg:right-8 z-50 flex flex-col items-end gap-3">
         {/* Secondary Action Buttons - Horizontal */}
         <AnimatePresence>
           {isOpen && (

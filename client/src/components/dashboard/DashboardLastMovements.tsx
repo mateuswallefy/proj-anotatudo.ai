@@ -56,7 +56,7 @@ export function DashboardLastMovements() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-[24px] border-0 shadow-xl bg-gradient-to-br from-card to-card/80">
+      <Card className="rounded-2xl border-0 shadow-lg bg-gradient-to-br from-card to-card/80">
         <CardContent className="p-5 sm:p-6">
           <Skeleton className="h-7 w-48 mb-5" />
           <div className="space-y-3">
@@ -82,7 +82,7 @@ export function DashboardLastMovements() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
     >
-      <Card className="rounded-[24px] border-0 shadow-xl bg-gradient-to-br from-card via-card to-card/90 overflow-hidden relative h-full">
+      <Card className="rounded-2xl border-0 shadow-lg bg-gradient-to-br from-card via-card to-card/90 overflow-hidden relative h-full">
         {/* Decorative background */}
         <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-violet-500/5 to-transparent rounded-full blur-3xl" />
 

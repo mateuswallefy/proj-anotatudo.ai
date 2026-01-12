@@ -22,43 +22,42 @@ export function DashboardHeader() {
 
   return (
     <div className="space-y-4">
-      {/* Greeting - Desktop only */}
-      <div className="hidden md:block">
-        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+      {/* Desktop Layout */}
+      <div className="hidden md:block pt-4">
+        {/* Greeting */}
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-5">
           {greeting}, {userName}! {emoji}
         </h1>
+
+        {/* Calendar and Period Tabs */}
+        <div className="flex flex-row items-center justify-between gap-4">
+          <DashboardCalendar />
+          <DashboardPeriodTabs />
+        </div>
       </div>
 
-      {/* Mobile Layout: Greeting + Calendar (mesmo eixo vertical, alinhado à esquerda) */}
+      {/* Mobile Layout - mantido igual produção */}
       <div className="md:hidden">
-        {/* Greeting - Mobile only */}
         <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mt-2 mb-2">
           {greeting}, {userName}! {emoji}
         </h1>
-        
-        {/* Calendar - abaixo da saudação, mesmo eixo vertical */}
+
         <div>
           <DashboardCalendar />
         </div>
       </div>
 
-      {/* Desktop: Calendar and Period Tabs */}
-      <div className="hidden md:flex md:flex-row md:items-center md:justify-between gap-3">
-        <DashboardCalendar />
-        <DashboardPeriodTabs />
-      </div>
-
-      {/* Mobile: Period Tabs - abaixo do calendar */}
+      {/* Mobile: Period Tabs - mantido igual produção */}
       <div className="md:hidden">
         <DashboardPeriodTabs />
       </div>
 
       {/* Tip Banner with Astro */}
       {!dismissedTip && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border border-blue-200 dark:border-blue-800 rounded-[20px] p-4 flex items-start gap-3 relative">
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 flex items-start gap-3 relative">
           {/* Astro Avatar */}
-          <div className="flex-shrink-0 w-12 h-12 bg-[#005CA9] rounded-[20px] flex items-center justify-center shadow-sm">
-            <span className="text-white text-xl">⭐</span>
+          <div className="flex-shrink-0 w-11 h-11 bg-[#005CA9] rounded-xl flex items-center justify-center shadow-sm">
+            <span className="text-white text-lg">⭐</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
@@ -66,7 +65,7 @@ export function DashboardHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="flex-shrink-0 h-6 w-6"
+                className="flex-shrink-0 h-6 w-6 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                 onClick={handleDismissTip}
               >
                 <X className="h-3 w-3" />
