@@ -106,3 +106,4 @@ out
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+.claude/settings.local.json
