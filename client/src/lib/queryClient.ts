@@ -4,38 +4,19 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    // 🔥 AUDITORIA: Log detalhado do erro
-    console.error("🔥🔥🔥 [FRONTEND API ERROR] 🔥🔥🔥");
-    console.error(`🔥 [FRONTEND] Status code BRUTO da response:`, res.status);
-    console.error(`🔥 [FRONTEND] Status text:`, res.statusText);
-    console.error(`🔥 [FRONTEND] URL:`, res.url);
-    console.error(`🔥 [FRONTEND] Response text:`, text);
-    console.error(`🔥 [FRONTEND] Response headers:`, Object.fromEntries(res.headers.entries()));
-    console.error(`🔥 [FRONTEND] Response ok:`, res.ok);
-    console.error(`🔥 [FRONTEND] Response type:`, res.type);
-    console.error(`🔥 [FRONTEND] Response redirected:`, res.redirected);
-    
-    // CRÍTICO: Verificar se status é realmente 403 ou se foi convertido
-    if (res.status === 403) {
-      console.error("🔥🔥🔥 [FRONTEND] ⚠️ ATENÇÃO: Status 403 detectado!");
-      console.error("🔥 [FRONTEND] Se o backend não retornou 403, o problema está no proxy ou browser");
+    // Logs detalhados apenas em desenvolvimento
+    const isDev = import.meta.env.DEV;
+    if (isDev) {
+      console.error("🔥🔥🔥 [FRONTEND API ERROR] 🔥🔥🔥");
+      console.error(`🔥 [FRONTEND] Status code BRUTO da response:`, res.status);
+      console.error(`🔥 [FRONTEND] Status text:`, res.statusText);
+      console.error(`🔥 [FRONTEND] URL:`, res.url);
+      console.error(`🔥 [FRONTEND] Response text:`, text);
+      console.error(`🔥 [FRONTEND] Response headers:`, Object.fromEntries(res.headers.entries()));
+      console.error(`🔥 [FRONTEND] Response ok:`, res.ok);
+      console.error(`🔥 [FRONTEND] Response type:`, res.type);
+      console.error(`🔥 [FRONTEND] Response redirected:`, res.redirected);
     }
-    
-    // TEMPORARIAMENTE DESABILITADO: Redirecionamento automático
-    // Isso permite ver o erro real sem redirecionar
-    // Se for erro 401 (Unauthorized) ou 403 (Forbidden), redirecionar para /auth
-    // Mas NÃO redirecionar se já estiver na página de login/auth para evitar loop
-    /*
-    if ((res.status === 401 || res.status === 403)) {
-      const currentPath = window.location.pathname;
-      const isAuthPage = currentPath.startsWith('/login') || currentPath.startsWith('/auth');
-      
-      if (!isAuthPage) {
-        console.log(`[API ERROR] Redirecting to /auth due to ${res.status}`);
-        window.location.href = '/auth';
-      }
-    }
-    */
     
     throw new Error(`${res.status}: ${text}`);
   }
@@ -46,12 +27,15 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // 🔥 AUDITORIA: Log antes de fazer fetch
-  console.log("🔥🔥🔥 [FRONTEND] apiRequest chamado 🔥🔥🔥");
-  console.log("🔥 [FRONTEND] Method:", method);
-  console.log("🔥 [FRONTEND] URL:", url);
-  console.log("🔥 [FRONTEND] Has data:", !!data);
-  console.log("🔥 [FRONTEND] Credentials: include");
+  // Logs apenas em desenvolvimento
+  const isDev = import.meta.env.DEV;
+  if (isDev) {
+    console.log("🔥🔥🔥 [FRONTEND] apiRequest chamado 🔥🔥🔥");
+    console.log("🔥 [FRONTEND] Method:", method);
+    console.log("🔥 [FRONTEND] URL:", url);
+    console.log("🔥 [FRONTEND] Has data:", !!data);
+    console.log("🔥 [FRONTEND] Credentials: include");
+  }
   
   const res = await fetch(url, {
     method,
@@ -60,55 +44,40 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  // 🔥 AUDITORIA: Log imediatamente após fetch (antes de processar)
-  console.log("🔥🔥🔥 [FRONTEND] Fetch retornou 🔥🔥🔥");
-  console.log("🔥 [FRONTEND] Status code BRUTO:", res.status);
-  console.log("🔥 [FRONTEND] Status text:", res.statusText);
-  console.log("🔥 [FRONTEND] Response ok:", res.ok);
-  console.log("🔥 [FRONTEND] Response URL:", res.url);
-  console.log("🔥 [FRONTEND] Response headers:", Object.fromEntries(res.headers.entries()));
-  
-  // CRÍTICO: Verificar se a resposta veio do backend Express ou de outro servidor
-  const serverHeader = res.headers.get('server') || '';
-  const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
-  
-  if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
-    console.error("🔥🔥🔥 [FRONTEND] ⚠️ ERRO CRÍTICO: Request não passou pelo backend!");
-    console.error("🔥 [FRONTEND] Server header:", serverHeader);
-    console.error("🔥 [FRONTEND] Proxy não aplicado corretamente!");
-    console.error("🔥 [FRONTEND] A requisição foi resolvida localmente (AirTunes?)");
-    console.error("🔥 [FRONTEND] URL da requisição:", url);
+  // Logs de debug apenas em desenvolvimento
+  if (isDev) {
+    console.log("🔥🔥🔥 [FRONTEND] Fetch retornou 🔥🔥🔥");
+    console.log("🔥 [FRONTEND] Status code BRUTO:", res.status);
+    console.log("🔥 [FRONTEND] Status text:", res.statusText);
+    console.log("🔥 [FRONTEND] Response ok:", res.ok);
+    console.log("🔥 [FRONTEND] Response URL:", res.url);
+    console.log("🔥 [FRONTEND] Response headers:", Object.fromEntries(res.headers.entries()));
     
-    // FALLBACK DEV: Se estiver em desenvolvimento, reenviar diretamente para o backend
-    if (isDev && url.startsWith('/api')) {
-      console.log("🔥🔥🔥 [FRONTEND] FALLBACK DEV: Reenviando diretamente para http://localhost:5050");
-      const backendUrl = `http://localhost:5050${url}`;
-      console.log("🔥 [FRONTEND] Backend URL:", backendUrl);
+    // Validação de proxy APENAS em desenvolvimento
+    // Em produção, confiamos apenas em response.ok
+    const serverHeader = res.headers.get('server') || '';
+    if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
+      console.warn("⚠️ [DEV] Server header não é Express/Node:", serverHeader);
+      console.warn("⚠️ [DEV] Tentando fallback para localhost:5050...");
       
-      // Reenviar a requisição diretamente para o backend
-      const fallbackRes = await fetch(backendUrl, {
-        method,
-        headers: data ? { "Content-Type": "application/json" } : {},
-        body: data ? JSON.stringify(data) : undefined,
-        credentials: "include",
-      });
-      
-      console.log("🔥🔥🔥 [FRONTEND] Fallback response:", fallbackRes.status);
-      const fallbackServerHeader = fallbackRes.headers.get('server') || '';
-      console.log("🔥 [FRONTEND] Fallback Server header:", fallbackServerHeader);
-      
-      if (fallbackServerHeader && (fallbackServerHeader.toLowerCase().includes('express') || fallbackServerHeader.toLowerCase().includes('node'))) {
-        console.log("✅ [FRONTEND] Fallback funcionou! Resposta veio do backend Express");
+      // FALLBACK DEV: Se estiver em desenvolvimento, reenviar diretamente para o backend
+      if (url.startsWith('/api')) {
+        const backendUrl = `http://127.0.0.1:5050${url}`;
+        const fallbackRes = await fetch(backendUrl, {
+          method,
+          headers: data ? { "Content-Type": "application/json" } : {},
+          body: data ? JSON.stringify(data) : undefined,
+          credentials: "include",
+        });
+        
+        console.log("✅ [DEV] Fallback response:", fallbackRes.status);
         await throwIfResNotOk(fallbackRes);
         return fallbackRes;
-      } else {
-        throw new Error(`Fallback também falhou. Server: ${fallbackServerHeader}. Backend pode estar offline.`);
       }
     }
-    
-    throw new Error(`Request não passou pelo backend. Server: ${serverHeader}. Proxy não aplicado.`);
   }
 
+  // Em produção: confiar apenas em response.ok
   await throwIfResNotOk(res);
   return res;
 }
@@ -147,25 +116,23 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    // CRÍTICO: Verificar se a resposta veio do backend Express (fallback DEV)
-    const serverHeader = res.headers.get('server') || '';
-    const isDev = import.meta.env.DEV || process.env.NODE_ENV === 'development';
-    
-    if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
-      console.error("🔥🔥🔥 [getQueryFn] ⚠️ ERRO: Request não passou pelo backend!");
-      console.error("🔥 [getQueryFn] Server header:", serverHeader);
-      
-      // FALLBACK DEV: Reenviar diretamente para o backend
-      if (isDev && url.startsWith('/api')) {
-        console.log("🔥🔥🔥 [getQueryFn] FALLBACK DEV: Reenviando para http://localhost:5050");
-        const backendUrl = `http://localhost:5050${url}`;
-        const fallbackRes = await fetch(backendUrl, {
-          credentials: "include",
-        });
+    // Validação de proxy APENAS em desenvolvimento
+    // Em produção, confiamos apenas em response.ok
+    const isDev = import.meta.env.DEV;
+    if (isDev) {
+      const serverHeader = res.headers.get('server') || '';
+      if (serverHeader && !serverHeader.toLowerCase().includes('express') && !serverHeader.toLowerCase().includes('node')) {
+        console.warn("⚠️ [DEV] Server header não é Express/Node:", serverHeader);
+        console.warn("⚠️ [DEV] Tentando fallback para localhost:5050...");
         
-        const fallbackServerHeader = fallbackRes.headers.get('server') || '';
-        if (fallbackServerHeader && (fallbackServerHeader.toLowerCase().includes('express') || fallbackServerHeader.toLowerCase().includes('node'))) {
-          console.log("✅ [getQueryFn] Fallback funcionou!");
+        // FALLBACK DEV: Reenviar diretamente para o backend
+        if (url.startsWith('/api')) {
+          const backendUrl = `http://127.0.0.1:5050${url}`;
+          const fallbackRes = await fetch(backendUrl, {
+            credentials: "include",
+          });
+          
+          console.log("✅ [DEV] Fallback funcionou!");
           // Continuar com o processamento normal usando fallbackRes
           if (isAuthUserEndpoint) {
             if (fallbackRes.status === 401 || fallbackRes.status === 403) {
@@ -184,28 +151,34 @@ export const getQueryFn: <T>(options: {
           return await fallbackRes.json();
         }
       }
-      
-      throw new Error(`Request não passou pelo backend. Server: ${serverHeader}`);
     }
 
     // Special handling for auth user endpoint - don't redirect on 401/403
     // This is expected when user is not authenticated
     if (isAuthUserEndpoint) {
-      console.log('[getQueryFn] /api/auth/user endpoint called');
-      console.log('[getQueryFn] Response status:', res.status);
-      console.log('[getQueryFn] Cookies:', document.cookie || 'no cookies');
+      if (isDev) {
+        console.log('[getQueryFn] /api/auth/user endpoint called');
+        console.log('[getQueryFn] Response status:', res.status);
+        console.log('[getQueryFn] Cookies:', document.cookie || 'no cookies');
+      }
       
       if (res.status === 401 || res.status === 403) {
-        console.log('[getQueryFn] Auth user endpoint returned', res.status, '- user not authenticated (expected)');
+        if (isDev) {
+          console.log('[getQueryFn] Auth user endpoint returned', res.status, '- user not authenticated (expected)');
+        }
         return null as T;
       }
       if (!res.ok) {
         const text = await res.text();
-        console.error('[getQueryFn] Error from /api/auth/user:', text);
+        if (isDev) {
+          console.error('[getQueryFn] Error from /api/auth/user:', text);
+        }
         throw new Error(`${res.status}: ${text}`);
       }
       const userData = await res.json();
-      console.log('[getQueryFn] User data received:', userData);
+      if (isDev) {
+        console.log('[getQueryFn] User data received:', userData);
+      }
       return userData;
     }
 
