@@ -1,13 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowDownCircle, ArrowUpCircle, Wallet, Clock, TrendingUp, Edit, MoreVertical } from "lucide-react";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Wallet,
+  Filter,
+  Download,
+  Edit,
+  MoreVertical,
+  FileText,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  ShoppingCart,
+} from "lucide-react";
+import { PeriodSelector } from "@/components/PeriodSelector";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { QuickTransactionDialog } from "@/components/dashboard/QuickTransactionDialog";
 import { EditTransactionDialog } from "@/components/edit-transaction-dialog";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -16,19 +30,21 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import type { TransactionFilters as FilterType } from "@/types/financial";
 import type { Transacao } from "@shared/schema";
-import { format } from "date-fns";
+import { format, isToday, isYesterday, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
 
 export default function Lancamentos() {
-  const { period } = usePeriod();
+  const { period, goToNextMonth, goToPrevMonth, goToCurrentMonth, isCurrentMonth } = usePeriod();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"entrada" | "saida" | undefined>();
   const [filters, setFilters] = useState<FilterType>({ period });
   const [editingTransaction, setEditingTransaction] = useState<Transacao | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Sincronizar filters.period com period do contexto quando mudar
   useEffect(() => {
@@ -38,12 +54,10 @@ export default function Lancamentos() {
   // Build query string
   const buildQueryString = () => {
     const params = new URLSearchParams();
-    // SEMPRE passar period (mesmo que seja o período atual do contexto ou o mês atual como fallback)
     const periodToUse = filters.period || period || (() => {
       const now = new Date();
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     })();
-    // SEMPRE adicionar period, mesmo que seja o mês atual
     params.set("period", periodToUse);
     if (filters.type) params.set("tipo", filters.type);
     if (filters.category) params.set("categoria", filters.category);
@@ -60,476 +74,565 @@ export default function Lancamentos() {
   const { data: transactions, isLoading, error, refetch } = useQuery<Transacao[]>({
     queryKey: ["/api/transacoes", { ...filters, period: filters.period || period }],
     queryFn: async () => {
-      const isDev = import.meta.env.DEV;
       const queryString = buildQueryString();
-      const effectivePeriod = filters.period || period;
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:67',message:'QueryFn entry - filters and period',data:{filtersPeriod:filters.period,contextPeriod:period,effectivePeriod:effectivePeriod,queryString:queryString,isDev:isDev},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      
-      if (isDev) {
-        console.log("═══════════════════════════════════════════════════");
-        console.log("[Lancamentos] 🔍 INICIANDO BUSCA DE TRANSAÇÕES");
-        console.log("[Lancamentos] Filters completo:", JSON.stringify(filters, null, 2));
-        console.log("[Lancamentos] Period do contexto:", period);
-        console.log("[Lancamentos] Filters period:", filters.period);
-        console.log("[Lancamentos] Query string:", queryString);
-      }
-      
       const url = `/api/transacoes${queryString ? `?${queryString}` : ''}`;
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:81',message:'Before fetch request',data:{url:url,hasCookies:!!document.cookie},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      
-      if (isDev) {
-        console.log("[Lancamentos] URL completa:", url);
-        console.log("[Lancamentos] Cookies no navegador:", document.cookie);
-      }
-      
-      // Usar apiRequest para garantir fallback automático e credentials corretos
-      // apiRequest já trata erros e retorna response válido ou lança exceção
       const response = await apiRequest("GET", url);
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:94',message:'After apiRequest - response received',data:{status:response.status,statusText:response.statusText,ok:response.ok,contentType:response.headers.get('content-type')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      
-      if (isDev) {
-        console.log("[Lancamentos] ✅ Response recebida via apiRequest");
-        console.log("[Lancamentos] Response status:", response.status);
-        console.log("[Lancamentos] Response URL:", response.url);
-      }
-      
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError: any) {
-        if (isDev) {
-          console.error("[Lancamentos] ❌ ERRO AO PARSEAR JSON:", parseError);
-        }
-        throw new Error("Resposta inválida do servidor");
-      }
-      
-      if (isDev) {
-        console.log("[Lancamentos] ✅ JSON parseado com sucesso");
-        console.log("[Lancamentos] Tipo de data:", typeof data);
-        console.log("[Lancamentos] É array?", Array.isArray(data));
-        console.log("[Lancamentos] Transações recebidas:", Array.isArray(data) ? data.length : 'NÃO É ARRAY');
-        
-        if (Array.isArray(data) && data.length > 0) {
-          console.log("[Lancamentos] Primeira transação:", {
-            id: data[0].id,
-            tipo: data[0].tipo,
-            dataReal: data[0].dataReal,
-            valor: data[0].valor,
-            categoria: data[0].categoria,
-            userId: data[0].userId,
-          });
-        } else if (Array.isArray(data) && data.length === 0) {
-          console.warn("[Lancamentos] ⚠️ ARRAY VAZIO - Nenhuma transação encontrada");
-        } else {
-          console.error("[Lancamentos] ❌ RESPOSTA NÃO É ARRAY:", data);
-        }
-        console.log("═══════════════════════════════════════════════════");
-      }
-      
+      const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: true, // Sempre habilitado - buildQueryString garante que sempre tem period
+    enabled: true,
     retry: 1,
-    staleTime: 0, // Sempre refetch ao invés de usar cache
+    staleTime: 0,
     refetchOnWindowFocus: false,
-    refetchOnMount: true, // Sempre refetch quando montar
+    refetchOnMount: true,
   });
 
-  // Log de renderização para debug
-  useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:183',message:'Render state logged',data:{isLoading:isLoading,hasTransactions:!!transactions,transactionsLength:transactions?.length||0,hasError:!!error,errorMessage:error?.message||null,willRenderLoading:isLoading,willRenderList:!!transactions&&transactions.length>0,willRenderEmpty:!!transactions&&transactions.length===0,willRenderError:!!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-  }, [isLoading, transactions, error]);
+  // Agrupar transações por data
+  const groupedTransactions = useMemo(() => {
+    if (!transactions || transactions.length === 0) return [];
 
-  // Sincronizar filters.period com period do contexto quando mudar
-  useEffect(() => {
-    if (period && filters.period !== period) {
-      setFilters((prev) => ({ ...prev, period }));
-    }
-  }, [period]); // Apenas quando period mudar, não filters (evitar loop)
+    const grouped: { date: Date; transactions: Transacao[]; total: number }[] = [];
+    const dateMap = new Map<string, Transacao[]>();
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "d 'de' MMM", { locale: ptBR });
-  };
+    transactions.forEach((transaction) => {
+      const date = parseISO(transaction.dataReal);
+      const dateKey = format(date, "yyyy-MM-dd");
+      
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, []);
+      }
+      dateMap.get(dateKey)!.push(transaction);
+    });
 
-  const getTransactionIcon = (tipo: string) => {
-    switch (tipo) {
-      case "entrada":
-        return <ArrowDownCircle className="h-5 w-5 text-emerald-600" />;
-      default:
-        return <ArrowUpCircle className="h-5 w-5 text-pink-600" />;
-    }
-  };
-
-  const getTransactionColor = (tipo: string) => {
-    return tipo === "entrada" ? "text-emerald-600" : "text-pink-600";
-  };
-
-  const getTransactionBg = (tipo: string) => {
-    return tipo === "entrada"
-      ? "bg-emerald-50 dark:bg-emerald-950/20"
-      : "bg-pink-50 dark:bg-pink-950/20";
-  };
-
-  // Calculate KPIs based on new status fields
-  const calculateKPIs = () => {
-    if (!transactions) {
-      return {
-        receitasPaid: 0,
-        despesasPaid: 0,
-        saldoReal: 0,
-        aPagar: 0,
-        aReceber: 0,
-      };
-    }
-
-    // Filter by status and type
-    const incomesPaid = transactions.filter(
-      (t) => t.tipo === "entrada" && (t.status === "paid" || !t.status)
-    );
-    const incomesPending = transactions.filter(
-      (t) => t.tipo === "entrada" && t.status === "pending" && t.pendingKind === "to_receive"
-    );
-    const expensesPaid = transactions.filter(
-      (t) => t.tipo === "saida" && (t.status === "paid" || !t.status)
-    );
-    const expensesPending = transactions.filter(
-      (t) => t.tipo === "saida" && t.status === "pending" && t.pendingKind === "to_pay"
+    // Ordenar por data (mais recente primeiro)
+    const sortedDates = Array.from(dateMap.keys()).sort((a, b) => 
+      new Date(b).getTime() - new Date(a).getTime()
     );
 
-    // Calculate totals
-    const receitasPaid = incomesPaid.reduce((sum, t) => sum + parseFloat(t.valor), 0);
-    const despesasPaid = expensesPaid.reduce((sum, t) => sum + parseFloat(t.valor), 0);
-    const aReceber = incomesPending.reduce((sum, t) => sum + parseFloat(t.valor), 0);
-    const aPagar = expensesPending.reduce((sum, t) => sum + parseFloat(t.valor), 0);
-    const saldoReal = receitasPaid - despesasPaid;
+    sortedDates.forEach((dateKey) => {
+      const date = new Date(dateKey);
+      const dayTransactions = dateMap.get(dateKey)!;
+      const total = dayTransactions.reduce((sum, t) => {
+        const value = parseFloat(t.valor);
+        return sum + (t.tipo === "entrada" ? value : -value);
+      }, 0);
 
-    return {
-      receitasPaid,
-      despesasPaid,
-      saldoReal,
-      aPagar,
-      aReceber,
-    };
+      grouped.push({
+        date,
+        transactions: dayTransactions.sort((a, b) => 
+          new Date(b.dataReal).getTime() - new Date(a.dataReal).getTime()
+        ),
+        total,
+      });
+    });
+
+    return grouped;
+  }, [transactions]);
+
+  // Calcular saldo acumulado
+  const calculateRunningBalance = () => {
+    if (!transactions) return { runningBalance: 0, totals: { receitas: 0, despesas: 0 } };
+
+    const totals = transactions.reduce(
+      (acc, t) => {
+        const value = parseFloat(t.valor);
+        if (t.tipo === "entrada") {
+          acc.receitas += value;
+        } else {
+          acc.despesas += value;
+        }
+        return acc;
+      },
+      { receitas: 0, despesas: 0 }
+    );
+
+    const runningBalance = totals.receitas - totals.despesas;
+
+    return { runningBalance, totals };
   };
 
-  const kpis = calculateKPIs();
+  const { runningBalance, totals } = calculateRunningBalance();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
     }).format(value);
   };
 
+  const formatDateHeader = (date: Date) => {
+    if (isToday(date)) return "Hoje";
+    if (isYesterday(date)) return "Ontem";
+    return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
+  };
+
+  const formatTime = (dateString: string) => {
+    return format(parseISO(dateString), "HH:mm");
+  };
+
+  const getCategoryColor = (categoria: string) => {
+    const colors = [
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+      "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+    ];
+    const index = categoria.length % colors.length;
+    return colors[index];
+  };
+
+  // Parse period to get month/year display
+  const periodDisplay = useMemo(() => {
+    if (!period) return "";
+    const [year, month] = period.split("-");
+    const monthName = format(new Date(parseInt(year), parseInt(month) - 1, 1), "MMMM yyyy", {
+      locale: ptBR,
+    });
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  }, [period]);
+
   return (
     <DashboardContainer>
-      <div className="space-y-4 sm:space-y-6 pb-24">
-        {/* KPIs Grid 2x2 estilo MeuSimplifique */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          {/* Receita */}
-          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
+      <div className="space-y-6 pb-24">
+        {/* Header Estilo Extrato Bancário */}
+        <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6 shadow-lg">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, currentColor 10px, currentColor 11px)`,
+            }} />
+          </div>
+
+          <div className="relative space-y-4">
+            {/* Title Section */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-md flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-slate-700 dark:text-slate-300" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    Extrato de Lançamentos
+                  </h1>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    Visualize todas as suas transações financeiras
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filtros
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Exportar
+                </Button>
               </div>
             </div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">Receita</p>
-            {isLoading ? (
-              <Skeleton className="h-6 w-20" />
-            ) : (
-              <p className="text-xl sm:text-2xl font-bold text-foreground">
-                {formatCurrency(kpis.receitasPaid)}
-              </p>
-            )}
-          </Card>
 
-          {/* Despesa */}
-          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
-                <ArrowUpCircle className="h-5 w-5 text-red-600" />
+            {/* Period Selector */}
+            <div className="flex items-center justify-center sm:justify-start">
+              <div className="bg-white dark:bg-slate-800 rounded-xl px-4 py-3 shadow-sm border border-slate-200 dark:border-slate-700">
+                <PeriodSelector />
               </div>
             </div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">Despesa</p>
-            {isLoading ? (
-              <Skeleton className="h-6 w-20" />
-            ) : (
-              <p className="text-xl sm:text-2xl font-bold text-foreground">
-                {formatCurrency(kpis.despesasPaid)}
-              </p>
-            )}
-          </Card>
 
-          {/* A pagar */}
-          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-orange-600" />
-              </div>
-            </div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">A pagar</p>
-            {isLoading ? (
-              <Skeleton className="h-6 w-20" />
-            ) : (
-              <p className="text-xl sm:text-2xl font-bold text-foreground">
-                {formatCurrency(kpis.aPagar)}
-              </p>
-            )}
-          </Card>
-
-          {/* A receber */}
-          <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">A receber</p>
-            {isLoading ? (
-              <Skeleton className="h-6 w-20" />
-            ) : (
-              <p className="text-xl sm:text-2xl font-bold text-foreground">
-                {formatCurrency(kpis.aReceber)}
-              </p>
-            )}
-          </Card>
-        </div>
-
-        {/* Saldo Card (full width) */}
-        <Card className="rounded-[20px] border bg-card p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Wallet className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Saldo</p>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Receitas */}
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                    Receitas
+                  </span>
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
                 {isLoading ? (
-                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className={cn(
-                    "text-xl sm:text-2xl font-bold",
-                    kpis.saldoReal >= 0 ? "text-emerald-600" : "text-red-600"
-                  )}>
-                    {formatCurrency(kpis.saldoReal)}
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(totals.receitas)}
+                  </p>
+                )}
+              </div>
+
+              {/* Despesas */}
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                    Despesas
+                  </span>
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                    <ShoppingCart className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    {formatCurrency(totals.despesas)}
+                  </p>
+                )}
+              </div>
+
+              {/* Saldo */}
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                    Saldo
+                  </span>
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                    <Wallet className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p
+                    className={cn(
+                      "text-2xl font-bold",
+                      runningBalance >= 0
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-orange-600 dark:text-orange-400"
+                    )}
+                  >
+                    {formatCurrency(runningBalance)}
                   </p>
                 )}
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Filters */}
-        <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        {showFilters && (
+          <div>
+            <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
             size="lg"
-            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white h-14 rounded-xl"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-xl shadow-md"
             onClick={() => {
               setTransactionType("entrada");
               setDialogOpen(true);
             }}
           >
-            <ArrowDownCircle className="h-5 w-5 mr-2" />
-            Adicionar Receita
+            <DollarSign className="h-5 w-5 mr-2" />
+            Nova Receita
           </Button>
           <Button
             size="lg"
             variant="outline"
-            className="flex-1 border-2 h-14 rounded-xl"
+            className="flex-1 border-2 border-orange-600 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20 h-12 rounded-xl"
             onClick={() => {
               setTransactionType("saida");
               setDialogOpen(true);
             }}
           >
-            <ArrowUpCircle className="h-5 w-5 mr-2" />
-            Adicionar Despesa
+            <ShoppingCart className="h-5 w-5 mr-2" />
+            Nova Despesa
           </Button>
         </div>
 
-        {/* Debug info em DEV */}
-        {import.meta.env.DEV && (
-          <Card className="rounded-xl border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 p-4 text-xs">
-            <div className="space-y-1">
-              <div><strong>Estado da Query:</strong></div>
-              <div>Loading: {isLoading ? '✅ Sim' : '❌ Não'}</div>
-              <div>Error: {error ? `❌ ${error instanceof Error ? error.message : 'Erro desconhecido'}` : '✅ Nenhum'}</div>
-              <div>Transações: {transactions ? `${transactions.length} encontradas` : '⚠️ null/undefined'}</div>
-              <div>Period: {period || '⚠️ Não definido'}</div>
-              <div>Filters.period: {filters.period || '⚠️ Não definido'}</div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => refetch()} 
-                className="mt-2"
-              >
-                🔄 Forçar Refetch
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Transactions List */}
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : transactions && transactions.length > 0 ? (
-          <div className="space-y-3">
-            {transactions.map((transaction) => (
-              <Card
-                key={transaction.id}
-                className="rounded-xl hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                        getTransactionBg(transaction.tipo)
-                      )}
-                    >
-                      {getTransactionIcon(transaction.tipo)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-base mb-1 truncate">
-                        {transaction.descricao || transaction.categoria}
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(transaction.dataReal)}
-                        </p>
-                        <Badge variant="outline" className="text-xs">
-                          {transaction.categoria}
-                        </Badge>
-                        {/* Status badge */}
-                        {transaction.status === "pending" && (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              transaction.pendingKind === "to_receive"
-                                ? "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800"
-                                : "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800"
-                            )}
-                          >
-                            {transaction.pendingKind === "to_receive" ? "A receber" : "A pagar"}
-                          </Badge>
-                        )}
-                        {(!transaction.status || transaction.status === "paid") && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                          >
-                            Pago
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <div className="text-right">
-                        <p
-                          className={cn(
-                            "text-lg font-bold font-mono",
-                            getTransactionColor(transaction.tipo)
-                          )}
-                        >
-                          {transaction.tipo === "entrada" ? "+" : "-"}
-                          {formatCurrency(parseFloat(transaction.valor))}
-                        </p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => setEditingTransaction(transaction)}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="rounded-2xl">
-            <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <ArrowDownCircle className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">
-                Nenhuma transação encontrada
-              </h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                {Object.values(filters).some((v) => v && v !== period)
-                  ? "Tente ajustar os filtros"
-                  : "Comece adicionando sua primeira transação"}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  size="lg"
-                  className="bg-emerald-500 hover:bg-emerald-600"
-                  onClick={() => {
-                    setTransactionType("entrada");
-                    setDialogOpen(true);
-                  }}
-                >
-                  <ArrowDownCircle className="h-5 w-5 mr-2" />
-                  Adicionar Receita
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => {
-                    setTransactionType("saida");
-                    setDialogOpen(true);
-                  }}
-                >
-                  <ArrowUpCircle className="h-5 w-5 mr-2" />
-                  Adicionar Despesa
+        {/* Error State */}
+        {error && (
+          <Card className="rounded-xl border-red-200 bg-red-50 dark:bg-red-950/20">
+            <CardContent className="p-6 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-red-900 dark:text-red-400 mb-1">
+                    Erro ao carregar extrato
+                  </h3>
+                  <p className="text-sm text-red-700 dark:text-red-500">
+                    {error instanceof Error ? error.message : "Não foi possível carregar os lançamentos."}
+                  </p>
+                </div>
+                <Button onClick={() => refetch()} variant="outline" className="mt-2">
+                  Tentar novamente
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Extrato - Lista de Transações Agrupadas por Data */}
+        {!error && (
+          <>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="rounded-xl">
+                    <CardHeader className="pb-3">
+                      <Skeleton className="h-5 w-32" />
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {[1, 2].map((j) => (
+                        <Skeleton key={j} className="h-20 w-full" />
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : groupedTransactions.length > 0 ? (
+              <div className="space-y-4">
+                {groupedTransactions.map((group, groupIndex) => (
+                  <div
+                    key={format(group.date, "yyyy-MM-dd")}
+                  >
+                    <Card className="rounded-xl border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                      {/* Date Header */}
+                      <CardHeader className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                              {formatDateHeader(group.date)}
+                            </h3>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {group.transactions.length} {group.transactions.length === 1 ? "lançamento" : "lançamentos"}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Saldo do dia</p>
+                          <p
+                            className={cn(
+                              "text-sm font-bold",
+                              group.total >= 0
+                                ? "text-blue-600 dark:text-blue-400"
+                                : "text-orange-600 dark:text-orange-400"
+                            )}
+                          >
+                            {group.total >= 0 ? "+" : ""}
+                            {formatCurrency(group.total)}
+                          </p>
+                          </div>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="p-0">
+                        {/* Transactions List */}
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {group.transactions.map((transaction, index) => {
+                            const isLast = index === group.transactions.length - 1;
+                            return (
+                              <div
+                                key={transaction.id}
+                                className={cn(
+                                  "px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer group",
+                                  !isLast && "border-b border-slate-100 dark:border-slate-800"
+                                )}
+                                onClick={() => setEditingTransaction(transaction)}
+                              >
+                                <div className="flex items-center gap-4">
+                                  {/* Icon & Type Indicator */}
+                                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                    <div
+                                      className={cn(
+                                        "w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110",
+                                        transaction.tipo === "entrada"
+                                          ? "bg-emerald-100 dark:bg-emerald-900/30"
+                                          : "bg-rose-100 dark:bg-rose-900/30"
+                                      )}
+                                    >
+                                      {transaction.tipo === "entrada" ? (
+                                        <ArrowDownCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                      ) : (
+                                        <ArrowUpCircle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                      {formatTime(transaction.dataReal)}
+                                    </span>
+                                  </div>
+
+                                  {/* Transaction Details */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-3 mb-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-slate-900 dark:text-slate-100 truncate mb-1">
+                                          {transaction.descricao || transaction.categoria || "Sem descrição"}
+                                        </p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <Badge
+                                            variant="outline"
+                                            className={cn("text-xs", getCategoryColor(transaction.categoria || "Outros"))}
+                                          >
+                                            {transaction.categoria || "Sem categoria"}
+                                          </Badge>
+                                          {transaction.status === "pending" ? (
+                                            <Badge
+                                              variant="outline"
+                                              className={cn(
+                                                "text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                                              )}
+                                            >
+                                              <Clock className="h-3 w-3 mr-1" />
+                                              Pendente
+                                            </Badge>
+                                          ) : (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                                            >
+                                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                                              Confirmado
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Amount */}
+                                      <div className="flex items-center gap-3 flex-shrink-0">
+                                        <div className="text-right">
+                                          <div className="flex items-center gap-2">
+                                            {transaction.tipo === "entrada" ? (
+                                              <ArrowDownCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                            ) : (
+                                              <ArrowUpCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                            )}
+                                            <p
+                                              className={cn(
+                                                "text-lg font-bold font-mono tabular-nums",
+                                                transaction.tipo === "entrada"
+                                                  ? "text-blue-600 dark:text-blue-400"
+                                                  : "text-orange-600 dark:text-orange-400"
+                                              )}
+                                            >
+                                              {transaction.tipo === "entrada" ? "+" : "-"}
+                                              {formatCurrency(parseFloat(transaction.valor))}
+                                            </p>
+                                          </div>
+                                          <p className={cn(
+                                            "text-xs mt-0.5 font-medium",
+                                            transaction.tipo === "entrada"
+                                              ? "text-blue-500 dark:text-blue-400"
+                                              : "text-orange-500 dark:text-orange-400"
+                                          )}>
+                                            {transaction.tipo === "entrada" ? "Receita" : "Despesa"}
+                                          </p>
+                                        </div>
+
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingTransaction(transaction);
+                                              }}
+                                            >
+                                              <Edit className="h-4 w-4 mr-2" />
+                                              Editar
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Duplicate functionality can be added here
+                                              }}
+                                            >
+                                              Duplicar
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Card className="rounded-xl border-slate-200 dark:border-slate-800">
+                <CardContent className="p-12 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        Nenhum lançamento encontrado
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {Object.values(filters).some((v) => v && v !== period)
+                          ? "Tente ajustar os filtros para ver mais resultados"
+                          : "Comece adicionando sua primeira transação"}
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                      <Button
+                        size="lg"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          setTransactionType("entrada");
+                          setDialogOpen(true);
+                        }}
+                      >
+                        <DollarSign className="h-5 w-5 mr-2" />
+                        Adicionar Receita
+                      </Button>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="border-orange-600 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                        onClick={() => {
+                          setTransactionType("saida");
+                          setDialogOpen(true);
+                        }}
+                      >
+                        <ShoppingCart className="h-5 w-5 mr-2" />
+                        Adicionar Despesa
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Transaction Dialog */}
+      {/* Transaction Dialogs */}
       <QuickTransactionDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
-          // Quando fechar o dialog após criar/editar, forçar refetch
           if (!open) {
             refetch();
           }
@@ -537,7 +640,6 @@ export default function Lancamentos() {
         defaultType={transactionType}
       />
 
-      {/* Edit Transaction Dialog */}
       {editingTransaction && (
         <EditTransactionDialog
           transaction={editingTransaction}
@@ -545,7 +647,6 @@ export default function Lancamentos() {
           onOpenChange={(open) => {
             if (!open) {
               setEditingTransaction(null);
-              // Forçar refetch ao fechar após editar/excluir
               refetch();
             }
           }}
@@ -554,4 +655,3 @@ export default function Lancamentos() {
     </DashboardContainer>
   );
 }
-
