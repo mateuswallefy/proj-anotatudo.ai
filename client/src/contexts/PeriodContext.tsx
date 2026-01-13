@@ -29,6 +29,10 @@ function parseMonthFromISO(iso: string): Date | null {
 }
 
 export function PeriodProvider({ children }: { children: React.ReactNode }) {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PeriodContext.tsx:31',message:'PeriodProvider rendering',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
+  
   const [location, setLocation] = useLocation();
   const searchParams = useSearch();
   
@@ -38,6 +42,10 @@ export function PeriodProvider({ children }: { children: React.ReactNode }) {
   const [period, setPeriodState] = useState<string>(
     urlPeriod && /^\d{4}-\d{2}$/.test(urlPeriod) ? urlPeriod : currentMonthISO
   );
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PeriodContext.tsx:44',message:'PeriodProvider initialized',data:{period,currentMonthISO,urlPeriod},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
 
   useEffect(() => {
     const urlPeriodParam = new URLSearchParams(searchParams).get('period');

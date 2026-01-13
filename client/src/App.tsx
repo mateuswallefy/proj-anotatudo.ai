@@ -31,11 +31,30 @@ import AdminEventos from "@/pages/admin/eventos";
 import AdminWebhooks from "@/pages/admin/webhooks";
 import AdminHealth from "@/pages/admin/health";
 import AdminTestes from "@/pages/admin/testes";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function AuthenticatedShell() {
-  const { activeTab } = useTab();
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:35',message:'AuthenticatedShell rendering',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  let tabResult;
+  try {
+    tabResult = useTab();
+  } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:42',message:'useTab error',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    throw error;
+  }
+  
+  const { activeTab } = tabResult;
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:53',message:'AuthenticatedShell state',data:{activeTab,isMobile,sidebarOpen},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // Prefetch non-period-specific data on mount
   useEffect(() => {
@@ -114,8 +133,26 @@ function AuthenticatedShell() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:116',message:'AppContent rendering',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  let authResult;
+  try {
+    authResult = useAuth();
+  } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:123',message:'useAuth error',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    throw error;
+  }
+  
+  const { isAuthenticated, isLoading } = authResult;
   const [location, setLocation] = useLocation();
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:133',message:'AppContent state',data:{isAuthenticated,isLoading,location},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // Check if we're on an admin route
   const isAdminRoute = location.startsWith("/admin");
@@ -130,7 +167,14 @@ function AppContent() {
     }
   }, [isAuthenticated, isAuthRoute, setLocation]);
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:170',message:'Checking isLoading state',data:{isLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+  // #endregion
+  
   if (isLoading) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:173',message:'Rendering loading screen',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -196,13 +240,15 @@ function AppContent() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AppContent />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <AppContent />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

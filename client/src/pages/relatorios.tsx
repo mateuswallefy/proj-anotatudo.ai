@@ -353,7 +353,7 @@ export default function Relatorios() {
                         )}
                       >
                         {stats.variacaoDespesas < 0 ? (
-                          <TrendingUpIcon className="h-3 w-3" />
+                          <TrendingUp className="h-3 w-3" />
                         ) : (
                           <TrendingDown className="h-3 w-3" />
                         )}
@@ -391,7 +391,7 @@ export default function Relatorios() {
                         )}
                       >
                         {stats.variacaoSaldo > 0 ? (
-                          <TrendingUpIcon className="h-3 w-3" />
+                          <TrendingUp className="h-3 w-3" />
                         ) : (
                           <TrendingDown className="h-3 w-3" />
                         )}

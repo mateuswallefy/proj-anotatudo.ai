@@ -68,19 +68,24 @@ export async function apiRequest(
   
   // Primeira tentativa: via proxy (URL relativa)
   const fullUrl = `${apiBase}${url}`;
+  console.log('[apiRequest] Starting fetch for:', fullUrl);
   let res = await fetch(fullUrl, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+  
+  console.log('[apiRequest] Fetch completed, status:', res.status, res.ok);
 
   // Clonar response para ler o texto sem consumir o stream
-  const resClone = res.clone();
   let responseText = '';
   try {
+    const resClone = res.clone();
     responseText = await resClone.text();
+    console.log('[apiRequest] Response text read, length:', responseText.length);
   } catch (e) {
+    console.error('[apiRequest] Error reading response text:', e);
     // Ignorar erro ao ler texto
   }
 
@@ -120,7 +125,9 @@ export async function apiRequest(
   }
 
   // Em produção ou se não for erro de proxy: tratar normalmente
+  console.log('[apiRequest] Before throwIfResNotOk, status:', res.status);
   await throwIfResNotOk(res, responseText);
+  console.log('[apiRequest] After throwIfResNotOk, returning response');
   return res;
 }
 
@@ -156,10 +163,36 @@ export const getQueryFn: <T>(options: {
     
     const isDev = import.meta.env.DEV;
     
+    // Para /api/auth/user, adicionar timeout de 10 segundos
+    const controller = isAuthUserEndpoint ? new AbortController() : null;
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    if (controller && isAuthUserEndpoint) {
+      timeoutId = setTimeout(() => {
+        console.error('[getQueryFn] /api/auth/user timeout after 10s - aborting');
+        controller.abort();
+      }, 10000);
+    }
+    
     // Primeira tentativa: via proxy (URL relativa)
-    let res = await fetch(url, {
-      credentials: "include",
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        credentials: "include",
+        signal: controller?.signal,
+      });
+      
+      if (timeoutId) clearTimeout(timeoutId);
+    } catch (fetchError) {
+      if (timeoutId) clearTimeout(timeoutId);
+      
+      // Se for timeout/abort do /api/auth/user, retornar null
+      if (isAuthUserEndpoint && fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('[getQueryFn] /api/auth/user fetch aborted (timeout) - returning null');
+        return null as T;
+      }
+      throw fetchError;
+    }
 
     // Clonar response para ler o texto sem consumir o stream
     const resClone = res.clone();
@@ -180,6 +213,7 @@ export const getQueryFn: <T>(options: {
         const backendUrl = `http://127.0.0.1:5050${url}`;
         const fallbackRes = await fetch(backendUrl, {
           credentials: "include",
+          signal: controller?.signal,
         });
         
         if (fallbackRes.ok) {
@@ -265,6 +299,8 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: Infinity,
       retry: false,
+      // Adicionar gcTime para evitar cache infinito que pode causar problemas
+      gcTime: 5 * 60 * 1000, // 5 minutos
     },
     mutations: {
       retry: false,

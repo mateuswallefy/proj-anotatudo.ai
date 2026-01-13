@@ -39,16 +39,40 @@ import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
 
 export default function Lancamentos() {
-  const { period, goToNextMonth, goToPrevMonth, goToCurrentMonth, isCurrentMonth } = usePeriod();
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:41',message:'Lancamentos component rendering',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  let periodResult;
+  try {
+    periodResult = usePeriod();
+  } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:48',message:'usePeriod error',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    throw error;
+  }
+  
+  const { period, goToNextMonth, goToPrevMonth, goToCurrentMonth, isCurrentMonth } = periodResult;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"entrada" | "saida" | undefined>();
   const [filters, setFilters] = useState<FilterType>({ period });
   const [editingTransaction, setEditingTransaction] = useState<Transacao | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:57',message:'Lancamentos state initialized',data:{period},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // Sincronizar filters.period com period do contexto quando mudar
+  // Só atualizar se realmente mudou para evitar loops
   useEffect(() => {
-    setFilters((prev) => ({ ...prev, period }));
+    setFilters((prev) => {
+      if (prev.period !== period) {
+        return { ...prev, period };
+      }
+      return prev; // Retornar o mesmo objeto se não mudou
+    });
   }, [period]);
 
   // Build query string
@@ -71,21 +95,85 @@ export default function Lancamentos() {
     return params.toString();
   };
 
+  // Estabilizar queryKey para evitar refetches desnecessários
+  const queryKey = useMemo(() => {
+    const periodToUse = filters.period || period;
+    return ["/api/transacoes", { ...filters, period: periodToUse }];
+  }, [filters, period]);
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:92',message:'Before useQuery',data:{filters,period,queryKey},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+  // #endregion
+  
   const { data: transactions, isLoading, error, refetch } = useQuery<Transacao[]>({
-    queryKey: ["/api/transacoes", { ...filters, period: filters.period || period }],
+    queryKey,
     queryFn: async () => {
-      const queryString = buildQueryString();
-      const url = `/api/transacoes${queryString ? `?${queryString}` : ''}`;
-      const response = await apiRequest("GET", url);
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
+      console.log('[lancamentos] Query function executing');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:98',message:'Query function executing',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      try {
+        const queryString = buildQueryString();
+        const url = `/api/transacoes${queryString ? `?${queryString}` : ''}`;
+        console.log('[lancamentos] Before apiRequest, url:', url);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:105',message:'Before apiRequest',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        
+        let response: Response;
+        try {
+          response = await apiRequest("GET", url);
+          console.log('[lancamentos] apiRequest completed, status:', response.status, response.ok);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:113',message:'apiRequest completed',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
+        } catch (apiError) {
+          console.error('[lancamentos] apiRequest error:', apiError);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:118',message:'apiRequest error',data:{error:apiError instanceof Error?apiError.message:String(apiError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
+          throw apiError;
+        }
+        
+        let data;
+        try {
+          data = await response.json();
+          console.log('[lancamentos] JSON parsed, isArray:', Array.isArray(data), 'length:', Array.isArray(data) ? data.length : 0);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:126',message:'JSON parsed',data:{isArray:Array.isArray(data),length:Array.isArray(data)?data.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
+        } catch (jsonError) {
+          console.error('[lancamentos] JSON parse error:', jsonError);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:131',message:'JSON parse error',data:{error:jsonError instanceof Error?jsonError.message:String(jsonError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
+          throw jsonError;
+        }
+        
+        const result = Array.isArray(data) ? data : [];
+        console.log('[lancamentos] Query function success, returning', result.length, 'transactions');
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:137',message:'Query function success',data:{resultLength:result.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        return result;
+      } catch (queryError) {
+        console.error('[lancamentos] Query function error:', queryError);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:142',message:'Query function error',data:{error:queryError instanceof Error?queryError.message:String(queryError),stack:queryError instanceof Error?queryError.stack:undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        throw queryError;
+      }
     },
     enabled: true,
     retry: 1,
-    staleTime: 0,
+    staleTime: 30000, // 30 segundos - evitar refetches muito frequentes
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
+    refetchOnMount: false, // Mudar para false para evitar refetch a cada mount
   });
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:100',message:'After useQuery',data:{isLoading,hasError:!!error,transactionsCount:transactions?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+  // #endregion
 
   // Agrupar transações por data
   const groupedTransactions = useMemo(() => {
@@ -192,8 +280,13 @@ export default function Lancamentos() {
     return monthName.charAt(0).toUpperCase() + monthName.slice(1);
   }, [period]);
 
-  return (
-    <DashboardContainer>
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:195',message:'About to render DashboardContainer',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  try {
+    return (
+      <DashboardContainer>
       <div className="space-y-6 pb-24">
         {/* Header Estilo Extrato Bancário */}
         <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6 shadow-lg">
@@ -653,5 +746,11 @@ export default function Lancamentos() {
         />
       )}
     </DashboardContainer>
-  );
+    );
+  } catch (renderError) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:658',message:'Render error in Lancamentos',data:{error:renderError instanceof Error?renderError.message:String(renderError),stack:renderError instanceof Error?renderError.stack:undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    throw renderError;
+  }
 }
