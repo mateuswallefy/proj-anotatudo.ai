@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useDashboardPeriod } from "./useDashboardPeriod";
+import { apiRequest } from "@/lib/queryClient";
 import type { Transacao } from "@shared/schema";
 
 interface DashboardStats {
@@ -29,13 +30,10 @@ export function useDashboardStats(): DashboardStats {
   >({
     queryKey: ["/api/transacoes", { startDate, endDate }],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/transacoes?startDate=${startDate}&endDate=${endDate}`,
-        {
-          credentials: "include",
-        }
+      const response = await apiRequest(
+        "GET",
+        `/api/transacoes?startDate=${startDate}&endDate=${endDate}`
       );
-      if (!response.ok) throw new Error("Failed to fetch transactions");
       return response.json();
     },
   });
@@ -44,12 +42,15 @@ export function useDashboardStats(): DashboardStats {
   const { data: previousTransactions } = useQuery<Transacao[]>({
     queryKey: ["/api/transacoes", { startDate: prevStartDate, endDate: prevEndDate }],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/transacoes?startDate=${prevStartDate}&endDate=${prevEndDate}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) return [];
-      return response.json();
+      try {
+        const response = await apiRequest(
+          "GET",
+          `/api/transacoes?startDate=${prevStartDate}&endDate=${prevEndDate}`
+        );
+        return response.json();
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -60,12 +61,15 @@ export function useDashboardStats(): DashboardStats {
   const { data: cardsOverview } = useQuery({
     queryKey: ["/api/credit-cards/overview", { year, month }],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/credit-cards/overview?year=${year}&month=${month}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) return [];
-      return response.json();
+      try {
+        const response = await apiRequest(
+          "GET",
+          `/api/credit-cards/overview?year=${year}&month=${month}`
+        );
+        return response.json();
+      } catch {
+        return [];
+      }
     },
   });
 

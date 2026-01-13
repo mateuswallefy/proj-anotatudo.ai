@@ -75,13 +75,27 @@ export function EditTransactionDialog({
       await apiRequest("PATCH", `/api/transacoes/${transaction.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/insights"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/period-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/monthly-comparison"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/expenses-by-category"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/income-by-category"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/yearly-evolution"] });
+      // Invalidar todas as queries relacionadas
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && (
+            key.startsWith('/api/transacoes') ||
+            key.startsWith('/api/insights') ||
+            key.startsWith('/api/dashboard') ||
+            key.startsWith('/api/analytics')
+          );
+        }
+      });
+      
+      // Forçar refetch imediato
+      queryClient.refetchQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/transacoes');
+        }
+      });
+      
       toast({
         title: "Transação atualizada!",
         description: "As alterações foram salvas com sucesso.",
@@ -102,13 +116,27 @@ export function EditTransactionDialog({
       await apiRequest("DELETE", `/api/transacoes/${transaction.id}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/insights"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/period-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/monthly-comparison"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/expenses-by-category"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/income-by-category"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/yearly-evolution"] });
+      // Invalidar todas as queries relacionadas
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && (
+            key.startsWith('/api/transacoes') ||
+            key.startsWith('/api/insights') ||
+            key.startsWith('/api/dashboard') ||
+            key.startsWith('/api/analytics')
+          );
+        }
+      });
+      
+      // Forçar refetch imediato
+      queryClient.refetchQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/transacoes');
+        }
+      });
+      
       toast({
         title: "Transação excluída!",
         description: "A transação foi removida com sucesso.",

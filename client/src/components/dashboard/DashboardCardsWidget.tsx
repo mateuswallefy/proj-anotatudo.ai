@@ -1,6 +1,7 @@
 import { CreditCard, Plus, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTab } from "@/contexts/TabContext";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,11 +14,12 @@ export function DashboardCardsWidget() {
   const { data: cards, isLoading } = useQuery<Cartao[]>({
     queryKey: ["/api/cartoes"],
     queryFn: async () => {
-      const response = await fetch("/api/cartoes", {
-        credentials: "include",
-      });
-      if (!response.ok) return [];
-      return response.json();
+      try {
+        const response = await apiRequest("GET", "/api/cartoes");
+        return response.json();
+      } catch {
+        return [];
+      }
     },
   });
 

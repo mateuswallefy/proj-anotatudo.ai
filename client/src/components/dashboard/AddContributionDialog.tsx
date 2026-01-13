@@ -91,9 +91,14 @@ export function AddContributionDialog({
         title: "Aporte adicionado!",
         description: "Seu aporte foi registrado com sucesso.",
       });
+      // Invalidar todas as queries relacionadas
       queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/chart-data"] });
+      // Forçar refetch para garantir que os dados sejam atualizados
+      queryClient.refetchQueries({ queryKey: ["/api/transacoes"] });
+      queryClient.refetchQueries({ queryKey: ["/api/goals"] });
       onOpenChange(false);
       form.reset();
     },

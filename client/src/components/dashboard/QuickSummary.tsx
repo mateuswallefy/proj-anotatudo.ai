@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type PeriodSummary = {
@@ -15,8 +16,7 @@ export function QuickSummary() {
   const { data: periodSummary, isLoading } = useQuery<PeriodSummary>({
     queryKey: ["/api/analytics/period-summary", { period }],
     queryFn: async () => {
-      const response = await fetch(`/api/analytics/period-summary?period=${period}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch period summary');
+      const response = await apiRequest("GET", `/api/analytics/period-summary?period=${period}`);
       return response.json();
     }
   });

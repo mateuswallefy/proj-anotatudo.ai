@@ -1009,9 +1009,38 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Transaction routes
   app.get("/api/transacoes", isAuthenticated, async (req: any, res) => {
+    const isDev = process.env.NODE_ENV === 'development';
     try {
       const userId = req.session.userId;
       
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1011',message:'GET /api/transacoes entry',data:{userId:userId||null,hasUserId:!!userId,queryParams:req.query,queryPeriod:req.query.period||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      
+      // Log para debug em DEV
+      if (isDev) {
+        console.log("[GET /api/transacoes] Request recebido");
+        console.log("[GET /api/transacoes] UserId:", userId);
+        console.log("[GET /api/transacoes] Query params:", req.query);
+      }
+      
+      // Validar userId
+      if (!userId) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1024',message:'UserId validation failed',data:{hasSession:!!req.session,sessionId:req.sessionID||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+        
+        if (isDev) {
+          console.error("[GET /api/transacoes] ❌ UserId não encontrado na sessão");
+          console.error("[GET /api/transacoes] Session:", req.session);
+        }
+        return res.status(401).json({ message: "Não autenticado" });
+      }
+
+      if (isDev) {
+        console.log("[GET /api/transacoes] ✅ UserId válido:", userId);
+      }
+
       // Check if advanced filters are provided
       const hasAdvancedFilters = 
         req.query.tipo || 
@@ -1024,6 +1053,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         req.query.startDate ||
         req.query.endDate;
 
+      let transacoes;
+      
       if (hasAdvancedFilters) {
         // Use advanced filters
         const filters = {
@@ -1038,16 +1069,100 @@ export async function registerRoutes(app: Express): Promise<void> {
           startDate: req.query.startDate as string | undefined,
           endDate: req.query.endDate as string | undefined,
         };
-        const transacoes = await storage.getTransacoesWithFilters(userId, filters);
-        res.json(transacoes);
+        
+        if (isDev) {
+          console.log("[GET /api/transacoes] Usando filtros avançados:", JSON.stringify(filters, null, 2));
+        }
+        
+        try {
+          transacoes = await storage.getTransacoesWithFilters(userId, filters);
+        } catch (dbError: any) {
+          if (isDev) {
+            console.error("[GET /api/transacoes] ❌ Erro ao buscar com filtros avançados:", dbError);
+            console.error("[GET /api/transacoes] Stack:", dbError.stack);
+          }
+          throw dbError;
+        }
       } else {
         // Use simple period filter (backward compatible)
         const period = req.query.period as string | undefined;
-        const transacoes = await storage.getTransacoes(userId, period);
-        res.json(transacoes);
+        
+        if (isDev) {
+          console.log("[GET /api/transacoes] Usando filtro simples");
+          console.log("[GET /api/transacoes] Period da query:", period || 'NÃO FORNECIDO');
+        }
+        
+        try {
+          // Se period existe e é válido, usar getTransacoes, senão buscar todas (sem filtro de período)
+          if (period && /^\d{4}-\d{2}$/.test(period)) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1089',message:'Calling getTransacoes with period',data:{userId:userId,period:period},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
+            if (isDev) {
+              console.log("[GET /api/transacoes] Buscando com período:", period);
+            }
+            transacoes = await storage.getTransacoes(userId, period);
+          } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1096',message:'Calling getTransacoes without period',data:{userId:userId,period:period||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
+            // Buscar todas as transações do usuário (sem filtro de período)
+            if (isDev) {
+              console.log("[GET /api/transacoes] ⚠️ Period inválido ou não fornecido, buscando TODAS as transações");
+            }
+            transacoes = await storage.getTransacoes(userId);
+          }
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1103',message:'getTransacoes returned',data:{transacoesLength:Array.isArray(transacoes)?transacoes.length:'not-array',firstId:Array.isArray(transacoes)&&transacoes.length>0?transacoes[0]?.id:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+        } catch (dbError: any) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1107',message:'getTransacoes error',data:{errorMessage:dbError?.message,errorName:dbError?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          
+          if (isDev) {
+            console.error("[GET /api/transacoes] ❌ Erro ao buscar transações:", dbError);
+            console.error("[GET /api/transacoes] Stack:", dbError.stack);
+          }
+          throw dbError;
+        }
       }
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
+      
+      // Garantir que sempre retorna um array
+      const result = Array.isArray(transacoes) ? transacoes : [];
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1137',message:'Sending response to client',data:{resultLength:result.length,isArray:Array.isArray(transacoes),firstId:result.length>0?result[0]?.id:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+      if (isDev) {
+        console.log("[GET /api/transacoes] ✅ Transações retornadas:", result.length);
+        if (result.length > 0) {
+          console.log("[GET /api/transacoes] Primeira transação:", {
+            id: result[0].id,
+            tipo: result[0].tipo,
+            valor: result[0].valor,
+            dataReal: result[0].dataReal,
+            categoria: result[0].categoria,
+          });
+        } else {
+          console.log("[GET /api/transacoes] ⚠️ Nenhuma transação encontrada");
+        }
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'routes.ts:1153',message:'Error handler in GET /api/transacoes',data:{errorMessage:error?.message,errorName:error?.name,errorStack:error?.stack?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+      console.error("[GET /api/transacoes] Erro ao buscar transações:", error);
+      if (isDev) {
+        console.error("[GET /api/transacoes] Stack:", error.stack);
+      }
       res.status(500).json({ message: "Failed to fetch transactions" });
     }
   });
@@ -1134,7 +1249,28 @@ export async function registerRoutes(app: Express): Promise<void> {
         }
       }
       
+      const isDev = process.env.NODE_ENV === 'development';
+      
+      if (isDev) {
+        console.log("[POST /api/transacoes] Criando transação:", {
+          tipo: dataToInsert.tipo,
+          valor: dataToInsert.valor,
+          dataReal: dataToInsert.dataReal,
+          categoria: dataToInsert.categoria,
+          userId: userId,
+        });
+      }
+      
       const transacao = await storage.createTransacao(dataToInsert);
+      
+      if (isDev) {
+        console.log("[POST /api/transacoes] Transação criada com sucesso:", {
+          id: transacao.id,
+          tipo: transacao.tipo,
+          valor: transacao.valor,
+          dataReal: transacao.dataReal,
+        });
+      }
       
       // Se a transação está vinculada a uma meta, atualizar valorAtual da meta
       if (dataToInsert.goalId && dataToInsert.tipo === 'entrada') {

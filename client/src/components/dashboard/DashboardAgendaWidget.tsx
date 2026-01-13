@@ -1,6 +1,7 @@
 import { Calendar, CreditCard, AlertCircle, Clock, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,11 +22,12 @@ export function DashboardAgendaWidget() {
   const { data: cards, isLoading } = useQuery<Cartao[]>({
     queryKey: ["/api/cartoes"],
     queryFn: async () => {
-      const response = await fetch("/api/cartoes", {
-        credentials: "include",
-      });
-      if (!response.ok) return [];
-      return response.json();
+      try {
+        const response = await apiRequest("GET", "/api/cartoes");
+        return response.json();
+      } catch {
+        return [];
+      }
     },
   });
 

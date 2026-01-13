@@ -409,27 +409,70 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction operations
   async getTransacoes(userId: string, period?: string): Promise<Transacao[]> {
+    const isDev = process.env.NODE_ENV === 'development';
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'storage.ts:411',message:'getTransacoes entry',data:{userId:userId,period:period||null,hasPeriod:!!period,periodValid:period?/^\d{4}-\d{2}$/.test(period):false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     let whereClause = eq(transacoes.userId, userId);
     
     if (period && /^\d{4}-\d{2}$/.test(period)) {
       const [year, month] = period.split('-').map(Number);
-      const startOfMonth = new Date(year, month - 1, 1);
-      const endOfMonth = new Date(year, month, 0);
-      const startDate = format(startOfMonth, 'yyyy-MM-dd');
-      const endDate = format(endOfMonth, 'yyyy-MM-dd');
+      
+      // Usar UTC para evitar problemas de timezone
+      // startOfMonth: primeiro dia do mês às 00:00:00 UTC
+      const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+      // endOfMonth: último dia do mês às 23:59:59.999 UTC
+      const lastDay = new Date(year, month, 0).getDate();
+      const endOfMonth = new Date(Date.UTC(year, month - 1, lastDay, 23, 59, 59, 999));
+      
+      // Formatar como string ISO para comparação
+      const startDate = startOfMonth.toISOString().split('T')[0]; // yyyy-MM-dd
+      const endDate = endOfMonth.toISOString().split('T')[0]; // yyyy-MM-dd
+      
+      if (isDev) {
+        console.log(`[getTransacoes] Filtro de período: ${period}`);
+        console.log(`[getTransacoes] Ano: ${year}, Mês: ${month}`);
+        console.log(`[getTransacoes] StartDate (UTC): ${startDate}`);
+        console.log(`[getTransacoes] EndDate (UTC): ${endDate}`);
+        console.log(`[getTransacoes] StartOfMonth: ${startOfMonth.toISOString()}`);
+        console.log(`[getTransacoes] EndOfMonth: ${endOfMonth.toISOString()}`);
+      }
       
       whereClause = and(
         eq(transacoes.userId, userId),
         sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`,
         sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`
       ) as any;
+    } else if (isDev && period) {
+      console.warn(`[getTransacoes] Formato de período inválido: ${period}. Esperado: YYYY-MM`);
     }
     
-    return await db
+    const results = await db
       .select()
       .from(transacoes)
       .where(whereClause)
       .orderBy(desc(transacoes.dataReal));
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'storage.ts:448',message:'Database query completed',data:{resultsLength:results.length,hasResults:results.length>0,firstId:results.length>0?results[0]?.id:null,firstDataReal:results.length>0?results[0]?.dataReal:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
+    if (isDev) {
+      console.log(`[getTransacoes] Total de transações encontradas: ${results.length}`);
+      if (results.length > 0 && period) {
+        // Log das datas das primeiras transações para verificar
+        const sampleDates = results.slice(0, 3).map(t => ({
+          id: t.id,
+          dataReal: t.dataReal,
+          tipo: t.tipo,
+        }));
+        console.log(`[getTransacoes] Amostra de datas:`, sampleDates);
+      }
+    }
+    
+    return results;
   }
 
   async getTransacoesWithFilters(
@@ -452,10 +495,21 @@ export class DatabaseStorage implements IStorage {
     // Period filter
     if (filters.period && /^\d{4}-\d{2}$/.test(filters.period)) {
       const [year, month] = filters.period.split('-').map(Number);
-      const startOfMonth = new Date(year, month - 1, 1);
-      const endOfMonth = new Date(year, month, 0);
-      const startDate = format(startOfMonth, 'yyyy-MM-dd');
-      const endDate = format(endOfMonth, 'yyyy-MM-dd');
+      
+      // Usar UTC para evitar problemas de timezone
+      const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+      const lastDay = new Date(year, month, 0).getDate();
+      const endOfMonth = new Date(Date.UTC(year, month - 1, lastDay, 23, 59, 59, 999));
+      
+      const startDate = startOfMonth.toISOString().split('T')[0]; // yyyy-MM-dd
+      const endDate = endOfMonth.toISOString().split('T')[0]; // yyyy-MM-dd
+      
+      const isDev = process.env.NODE_ENV === 'development';
+      if (isDev) {
+        console.log(`[getTransacoesWithFilters] Filtro de período: ${filters.period}`);
+        console.log(`[getTransacoesWithFilters] StartDate: ${startDate}, EndDate: ${endDate}`);
+      }
+      
       conditions.push(sqlOp`DATE(${transacoes.dataReal}) >= ${startDate}`);
       conditions.push(sqlOp`DATE(${transacoes.dataReal}) <= ${endDate}`);
     }

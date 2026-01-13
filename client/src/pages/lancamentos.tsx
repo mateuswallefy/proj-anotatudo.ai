@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { apiRequest } from "@/lib/queryClient";
 import { ArrowDownCircle, ArrowUpCircle, Wallet, Clock, TrendingUp, Edit, MoreVertical } from "lucide-react";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
@@ -29,10 +30,21 @@ export default function Lancamentos() {
   const [filters, setFilters] = useState<FilterType>({ period });
   const [editingTransaction, setEditingTransaction] = useState<Transacao | null>(null);
 
+  // Sincronizar filters.period com period do contexto quando mudar
+  useEffect(() => {
+    setFilters((prev) => ({ ...prev, period }));
+  }, [period]);
+
   // Build query string
   const buildQueryString = () => {
     const params = new URLSearchParams();
-    if (filters.period) params.set("period", filters.period);
+    // SEMPRE passar period (mesmo que seja o período atual do contexto ou o mês atual como fallback)
+    const periodToUse = filters.period || period || (() => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    })();
+    // SEMPRE adicionar period, mesmo que seja o mês atual
+    params.set("period", periodToUse);
     if (filters.type) params.set("tipo", filters.type);
     if (filters.category) params.set("categoria", filters.category);
     if (filters.accountId) params.set("cartaoId", filters.accountId);
@@ -45,17 +57,106 @@ export default function Lancamentos() {
     return params.toString();
   };
 
-  const { data: transactions, isLoading } = useQuery<Transacao[]>({
-    queryKey: ["/api/transacoes", filters],
+  const { data: transactions, isLoading, error, refetch } = useQuery<Transacao[]>({
+    queryKey: ["/api/transacoes", { ...filters, period: filters.period || period }],
     queryFn: async () => {
+      const isDev = import.meta.env.DEV;
       const queryString = buildQueryString();
-      const response = await fetch(`/api/transacoes?${queryString}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch transactions");
-      return response.json();
+      const effectivePeriod = filters.period || period;
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:67',message:'QueryFn entry - filters and period',data:{filtersPeriod:filters.period,contextPeriod:period,effectivePeriod:effectivePeriod,queryString:queryString,isDev:isDev},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
+      if (isDev) {
+        console.log("═══════════════════════════════════════════════════");
+        console.log("[Lancamentos] 🔍 INICIANDO BUSCA DE TRANSAÇÕES");
+        console.log("[Lancamentos] Filters completo:", JSON.stringify(filters, null, 2));
+        console.log("[Lancamentos] Period do contexto:", period);
+        console.log("[Lancamentos] Filters period:", filters.period);
+        console.log("[Lancamentos] Query string:", queryString);
+      }
+      
+      const url = `/api/transacoes${queryString ? `?${queryString}` : ''}`;
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:81',message:'Before fetch request',data:{url:url,hasCookies:!!document.cookie},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
+      if (isDev) {
+        console.log("[Lancamentos] URL completa:", url);
+        console.log("[Lancamentos] Cookies no navegador:", document.cookie);
+      }
+      
+      // Usar apiRequest para garantir fallback automático e credentials corretos
+      // apiRequest já trata erros e retorna response válido ou lança exceção
+      const response = await apiRequest("GET", url);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:94',message:'After apiRequest - response received',data:{status:response.status,statusText:response.statusText,ok:response.ok,contentType:response.headers.get('content-type')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+      if (isDev) {
+        console.log("[Lancamentos] ✅ Response recebida via apiRequest");
+        console.log("[Lancamentos] Response status:", response.status);
+        console.log("[Lancamentos] Response URL:", response.url);
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError: any) {
+        if (isDev) {
+          console.error("[Lancamentos] ❌ ERRO AO PARSEAR JSON:", parseError);
+        }
+        throw new Error("Resposta inválida do servidor");
+      }
+      
+      if (isDev) {
+        console.log("[Lancamentos] ✅ JSON parseado com sucesso");
+        console.log("[Lancamentos] Tipo de data:", typeof data);
+        console.log("[Lancamentos] É array?", Array.isArray(data));
+        console.log("[Lancamentos] Transações recebidas:", Array.isArray(data) ? data.length : 'NÃO É ARRAY');
+        
+        if (Array.isArray(data) && data.length > 0) {
+          console.log("[Lancamentos] Primeira transação:", {
+            id: data[0].id,
+            tipo: data[0].tipo,
+            dataReal: data[0].dataReal,
+            valor: data[0].valor,
+            categoria: data[0].categoria,
+            userId: data[0].userId,
+          });
+        } else if (Array.isArray(data) && data.length === 0) {
+          console.warn("[Lancamentos] ⚠️ ARRAY VAZIO - Nenhuma transação encontrada");
+        } else {
+          console.error("[Lancamentos] ❌ RESPOSTA NÃO É ARRAY:", data);
+        }
+        console.log("═══════════════════════════════════════════════════");
+      }
+      
+      return Array.isArray(data) ? data : [];
     },
+    enabled: true, // Sempre habilitado - buildQueryString garante que sempre tem period
+    retry: 1,
+    staleTime: 0, // Sempre refetch ao invés de usar cache
+    refetchOnWindowFocus: false,
+    refetchOnMount: true, // Sempre refetch quando montar
   });
+
+  // Log de renderização para debug
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lancamentos.tsx:183',message:'Render state logged',data:{isLoading:isLoading,hasTransactions:!!transactions,transactionsLength:transactions?.length||0,hasError:!!error,errorMessage:error?.message||null,willRenderLoading:isLoading,willRenderList:!!transactions&&transactions.length>0,willRenderEmpty:!!transactions&&transactions.length===0,willRenderError:!!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+  }, [isLoading, transactions, error]);
+
+  // Sincronizar filters.period com period do contexto quando mudar
+  useEffect(() => {
+    if (period && filters.period !== period) {
+      setFilters((prev) => ({ ...prev, period }));
+    }
+  }, [period]); // Apenas quando period mudar, não filters (evitar loop)
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "d 'de' MMM", { locale: ptBR });
@@ -261,6 +362,28 @@ export default function Lancamentos() {
           </Button>
         </div>
 
+        {/* Debug info em DEV */}
+        {import.meta.env.DEV && (
+          <Card className="rounded-xl border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 p-4 text-xs">
+            <div className="space-y-1">
+              <div><strong>Estado da Query:</strong></div>
+              <div>Loading: {isLoading ? '✅ Sim' : '❌ Não'}</div>
+              <div>Error: {error ? `❌ ${error instanceof Error ? error.message : 'Erro desconhecido'}` : '✅ Nenhum'}</div>
+              <div>Transações: {transactions ? `${transactions.length} encontradas` : '⚠️ null/undefined'}</div>
+              <div>Period: {period || '⚠️ Não definido'}</div>
+              <div>Filters.period: {filters.period || '⚠️ Não definido'}</div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => refetch()} 
+                className="mt-2"
+              >
+                🔄 Forçar Refetch
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Transactions List */}
         {isLoading ? (
           <div className="space-y-3">
@@ -404,7 +527,13 @@ export default function Lancamentos() {
       {/* Transaction Dialog */}
       <QuickTransactionDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          // Quando fechar o dialog após criar/editar, forçar refetch
+          if (!open) {
+            refetch();
+          }
+        }}
         defaultType={transactionType}
       />
 
@@ -416,6 +545,8 @@ export default function Lancamentos() {
           onOpenChange={(open) => {
             if (!open) {
               setEditingTransaction(null);
+              // Forçar refetch ao fechar após editar/excluir
+              refetch();
             }
           }}
         />

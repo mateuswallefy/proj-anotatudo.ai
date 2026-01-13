@@ -29,20 +29,44 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:31',message:'isAuthenticated middleware entry',data:{hasSession:!!req.session,hasUserId:!!(req.session?.userId),userId:req.session?.userId||null,sessionId:req.sessionID||null,path:req.path,method:req.method,hasCookies:!!req.headers.cookie},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
+  
   console.log('[AUTH] Middleware isAuthenticated called');
   console.log('[AUTH] Session exists:', !!req.session);
   console.log('[AUTH] Session userId:', req.session?.userId || 'undefined');
   console.log('[AUTH] Session ID:', req.sessionID || 'undefined');
   console.log('[AUTH] Request path:', req.path);
   console.log('[AUTH] Request method:', req.method);
+  console.log('[AUTH] Request cookies:', req.headers.cookie || 'none');
   
-  if (req.session && req.session.userId) {
-    console.log('[AUTH] ✅ User authenticated, userId:', req.session.userId);
-    return next();
+  try {
+    if (req.session && req.session.userId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:45',message:'User authenticated - calling next',data:{userId:req.session.userId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      
+      console.log('[AUTH] ✅ User authenticated, userId:', req.session.userId);
+      return next();
+    }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:54',message:'User not authenticated - returning 401',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    
+    console.log('[AUTH] ❌ User not authenticated - returning 401');
+    return res.status(401).json({ message: "Unauthorized" });
+  } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/36b56b69-0d80-4b8b-953b-55356f395306',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:60',message:'Error in isAuthenticated middleware',data:{errorMessage:error?.message,errorName:error?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    
+    console.error('[AUTH] ❌ Error in isAuthenticated middleware:', error);
+    return res.status(500).json({ message: "Internal server error", error: isDev ? error.message : undefined });
   }
-  
-  console.log('[AUTH] ❌ User not authenticated - returning 401');
-  return res.status(401).json({ message: "Unauthorized" });
 }
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { apiRequest } from "@/lib/queryClient";
 import type {
   DashboardData,
   DashboardKpi,
@@ -29,12 +30,29 @@ export function useDashboardData() {
   >({
     queryKey: ["/api/transacoes", { period }],
     queryFn: async () => {
-      const response = await fetch(`/api/transacoes?period=${period}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch transactions");
-      return response.json();
+      const isDev = import.meta.env.DEV;
+      if (isDev) {
+        console.log("[useDashboardData] Buscando transações para período:", period);
+      }
+      
+      const response = await apiRequest("GET", `/api/transacoes?period=${period}`);
+      const data = await response.json();
+      
+      if (isDev) {
+        console.log("[useDashboardData] Transações recebidas:", data.length);
+        if (data.length > 0) {
+          console.log("[useDashboardData] Primeira transação:", {
+            id: data[0].id,
+            tipo: data[0].tipo,
+            valor: data[0].valor,
+            dataReal: data[0].dataReal,
+          });
+        }
+      }
+      
+      return data;
     },
+    enabled: !!period, // Garantir que só executa se period estiver definido
   });
 
   // Fetch previous month transactions for comparison
@@ -46,12 +64,12 @@ export function useDashboardData() {
   const { data: previousTransactions } = useQuery<Transacao[]>({
     queryKey: ["/api/transacoes", { period: previousPeriod }],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/transacoes?period=${previousPeriod}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) return [];
-      return response.json();
+      try {
+        const response = await apiRequest("GET", `/api/transacoes?period=${previousPeriod}`);
+        return response.json();
+      } catch {
+        return [];
+      }
     },
     enabled: !!period,
   });
@@ -60,8 +78,7 @@ export function useDashboardData() {
   const { data: goals, isLoading: loadingGoals } = useQuery<GoalSchema[]>({
     queryKey: ["/api/goals"],
     queryFn: async () => {
-      const response = await fetch(`/api/goals`, { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to fetch goals");
+      const response = await apiRequest("GET", `/api/goals`);
       return response.json();
     },
   });
@@ -70,11 +87,7 @@ export function useDashboardData() {
   const { data: budgets, isLoading: loadingBudgets } = useQuery({
     queryKey: ["/api/budgets", { year, month }],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/budgets?year=${year}&month=${month}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) throw new Error("Failed to fetch budgets");
+      const response = await apiRequest("GET", `/api/budgets?year=${year}&month=${month}`);
       return response.json();
     },
   });
@@ -83,11 +96,7 @@ export function useDashboardData() {
   const { data: cardsOverview, isLoading: loadingCards } = useQuery({
     queryKey: ["/api/credit-cards/overview", { year, month }],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/credit-cards/overview?year=${year}&month=${month}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) throw new Error("Failed to fetch cards overview");
+      const response = await apiRequest("GET", `/api/credit-cards/overview?year=${year}&month=${month}`);
       return response.json();
     },
   });

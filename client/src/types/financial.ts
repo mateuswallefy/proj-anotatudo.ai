@@ -168,6 +168,7 @@ export interface TransactionFilters {
   type?: TransactionType;
   category?: string;
   accountId?: string; // cartaoId
+  goalId?: string; // goalId for filtering by goal
   search?: string; // texto livre
   minAmount?: number;
   maxAmount?: number;

@@ -36,6 +36,7 @@ import { categorias } from "@shared/schema";
 import type { Cartao, CategoriaCustomizada } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { formatCurrencyInput, parseCurrencyBRL } from "@/lib/currency";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 // Payment method enum
 const paymentMethods = [
@@ -177,6 +178,7 @@ function NewIncomeDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
+  const { period } = usePeriod();
   const [formattedValue, setFormattedValue] = useState("");
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
 
@@ -252,13 +254,48 @@ function NewIncomeDialog({
 
       return await apiRequest("POST", "/api/transacoes", payload);
     },
-    onSuccess: () => {
+    onSuccess: async (response: Response) => {
+      const isDev = import.meta.env.DEV;
+      
+      // Extrair a transação criada da resposta
+      let createdTransaction;
+      try {
+        createdTransaction = await response.clone().json();
+        if (isDev) {
+          console.log("[NewIncomeDialog] Transação criada com sucesso:", createdTransaction);
+          console.log("[NewIncomeDialog] Data da transação:", createdTransaction.dataReal);
+          console.log("[NewIncomeDialog] Período atual do contexto:", period || 'N/A');
+        }
+      } catch (e) {
+        if (isDev) {
+          console.warn("[NewIncomeDialog] Não foi possível parsear resposta:", e);
+        }
+      }
+      
       toast({
         title: "Receita criada!",
         description: "Sua receita foi registrada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/overview"] });
+      
+      // Invalidar TODAS as queries relacionadas (sem filtro para pegar todas as variações)
+      await queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && (
+            key.startsWith('/api/transacoes') ||
+            key.startsWith('/api/dashboard')
+          );
+        }
+      });
+      
+      // Forçar refetch de todas as queries de transações
+      await queryClient.refetchQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/transacoes');
+        }
+      });
+      
       onOpenChange(false);
       form.reset();
       setFormattedValue("");
@@ -563,6 +600,7 @@ function NewExpenseDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { period } = usePeriod();
   const { toast } = useToast();
   const [formattedValue, setFormattedValue] = useState("");
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
@@ -650,13 +688,48 @@ function NewExpenseDialog({
 
       return await apiRequest("POST", "/api/transacoes", payload);
     },
-    onSuccess: () => {
+    onSuccess: async (response: Response) => {
+      const isDev = import.meta.env.DEV;
+      
+      // Extrair a transação criada da resposta
+      let createdTransaction;
+      try {
+        createdTransaction = await response.clone().json();
+        if (isDev) {
+          console.log("[NewExpenseDialog] Transação criada com sucesso:", createdTransaction);
+          console.log("[NewExpenseDialog] Data da transação:", createdTransaction.dataReal);
+          console.log("[NewExpenseDialog] Período atual do contexto:", period || 'N/A');
+        }
+      } catch (e) {
+        if (isDev) {
+          console.warn("[NewExpenseDialog] Não foi possível parsear resposta:", e);
+        }
+      }
+      
       toast({
         title: "Despesa criada!",
         description: "Sua despesa foi registrada com sucesso.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/transacoes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/overview"] });
+      
+      // Invalidar TODAS as queries relacionadas (sem filtro para pegar todas as variações)
+      await queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && (
+            key.startsWith('/api/transacoes') ||
+            key.startsWith('/api/dashboard')
+          );
+        }
+      });
+      
+      // Forçar refetch de todas as queries de transações
+      await queryClient.refetchQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/transacoes');
+        }
+      });
+      
       onOpenChange(false);
       form.reset();
       setFormattedValue("");
